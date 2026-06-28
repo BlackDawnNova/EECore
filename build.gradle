@@ -163,6 +163,11 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs.add('-Xlint:-deprecation')
 }
 
+// ===== Release artifacts (sources jar for other modders) =====
+java {
+    withSourcesJar()
+}
+
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
 idea {
     module {
