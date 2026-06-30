@@ -15,13 +15,15 @@ import java.util.*;
 
 /**
  * Syncs a scanned multiblock pattern from server to client (player-local).
+ * <p>
+ * 将扫描的多方块结构从服务器同步到客户端（玩家本地）。
  */
 public record SyncPatternPacket(
         ResourceLocation patternId,
         int width, int height, int depth,
         int controllerX, int controllerY, int controllerZ,
-        String[] layerData,    // flattened: layerIdx * depth + z → String row
-        Map<Character, ResourceLocation> definitions   // char → block ID
+        String[] layerData,
+        Map<Character, ResourceLocation> definitions
 ) implements CustomPacketPayload {
 
     public static final Type<SyncPatternPacket> TYPE =
@@ -81,6 +83,9 @@ public record SyncPatternPacket(
     /**
      * Build a SyncPatternPacket from a MultiBlockPattern + ResourceLocation.
      * Only serializes block IDs (not full states); client uses default states.
+     * <p>
+     * 从 MultiBlockPattern 和 ResourceLocation 构建 SyncPatternPacket。
+     * 仅序列化方块 ID（而非完整状态）；客户端使用默认状态。
      */
     public static SyncPatternPacket fromPattern(ResourceLocation id, MultiBlockPattern pattern) {
         int totalRows = pattern.height * pattern.depth;
@@ -107,9 +112,10 @@ public record SyncPatternPacket(
 
     /**
      * Reconstruct a MultiBlockPattern from this packet.
+     * <p>
+     * 从此数据包重建 MultiBlockPattern。
      */
     public MultiBlockPattern toPattern() {
-        // Rebuild layers array
         String[][] layers = new String[height][depth];
         int idx = 0;
         for (int y = 0; y < height; y++) {
@@ -118,7 +124,6 @@ public record SyncPatternPacket(
             }
         }
 
-        // Rebuild definitions (block ID → default BlockState)
         Map<Character, BlockState> stateDefs = new LinkedHashMap<>();
         for (Map.Entry<Character, ResourceLocation> e : definitions.entrySet()) {
             Block block = BuiltInRegistries.BLOCK.get(e.getValue());

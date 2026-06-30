@@ -37,7 +37,6 @@ public class Blocks {
             )
     );
 
-    // ===== NovaNet test blocks =====
     public static final Supplier<Block> SCANNER_CONTROLLER = BLOCKS.register(
             "scanner_controller",
             () -> new ScannerControllerBlock(BlockBehaviour.Properties.of()

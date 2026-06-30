@@ -19,7 +19,12 @@ import java.math.BigInteger;
 import java.util.UUID;
 
 /**
+ * 发射器方块实体 —— NovaNet 节点 + Ω 能量存储。
  * Transmitter (sender) block entity — NovaNet node + Ω energy storage.
+ * <p>
+ * 通过 {@link TransmitterRangeScanner} 从附近的发电机收集能量，
+ * 缓存在 OmegaStorage 中，并通过激光传输到绑定的接收器。
+ * 暴露 {@link IOmegaEnergyStorage} 以供跨模组 Capability 访问。
  * <p>
  * Collects energy from nearby generators via {@link TransmitterRangeScanner},
  * buffers it in an OmegaStorage, and transmits to bound receivers via laser.
@@ -45,15 +50,11 @@ public class TransmitterBlockEntity extends BlockEntity implements INovaNode, IM
         this.buffer = new TransmitterEnergyBuffer(tier);
     }
 
-    // ===== Server tick =====
     public void serverTick() {
         if (level == null || level.isClientSide() || !formed) return;
 
-        // Pull energy from nearby generators
         TransmitterRangeScanner.scanAndPull(level, worldPosition, range, tier, buffer, teamId);
     }
-
-    // ===== IMultiBlockController =====
 
     @Override
     public UUID getNodeId() { return nodeId; }
@@ -87,8 +88,6 @@ public class TransmitterBlockEntity extends BlockEntity implements INovaNode, IM
         setChanged();
     }
 
-    // ===== INovaNode =====
-
     @Override
     public BlockPos getBlockPos() { return worldPosition; }
 
@@ -110,7 +109,6 @@ public class TransmitterBlockEntity extends BlockEntity implements INovaNode, IM
     @Override
     public UUID getTeamId() { return teamId; }
 
-    // ===== Getters / setters =====
     public TransmitterEnergyBuffer getBuffer() { return buffer; }
     public void setTeamId(UUID teamId) { this.teamId = teamId; setChanged(); }
     public void setRangeProvider(IRangeProvider provider) {
@@ -122,8 +120,6 @@ public class TransmitterBlockEntity extends BlockEntity implements INovaNode, IM
         this.tier = tier;
         this.range = rangeProvider.getRange(tier);
     }
-
-    // ===== IOmegaEnergyStorage (delegate to buffer) =====
 
     @Override
     public EnergyPacket receivePacket(EnergyPacket packet, boolean simulate) {
@@ -159,10 +155,6 @@ public class TransmitterBlockEntity extends BlockEntity implements INovaNode, IM
 
     @Override
     public OmegaValue getMaxOutput() { return buffer.getStorage().getMaxOutput(); }
-
-    // getTier() is shared between INovaNode and IOmegaEnergyStorage — defined above
-
-    // ===== NBT =====
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider provider) {

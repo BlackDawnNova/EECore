@@ -19,7 +19,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.UUID;
 
 /**
+ * 接收器方块实体。
  * Receiver block entity.
+ * <p>
+ * 将能量缓存在缓冲区中，并分发给附近实现了 {@link IOmegaEnergyStorage} 的机器。
  * <p>
  * Holds energy in a buffer and distributes it to nearby machines
  * that implement {@link IOmegaEnergyStorage}.
@@ -50,15 +53,11 @@ public class ReceiverBlockEntity extends BlockEntity implements INovaNode, IMult
         this.buffer = new TransmitterEnergyBuffer(tier);
     }
 
-    // ===== Server tick =====
     public void serverTick() {
         if (level == null || level.isClientSide() || !formed || !buffer.hasEnergy()) return;
 
-        // Distribute energy to nearby machines
         ReceiverDistributor.distribute(level, worldPosition, range, tier, buffer);
     }
-
-    // ===== IMultiBlockController =====
 
     @Override
     public UUID getNodeId() { return nodeId; }
@@ -92,8 +91,6 @@ public class ReceiverBlockEntity extends BlockEntity implements INovaNode, IMult
         setChanged();
     }
 
-    // ===== INovaNode =====
-
     @Override
     public BlockPos getBlockPos() { return worldPosition; }
 
@@ -115,11 +112,8 @@ public class ReceiverBlockEntity extends BlockEntity implements INovaNode, IMult
     @Override
     public UUID getTeamId() { return teamId; }
 
-    // ===== Getter/setters =====
     public TransmitterEnergyBuffer getBuffer() { return buffer; }
     public void setTeamId(UUID teamId) { this.teamId = teamId; setChanged(); }
-
-    // ===== NBT =====
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider provider) {

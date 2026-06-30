@@ -31,25 +31,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Creative generator block entity.
- * Infinite Ω energy source for testing. Supports all voltage tiers ELV~QV.
+ * Infinite Omega energy source for testing. Supports all voltage tiers ELV~QV.
+ * <p>
+ * 创造模式发电机方块实体。
+ * 用于测试的无限 Omega 能量源。支持所有电压等级 ELV~QV。
  */
 public class CreativeGeneratorBlockEntity extends BlockEntity
         implements MenuProvider, IOmegaEnergyStorage {
 
-    // Core state
     private volatile VoltageTier selectedTier = VoltageTier.LV;
     private volatile BigInteger amperage = BigInteger.ONE;
     private volatile BigInteger outputPerTick = BigInteger.valueOf(50);
     private final AtomicBoolean outputEnabled = new AtomicBoolean(true);
     private volatile boolean logToChat = false;
 
-    // ===== 订阅者 & 日志 =====
     private final Set<UUID> subscribers = new HashSet<>();
     private final List<String> logs = new ArrayList<>();
     private OmegaValue totalGenerated = OmegaValue.zero();
     private int tickCounter = 0;
 
-    // ===== 跨实例状态共享 =====
     private static final ConcurrentHashMap<BlockPos, Boolean> pendingEnable = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<BlockPos, VoltageTier> pendingTier = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<BlockPos, String> pendingOutput = new ConcurrentHashMap<>();
@@ -58,7 +58,6 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
     public CreativeGeneratorBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntities.CREATIVE_GENERATOR.get(), pos, state);
         this.outputPerTick = selectedTier.getMinVoltage().multiply(amperage);
-        // Clear stale pending state for this position
         pendingEnable.remove(pos);
         pendingTier.remove(pos);
         pendingOutput.remove(pos);
@@ -69,7 +68,6 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
     }
 
     public void clientTick() {
-        // Client tick placeholder for particles/animations
     }
 
     public void serverTick() {
@@ -95,7 +93,6 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
                 }
             }
             if (!sent) {
-                // No receiver, energy is discarded (infinite source)
             }
         }
 
@@ -171,7 +168,6 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         }
     }
 
-    // ===== GUI 操作方法 =====
     public void toggleOutput() {
         boolean newState = !outputEnabled.get();
         outputEnabled.set(newState);
@@ -198,7 +194,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         sendSyncToClients();
     }
 
-    /** Cycle up: 1 → 2 → 4 → 8 → 16 → 1. */
+    /** Cycle up: 1 → 2 → 4 → 8 → 16 → 1. / 循环增加：1 → 2 → 4 → 8 → 16 → 1。 */
     public void cycleAmperageUp() {
         int[] options = VoltageTier.COMMON_AMPERAGES;
         int idx = 0;
@@ -211,7 +207,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         applyAmperage(BigInteger.valueOf(options[idx]));
     }
 
-    /** Cycle down: 16 → 8 → 4 → 2 → 1 → 16. */
+    /** Cycle down: 16 → 8 → 4 → 2 → 1 → 16. / 循环减少：16 → 8 → 4 → 2 → 1 → 16。 */
     public void cycleAmperageDown() {
         int[] options = VoltageTier.COMMON_AMPERAGES;
         int idx = options.length - 1;
@@ -265,7 +261,6 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         sendSyncToClients();
     }
 
-    // ===== 订阅管理 =====
     public void addSubscriber(Player player) {
         if (player != null) {
             synchronized (subscribers) {
@@ -309,16 +304,13 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         return Component.translatable("eecore.generator.chat_prefix").withStyle(net.minecraft.ChatFormatting.GREEN);
     }
 
-    // ===== IOmegaEnergyStorage 实现（发电机为无限源，直接实现而非委托） =====
     @Override
     public EnergyPacket receivePacket(EnergyPacket packet, boolean simulate) {
-        // 发电机接受但不存储输入能量（避免阻塞邻居输出），直接丢弃
         return packet;
     }
 
     @Override
     public EnergyPacket extractPacket(VoltageTier requestedTier, boolean simulate) {
-        // 发电机只推不拉
         return null;
     }
 
@@ -362,7 +354,6 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         return VoltageTier.QV;
     }
 
-    // ===== Getters =====
     public VoltageTier getSelectedTier() { return selectedTier; }
     public BigInteger getAmperage() { return amperage; }
     public BigInteger getOutputPerTick() { return outputPerTick; }
@@ -372,7 +363,6 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
     public List<String> getLogMessages() { return new ArrayList<>(logs); }
     public boolean isLogToChat() { return logToChat; }
 
-    // ===== MenuProvider =====
     @Override
     public Component getDisplayName() {
         return Component.translatable("eecore.generator.title");
@@ -385,7 +375,6 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         return new CreativeGeneratorMenu(id, inv, this);
     }
 
-    // ===== NBT =====
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider prov) {
         super.saveAdditional(tag, prov);

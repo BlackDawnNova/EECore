@@ -53,7 +53,6 @@ public final class LaserLinkCard {
             return true;
         }
 
-        // Same type — rebind
         bind(stack, targetPos, targetType, targetId, tierName);
         return true;
     }
@@ -66,8 +65,6 @@ public final class LaserLinkCard {
             }
         }
     }
-
-    // ===== Storage via CustomData data component =====
 
     private static CompoundTag getTag(ItemStack stack) {
         CustomData cd = stack.get(DataComponents.CUSTOM_DATA);

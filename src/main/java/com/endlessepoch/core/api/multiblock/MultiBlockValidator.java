@@ -7,6 +7,8 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Validates a multi-block structure against a pattern at a given world position.
+ * <p>
+ * 在给定的世界位置根据模式验证多方块结构。
  */
 public final class MultiBlockValidator {
 
@@ -14,12 +16,14 @@ public final class MultiBlockValidator {
 
     /**
      * Check if a pattern matches at the given controller position.
+     * <p>
+     * 检查在给定控制器位置处模式是否匹配。
      *
-     * @param level    the world
-     * @param pattern  the pattern definition
-     * @param controllerPos position of the controller block
-     * @param facing   direction the pattern faces (north=default)
-     * @return true if structure matches
+     * @param level    the world / 世界
+     * @param pattern  the pattern definition / 模式定义
+     * @param controllerPos position of the controller block / 控制器方块的位置
+     * @param facing   direction the pattern faces (north=default) / 模式朝向（默认为北）
+     * @return true if structure matches / 若结构匹配则返回 true
      */
     public static boolean validate(Level level, MultiBlockPattern pattern,
                                    BlockPos controllerPos, Direction facing) {
@@ -48,7 +52,11 @@ public final class MultiBlockValidator {
         return true;
     }
 
-    /** Transform pattern-local coordinates to world coordinates. */
+    /**
+     * Transform pattern-local coordinates to world coordinates.
+     * <p>
+     * 将模式局部坐标转换为世界坐标。
+     */
     public static BlockPos transform(BlockPos origin, int dx, int dy, int dz,
                                      int width, int depth, Direction facing) {
         return switch (facing) {

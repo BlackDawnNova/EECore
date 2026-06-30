@@ -6,7 +6,13 @@ import net.minecraft.nbt.Tag;
 import java.math.BigInteger;
 
 /**
+ * Immutable wrapper for Ω energy values, backed by BigInteger.
+ * <p>
  * Ω 能量值的不可变包装，内部使用 BigInteger。
+ * <p>
+ * Provides safe big-number arithmetic (automatically clamped to MAX_LIMIT = 10¹⁰⁰⁰),
+ * human-readable display (auto k/M/G/T/P/E/Z/Y/R/Q suffixes or scientific notation),
+ * and NBT serialization.
  * <p>
  * 提供安全的大数运算（自动 clamp 到 MAX_LIMIT = 10¹⁰⁰⁰）、
  * 友好显示（自动加 k/M/G/T/P/E/Z/Y/R/Q 后缀或科学记数法）、
@@ -128,10 +134,6 @@ public class OmegaValue implements Comparable<OmegaValue> {
         return this;
     }
 
-    // ============================================================
-    //  BigInteger 乘除法（用于精确有理数运算，如梯级损耗）
-    // ============================================================
-
     public OmegaValue multiply(BigInteger factor) {
         if (factor == null || factor.signum() == 0 || this.isZero()) return zero();
         BigInteger result = this.value.multiply(factor);
@@ -143,13 +145,11 @@ public class OmegaValue implements Comparable<OmegaValue> {
         return new OmegaValue(this.value.divide(divisor));
     }
 
-    // ============================================================
-    //  long 转换（已废弃 - 大值会静默 clamp）
-    // ============================================================
-
     /**
+     * Converts to long. Silently returns Long.MAX_VALUE if the value exceeds Long.MAX_VALUE.
      * 转换为 long。如果值超过 Long.MAX_VALUE，静默返回 Long.MAX_VALUE。
-     * @deprecated 对可能超过 Long.MAX_VALUE 的值，请使用 {@link #toBigInteger()}
+     * @deprecated Use {@link #toBigInteger()} for values that may exceed Long.MAX_VALUE.
+     * 对可能超过 Long.MAX_VALUE 的值，请使用 {@link #toBigInteger()}
      */
     @Deprecated
     public long toLong() {
@@ -167,10 +167,6 @@ public class OmegaValue implements Comparable<OmegaValue> {
         return value;
     }
 
-    // ============================================================
-    //  NBT 序列化
-    // ============================================================
-
     public void saveToNBT(CompoundTag tag, String key) {
         tag.putString(key, value.toString());
     }
@@ -182,10 +178,6 @@ public class OmegaValue implements Comparable<OmegaValue> {
         String str = tag.getString(key);
         return OmegaValue.of(str);
     }
-
-    // ============================================================
-    //  显示方法（修复显示精度）
-    // ============================================================
 
     public String toDisplayString() {
         if (value.signum() == 0) return "0.00 Ω";

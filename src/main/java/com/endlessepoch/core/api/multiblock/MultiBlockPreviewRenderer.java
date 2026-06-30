@@ -17,7 +17,12 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Matrix4f;
 
 /**
+ * 在世界中渲染多方块结构的幽灵方块预览。
  * Renders ghost-block preview of a multiblock structure in-world.
+ * <p>
+ * 当玩家手持空手对控制器潜行右键时触发。
+ * 正确放置的方块渲染为绿色，缺失的方块渲染为红色。
+ * 仅在客户端使用。
  * <p>
  * Triggered when a player shift-right-clicks the controller with an empty hand.
  * Correctly-placed blocks render green; missing blocks render red.
@@ -26,10 +31,8 @@ import org.joml.Matrix4f;
 @OnlyIn(Dist.CLIENT)
 public final class MultiBlockPreviewRenderer {
 
-    /** Duration in milliseconds to show the preview. */
     private static final long PREVIEW_DURATION_MS = 5000;
 
-    // Currently active preview (static for singleton-per-controller)
     private static MultiBlockPattern activePattern;
     private static BlockPos activeControllerPos;
     private static Direction activeFacing;
@@ -39,6 +42,7 @@ public final class MultiBlockPreviewRenderer {
     private MultiBlockPreviewRenderer() {}
 
     /**
+     * 触发预览。在客户端玩家潜行右键控制器时调用。
      * Trigger a preview. Call from client-side when player shift-right-clicks controller.
      */
     public static void showPreview(MultiBlockPattern pattern, BlockPos controllerPos,
@@ -50,13 +54,19 @@ public final class MultiBlockPreviewRenderer {
         previewStartTime = System.currentTimeMillis();
     }
 
-    /** Returns true if a preview is currently active and not expired. */
+    /**
+     * 返回当前是否有活跃且未过期的预览。
+     * Returns true if a preview is currently active and not expired.
+     */
     public static boolean isActive() {
         return activePattern != null && activeControllerPos != null
                 && System.currentTimeMillis() - previewStartTime < PREVIEW_DURATION_MS;
     }
 
     /**
+     * 渲染预览覆盖层。在世界渲染事件或关卡渲染器钩子中调用。
+     * 使用 {@code RenderLevelLastEvent} 接入渲染管线。
+     * <p>
      * Render the preview overlay. Call from a world render event or level renderer hook.
      * Use {@code RenderLevelLastEvent} to hook into the rendering pipeline.
      */
@@ -88,7 +98,7 @@ public final class MultiBlockPreviewRenderer {
                     boolean matches = actual.getBlock().equals(required.getBlock());
 
                     renderGhostBlock(poseStack, cameraPos, worldPos,
-                            matches ? 0x4400FF00 : 0x44FF0000); // green=correct, red=missing
+                            matches ? 0x4400FF00 : 0x44FF0000);
                 }
             }
         }
@@ -112,8 +122,6 @@ public final class MultiBlockPreviewRenderer {
         float x1 = (float) x, y1 = (float) y, z1 = (float) z;
         float x2 = x1 + 1, y2 = y1 + 1, z2 = z1 + 1;
 
-        // 12 lines for a wireframe cube
-        // bottom face
         vc.addVertex(mat, x1, y1, z1).setColor(r, g, b, a);
         vc.addVertex(mat, x2, y1, z1).setColor(r, g, b, a);
         vc.addVertex(mat, x2, y1, z1).setColor(r, g, b, a);
@@ -122,7 +130,6 @@ public final class MultiBlockPreviewRenderer {
         vc.addVertex(mat, x1, y1, z2).setColor(r, g, b, a);
         vc.addVertex(mat, x1, y1, z2).setColor(r, g, b, a);
         vc.addVertex(mat, x1, y1, z1).setColor(r, g, b, a);
-        // top face
         vc.addVertex(mat, x1, y2, z1).setColor(r, g, b, a);
         vc.addVertex(mat, x2, y2, z1).setColor(r, g, b, a);
         vc.addVertex(mat, x2, y2, z1).setColor(r, g, b, a);
@@ -131,7 +138,6 @@ public final class MultiBlockPreviewRenderer {
         vc.addVertex(mat, x1, y2, z2).setColor(r, g, b, a);
         vc.addVertex(mat, x1, y2, z2).setColor(r, g, b, a);
         vc.addVertex(mat, x1, y2, z1).setColor(r, g, b, a);
-        // vertical edges
         vc.addVertex(mat, x1, y1, z1).setColor(r, g, b, a);
         vc.addVertex(mat, x1, y2, z1).setColor(r, g, b, a);
         vc.addVertex(mat, x2, y1, z1).setColor(r, g, b, a);

@@ -28,7 +28,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
 
     protected CyberGUIStyle style = CyberGUIStyle.GREEN;
 
-    // Matrix rain (initialized in init())
     private MatrixRain[] rainStreams;
     protected long lastRainTick = 0;
 
@@ -49,7 +48,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
 
     public void setStyle(CyberGUIStyle style) { this.style = style; }
 
-    // Abstract methods for subclasses
     protected abstract void createMainButtons(int startX, int cy);
     protected abstract void renderMainInfo(GuiGraphics g);
     protected abstract void renderSettingsContent(GuiGraphics g);
@@ -71,7 +69,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
 
         lastBlinkTime = System.currentTimeMillis();
 
-        // Init Matrix rain — one stream per column, evenly spaced
         rainStreams = new MatrixRain[RAIN_COLUMNS];
         for (int i = 0; i < RAIN_COLUMNS; i++) {
             rainStreams[i] = new MatrixRain(i, RAIN_COLUMNS);
@@ -80,7 +77,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         int startX = cx + 24;
         createMainButtons(startX, cy);
 
-        // Gear button (always visible)
         cyberButtons.add(new CyberButton(
                 cx + this.imageWidth + 4, cy - 2, 14, 14,
                 "⚙",
@@ -129,8 +125,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         );
     }
 
-    // Render loop
-
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
         super.renderBackground(g, mx, my, pt);
@@ -167,8 +161,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         }
     }
 
-    // Border
-
     protected void renderMainBorder(GuiGraphics g) {
         int b = style.border, gb = style.borderGlow, c = style.corner;
         g.fill(leftPos - 2, topPos - 2, leftPos + imageWidth + 2, topPos - 1, b);
@@ -191,8 +183,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         g.fill(leftPos + imageWidth + 1, topPos + imageHeight - 1, leftPos + imageWidth + 2, topPos + imageHeight + 2, c);
     }
 
-    // Title
-
     protected void renderTitle(GuiGraphics g) {
         updateBlink();
         if (!blinkState) return;
@@ -203,8 +193,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         g.drawString(font, title, tx + 1, topPos + 6 + 1, 0x44000000, false);
         g.drawString(font, title, tx, topPos + 6, style.textPrimary, false);
     }
-
-    // Inventory
 
     protected void drawPlayerInventory(GuiGraphics g) {
         int startX = leftPos + PLAYER_INVENTORY_X;
@@ -237,8 +225,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         g.fill(x + size - 2, y + size - 3, x + size - 1, y + size - 1, c);
     }
 
-    // Separator
-
     protected void drawSeparator(GuiGraphics g) {
         updateBlink();
         if (!blinkState) return;
@@ -267,8 +253,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         }
     }
 
-    // Mouse
-
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         for (CyberButton btn : cyberButtons) {
@@ -288,8 +272,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
 
     @Override
     protected void renderLabels(GuiGraphics g, int mx, int my) {}
-
-    // Matrix rain
 
     protected void updateRain() {
         long now = System.currentTimeMillis();

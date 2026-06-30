@@ -30,11 +30,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Creative consumer block entity.
- * Receives Ω energy, supports auto/manual mode, displays per-second receive rate.
+ * Receives Omega energy, supports auto/manual mode, displays per-second receive rate.
+ * <p>
+ * 创造模式消耗器方块实体。
+ * 接收 Omega 能量，支持自动/手动模式，显示每秒接收速率。
  */
 public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProvider, IOmegaEnergyStorage {
 
-    // Core state
     private final OmegaStorage storage = new OmegaStorage(
             VoltageTier.HARD_LIMIT,
             VoltageTier.HARD_LIMIT,
@@ -45,15 +47,12 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
     private EnergyPacket lastPacket = null;
     private volatile boolean logToChat = false;
 
-    // Mode
     private volatile boolean autoMode = true;
     private volatile VoltageTier manualTier = VoltageTier.LV;
 
-    // Received tier tracking
     private volatile VoltageTier currentReceivedTier = VoltageTier.ELV;
     private volatile VoltageTier lastReceivedTier = VoltageTier.ELV;
 
-    // Rate calculation (per-second)
     private OmegaValue lastSecondReceived = OmegaValue.zero();
     private OmegaValue currentSecondReceived = OmegaValue.zero();
     private OmegaValue lastSecondLoss = OmegaValue.zero();
@@ -64,13 +63,11 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
     private OmegaValue currentSecondActual = OmegaValue.zero();
     private int secondTickCounter = 0;
 
-    // Subscribers & logs
     private final Set<UUID> subscribers = new HashSet<>();
     private final List<String> logs = new ArrayList<>();
     private int tickCounter = 0;
     private int syncCooldown = 0;
 
-    // Cross-instance pending state
     private static final ConcurrentHashMap<BlockPos, Boolean> pendingClear = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<BlockPos, Boolean> pendingLogToChat = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<BlockPos, Boolean> pendingAutoMode = new ConcurrentHashMap<>();
@@ -78,7 +75,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
 
     public CreativeConsumerBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntities.CREATIVE_CONSUMER.get(), pos, state);
-        // Clear stale pending state for this position
         pendingClear.remove(pos);
         pendingLogToChat.remove(pos);
         pendingAutoMode.remove(pos);
@@ -90,7 +86,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
     }
 
     public void clientTick() {
-        // Client tick placeholder for particles/animations
     }
 
     public void serverTick() {
@@ -142,7 +137,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
                 addLog(Component.translatable("eecore.consumer.log.receive_rate_manual",
                         rateDisplay, actualDisplay, setTier, actualTier));
             } else {
-                // 降级损耗百分比 = loss * 100 / original（能量，非功率）
                 String pctDisplay = "0%";
                 if (!lastSecondOriginal.isZero()) {
                     long pct = lastSecondLoss.toBigInteger().multiply(BigInteger.valueOf(100))
@@ -215,7 +209,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
         if (packet.getTier().ordinal() > targetTier.ordinal()) {
             packetToStore = packet.stepDownTo(targetTier);
             if (packetToStore.isEmpty()) return null;
-            // Step-down loss = original - stepped energy
             stepLoss = packet.getEnergy().subtract(packetToStore.getEnergy());
         }
 
@@ -291,7 +284,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
         }
     }
 
-    // ===== GUI 操作方法 =====
     public void clearAll() {
         OmegaValue cleared = storage.getEnergyStored();
         addLog(Component.translatable("eecore.consumer.log.clear_amount", cleared.toDisplayString()));
@@ -328,7 +320,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
     public VoltageTier getManualTier() { return manualTier; }
     public VoltageTier getCurrentReceivedTier() { return currentReceivedTier; }
 
-    // ===== 订阅管理 =====
     public void addSubscriber(Player player) {
         if (player != null) {
             synchronized (subscribers) {
@@ -372,7 +363,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
         return Component.translatable("eecore.consumer.chat_prefix").withStyle(net.minecraft.ChatFormatting.YELLOW);
     }
 
-    // ===== IOmegaEnergyStorage 方法 =====
     @Override
     public EnergyPacket extractPacket(VoltageTier requestedTier, boolean simulate) { return null; }
 
@@ -407,7 +397,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
     @Override
     public VoltageTier getTier() { return storage.getTier(); }
 
-    // ===== Getters =====
     public OmegaValue getStoredEnergy() { return storage.getEnergyStored(); }
     public OmegaValue getTotalReceived() { return totalReceived; }
     public EnergyPacket getLastReceivedPacket() { return lastPacket; }
@@ -416,7 +405,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
     public OmegaStorage getStorage() { return storage; }
     public boolean isLogToChat() { return logToChat; }
 
-    // ===== MenuProvider =====
     @Override
     public Component getDisplayName() { return Component.translatable("eecore.consumer.title"); }
 
@@ -427,7 +415,6 @@ public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProv
         return new CreativeConsumerMenu(id, inv, this);
     }
 
-    // ===== NBT =====
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider prov) {
         super.saveAdditional(tag, prov);

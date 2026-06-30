@@ -10,6 +10,13 @@ import java.util.UUID;
  * When absent, falls back to {@link EECoreTeamProvider}.
  * <p>
  * Call {@link #create()} during mod construction — it auto-detects FTB Teams presence.
+ * <p>
+ * FTB Teams 兼容桥接器。
+ * <p>
+ * 当 FTB Teams 已加载时，此提供者将其委托给 FTB Teams。
+ * 当不存在时，回退到 {@link EECoreTeamProvider}。
+ * <p>
+ * 在模组构造期间调用 {@link #create()} —— 它会自动检测 FTB Teams 是否存在。
  */
 public class FTBTeamsBridge implements ITeamProvider {
 
@@ -23,11 +30,12 @@ public class FTBTeamsBridge implements ITeamProvider {
 
     /**
      * Create the appropriate provider based on whether FTB Teams is present.
+     * <p>
+     * 根据 FTB Teams 是否存在创建合适的提供者。
      */
     public static ITeamProvider create() {
         try {
             Class.forName("dev.ftb.mods.ftbteams.api.FTBTeamsAPI");
-            // FTB present — use its API (bridge implementation)
             return new FTBTeamsBridge(new EECoreTeamProvider(), true);
         } catch (ClassNotFoundException e) {
             return new EECoreTeamProvider();
@@ -35,8 +43,6 @@ public class FTBTeamsBridge implements ITeamProvider {
     }
 
     public boolean isFTBPresent() { return ftbPresent; }
-
-    // ---- Delegate ----
 
     @Override
     public Optional<TeamData> getTeam(UUID playerId) {

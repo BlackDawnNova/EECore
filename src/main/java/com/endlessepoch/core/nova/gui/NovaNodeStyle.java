@@ -8,6 +8,11 @@ import net.neoforged.api.distmarker.OnlyIn;
  * <p>
  * Other mods can instantiate custom themes or use the presets.
  * Default: dark cyber-green theme matching EECore's aesthetic.
+ * <p>
+ * NovaNet 图形界面的颜色主题。
+ * <p>
+ * 其他模组可以实例化自定义主题或使用预设主题。
+ * 默认：暗色赛博绿主题，与 EECore 的美学风格一致。
  */
 @OnlyIn(Dist.CLIENT)
 public record NovaNodeStyle(
@@ -23,24 +28,24 @@ public record NovaNodeStyle(
         int barOutputColor,
         int barTextColor
 ) {
-    /** Default green-cyber theme. */
+    /** Default green-cyber theme. / 默认赛博绿主题。 */
     public static NovaNodeStyle defaultStyle() {
         return new NovaNodeStyle(
-                0xFF0A0A0A,  // bg — near black
-                0xFF003300,  // border — dark green
-                0xFF005500,  // glow
-                0xFF00FF88,  // header — bright green
-                0xFF008844,  // stats — mid green
-                0xFF111111,  // bar bg
-                0xFF005500,  // bar normal
-                0xFF00AA00,  // bar full
-                0xFF0066FF,  // input rate — blue
-                0xFFFF6600,  // output rate — orange
-                0xFFFFFFFF   // bar text — white
+                0xFF0A0A0A,
+                0xFF003300,
+                0xFF005500,
+                0xFF00FF88,
+                0xFF008844,
+                0xFF111111,
+                0xFF005500,
+                0xFF00AA00,
+                0xFF0066FF,
+                0xFFFF6600,
+                0xFFFFFFFF
         );
     }
 
-    /** Blue theme for receivers. */
+    /** Blue theme for receivers. / 接收器蓝色主题。 */
     public static NovaNodeStyle receiverStyle() {
         return new NovaNodeStyle(
                 0xFF0A0A0C, 0xFF001133, 0xFF002255,
@@ -50,7 +55,7 @@ public record NovaNodeStyle(
         );
     }
 
-    /** Gold theme for hubs. */
+    /** Gold theme for hubs. / 集线器金色主题。 */
     public static NovaNodeStyle hubStyle() {
         return new NovaNodeStyle(
                 0xFF0C0A06, 0xFF332200, 0xFF553300,

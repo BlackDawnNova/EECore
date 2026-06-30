@@ -50,7 +50,6 @@ public class CreativeConsumerMenu extends AbstractContainerMenu {
         }
     }
 
-    // ===== 服务端操作方法 =====
     public void clearAll() { if (be != null) be.clearAll(); }
     public void setLogToChat(boolean enabled) { if (be != null) be.setLogToChat(enabled); }
     public void toggleAutoMode() { if (be != null) be.toggleAutoMode(); }

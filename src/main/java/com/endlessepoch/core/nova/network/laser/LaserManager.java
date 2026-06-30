@@ -11,6 +11,9 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Manages all active laser connections in the NovaNet.
  * Thread-safe singleton.
+ * <p>
+ * 管理 NovaNet 中所有活跃的激光连接。
+ * 线程安全的单例。
  */
 public final class LaserManager {
 
@@ -23,6 +26,9 @@ public final class LaserManager {
     /**
      * Create a laser connection between two nodes.
      * @throws IllegalArgumentException if either node is wrong type.
+     * <p>
+     * 在两个节点之间创建激光连接。
+     * @throws IllegalArgumentException 如果任一节点类型错误。
      */
     public static LaserConnection connect(INovaNode transmitter, INovaNode receiver) {
         if (transmitter.getNodeType() != NodeType.TRANSMITTER ||
@@ -44,7 +50,7 @@ public final class LaserManager {
         return conn;
     }
 
-    /** Disconnect a specific laser. */
+    /** Disconnect a specific laser. / 断开指定的激光连接。 */
     public static void disconnect(UUID connectionId) {
         LaserConnection conn = connections.remove(connectionId);
         if (conn == null) return;
@@ -56,7 +62,7 @@ public final class LaserManager {
         if (rxSet != null) rxSet.remove(connectionId);
     }
 
-    /** Get all connections from a transmitter. */
+    /** Get all connections from a transmitter. / 获取来自某个发射器的所有连接。 */
     public static Set<LaserConnection> getFromTransmitter(UUID transmitterId) {
         Set<UUID> ids = transmitterLinks.get(transmitterId);
         if (ids == null) return Set.of();
@@ -68,7 +74,7 @@ public final class LaserManager {
         return Collections.unmodifiableSet(result);
     }
 
-    /** All active connections. */
+    /** All active connections. / 所有活跃的连接。 */
     public static Set<LaserConnection> getAll() {
         return Set.copyOf(connections.values());
     }

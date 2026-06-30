@@ -30,7 +30,6 @@ import java.util.List;
 @EventBusSubscriber(modid = EECore.MOD_ID, value = Dist.CLIENT)
 public final class ScannerRenderer {
 
-    // ===== Custom RenderType: lines with NO_DEPTH_TEST (through-walls) =====
     private static final RenderType NO_DEPTH_LINES = RenderType.create(
             "eecore_no_depth_lines",
             DefaultVertexFormat.POSITION_COLOR_NORMAL,
@@ -72,14 +71,11 @@ public final class ScannerRenderer {
         if (pos1 != null) {
             VertexConsumer vc = buf.getBuffer(RenderType.lines());
 
-            // Always show pos1 (blue)
             renderBlockOutline(ps, vc, pos1, 0.2f, 0.6f, 1.0f);
 
             if (pos2 != null) {
-                // Show pos2 (orange)
                 renderBlockOutline(ps, vc, pos2, 1.0f, 0.65f, 0.0f);
 
-                // Show area box (green)
                 int minX = Math.min(pos1.getX(), pos2.getX());
                 int minY = Math.min(pos1.getY(), pos2.getY());
                 int minZ = Math.min(pos1.getZ(), pos2.getZ());
@@ -92,29 +88,24 @@ public final class ScannerRenderer {
             }
         }
 
-        // ===== Multiple-controller highlight (true through-walls) =====
         List<BlockPos> controllers = MultiblockScannerItem.getControllerPositions(stack);
         if (!controllers.isEmpty()) {
-            // Flush normal lines before switching to no-depth RenderType
             buf.endBatch();
 
             VertexConsumer hlVc = buf.getBuffer(NO_DEPTH_LINES);
             long time = System.currentTimeMillis();
-            float pulse = (float) (Math.sin(time * 0.004) * 0.3 + 0.7); // 0.4 ~ 1.0
+            float pulse = (float) (Math.sin(time * 0.004) * 0.3 + 0.7);
 
             for (BlockPos ctrlPos : controllers) {
-                // Pulsing red wireframe (inner box — tight around the block)
                 AABB ctrlBox = new AABB(ctrlPos.getX() + 0.01, ctrlPos.getY() + 0.01, ctrlPos.getZ() + 0.01,
                         ctrlPos.getX() + 0.99, ctrlPos.getY() + 0.99, ctrlPos.getZ() + 0.99);
                 LevelRenderer.renderLineBox(ps, hlVc, ctrlBox, pulse, 0.05f, 0.05f, 0.9f);
 
-                // Outer glow box (slightly larger, dimmer, for visual emphasis)
                 float glowPulse = pulse * 0.4f;
                 AABB glowBox = new AABB(ctrlPos.getX() - 0.08, ctrlPos.getY() - 0.08, ctrlPos.getZ() - 0.08,
                         ctrlPos.getX() + 1.08, ctrlPos.getY() + 1.08, ctrlPos.getZ() + 1.08);
                 LevelRenderer.renderLineBox(ps, hlVc, glowBox, glowPulse, 0.0f, 0.0f, 0.3f);
 
-                // Vertical beam (64 blocks high — always visible through any terrain)
                 AABB beam = new AABB(ctrlPos.getX() + 0.47, ctrlPos.getY(),
                         ctrlPos.getZ() + 0.47,
                         ctrlPos.getX() + 0.53, ctrlPos.getY() + 64,

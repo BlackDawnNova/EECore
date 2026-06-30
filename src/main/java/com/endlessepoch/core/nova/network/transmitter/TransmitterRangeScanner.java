@@ -69,21 +69,17 @@ public class TransmitterRangeScanner {
 
                     var be = level.getBlockEntity(scanPos);
 
-                    // Scan for IOmegaEnergyStorage implementations
-                    // Check via capability or direct instanceof
                     IOmegaEnergyStorage gen = null;
                     if (be instanceof IOmegaEnergyStorage directGen) {
                         gen = directGen;
                     }
 
                     if (gen == null || !gen.getEnergyStored().isZero()) {
-                        // Generator has energy — pull from its output side
                         if (gen != null && !gen.getEnergyStored().isZero()) {
                             EnergyPacket extracted = gen.extractPacket(gen.getTier(), true);
                             if (extracted != null && !extracted.isEmpty()) {
                                 extracted = gen.extractPacket(gen.getTier(), false);
                                 if (extracted != null) {
-                                    // Apply distance attenuation
                                     double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
                                     double efficiency = getEfficiency(distance);
                                     BigInteger attenuated = extracted.getEnergy().toBigInteger()

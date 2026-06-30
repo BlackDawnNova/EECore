@@ -34,7 +34,6 @@ public class LaserLinkCardItem extends Item {
         if (!(be instanceof INovaNode node)) return InteractionResult.PASS;
         if (level.isClientSide()) return InteractionResult.SUCCESS;
 
-        // FIXME: This path is called on the server via packet
         LaserLinkCard.onShiftUse(stack, node.getBlockPos(), node.getNodeType(),
                 node.getNodeId(), node.getTier().getShortName(),
                 Math.sqrt(player.blockPosition().distSqr(node.getBlockPos())), player);
@@ -44,7 +43,6 @@ public class LaserLinkCardItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        // Shift + right-click air clears the card
         if (player.isShiftKeyDown()) {
             LaserLinkCard.onShiftAir(stack, player);
             return InteractionResultHolder.success(stack);

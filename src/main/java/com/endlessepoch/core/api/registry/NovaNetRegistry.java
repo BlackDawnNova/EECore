@@ -15,6 +15,9 @@ import java.util.stream.Collectors;
 /**
  * Default NovaNet registry implementation.
  * Thread-safe, push-mode — nodes register/unregister on place/break.
+ * <p>
+ * NovaNet 默认注册表实现。
+ * 线程安全，推送模式 —— 节点在放置/破坏时注册/注销。
  */
 public class NovaNetRegistry implements INovaNetRegistry {
 
@@ -26,8 +29,6 @@ public class NovaNetRegistry implements INovaNetRegistry {
     private IEnergyRouter router;
     private IEnergyCreditSystem creditSystem;
     private ITeamProvider teamProvider;
-
-    // ===== Node management =====
 
     @Override
     public void registerNode(INovaNode node) {
@@ -63,8 +64,6 @@ public class NovaNetRegistry implements INovaNetRegistry {
                 .filter(n -> n.getBlockPos().distSqr(center) <= r2)
                 .collect(Collectors.toSet());
     }
-
-    // ===== Strategy providers =====
 
     @Override
     public void registerSecurityProvider(IEnergySecurityProvider provider) {
@@ -105,8 +104,6 @@ public class NovaNetRegistry implements INovaNetRegistry {
     public ITeamProvider getTeamProvider() {
         return teamProvider;
     }
-
-    // ===== Component system =====
 
     @Override
     public void registerComponent(IComponent component) {

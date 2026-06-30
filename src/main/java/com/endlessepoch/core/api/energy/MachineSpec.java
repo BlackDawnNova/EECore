@@ -5,8 +5,13 @@ import com.endlessepoch.core.api.tier.VoltageTier;
 import java.math.BigInteger;
 
 /**
+ * Declares omega energy specs for a machine.
  * 机器的 Ω 能量规格声明。
  * <p>
+ * Third-party mods can create a complete energy storage in one line via this record,
+ * without manually assembling OmegaStorage.
+ * It can also be used to declare a machine's electrical characteristics
+ * (tier, capacity, IO limits, amperage) for integration by others.
  * 第三方 Mod 通过此记录一行创建完整能量存储，无需手动装配 OmegaStorage。
  * 也可以用来声明机器的电气特性（等级、容量、IO 限制、电流）供他人集成。
  *
@@ -31,6 +36,7 @@ public record MachineSpec(
 ) {
 
     /**
+     * Creates a default OmegaStorage from this spec (zero initial energy).
      * 从此规格创建默认的 OmegaStorage（初始能量为零）。
      */
     public OmegaStorage createStorage() {
@@ -38,6 +44,7 @@ public record MachineSpec(
     }
 
     /**
+     * Creates an OmegaStorage with the given initial energy.
      * 创建带初始能量的 OmegaStorage。
      */
     public OmegaStorage createStorage(OmegaValue initialEnergy) {
@@ -46,31 +53,25 @@ public record MachineSpec(
         return storage;
     }
 
-    // ============================================================
-    //  简便工厂
-    // ============================================================
-
     /**
+     * Creates a simple machine spec (equal input/output, 1A amperage).
      * 创建简单的机器规格（输入/输出相等，1A 电流）。
      *
-     * @param tier    电压等级
-     * @param capacity 最大容量（Ω）
-     * @param maxIO   最大输入/输出（Ω/t）
+     * @param tier    voltage tier / 电压等级
+     * @param capacity max capacity in Omega / 最大容量（Ω）
+     * @param maxIO   max input/output per tick / 最大输入/输出（Ω/t）
      */
     public static MachineSpec simple(VoltageTier tier, long capacity, long maxIO) {
         return new MachineSpec(tier, OmegaValue.of(capacity), OmegaValue.of(maxIO), OmegaValue.of(maxIO), 1);
     }
 
     /**
+     * Creates a simple machine spec (BigInteger variant).
      * 创建简单的机器规格（BigInteger 版）。
      */
     public static MachineSpec simple(VoltageTier tier, BigInteger capacity, BigInteger maxIO) {
         return new MachineSpec(tier, OmegaValue.of(capacity), OmegaValue.of(maxIO), OmegaValue.of(maxIO), 1);
     }
-
-    // ============================================================
-    //  Builder
-    // ============================================================
 
     public static Builder builder(VoltageTier tier) {
         return new Builder(tier);

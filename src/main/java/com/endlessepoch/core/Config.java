@@ -11,7 +11,6 @@ public class Config {
 
     public static final ModConfigSpec SPEC;
 
-    // ===== Energy loss config =====
     public static final ModConfigSpec.DoubleValue STEP_LOSS_FACTOR;
 
     static {

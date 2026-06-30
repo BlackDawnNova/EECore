@@ -12,6 +12,13 @@ import net.minecraft.world.entity.player.Inventory;
 
 import java.math.BigInteger;
 
+/**
+ * 创造模式发电机的 GUI 屏幕。
+ * Creative generator GUI screen.
+ * <p>
+ * 提供输出切换、电压档位调节及安培数增减的交互控件。
+ * Provides interactive controls for output toggling, tier adjustment, and amperage increment/decrement.
+ */
 public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGeneratorMenu> {
 
     private CyberButton ampBtn;
@@ -25,18 +32,17 @@ public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGener
         super.init();
         int cx = (this.width - this.imageWidth) / 2;
         int cy = (this.height - this.imageHeight) / 2;
-        // Amp button: below the arrow row, uses standard container click → server
         ampBtn = new CyberButton(
                 cx + 80, cy + BUTTON_Y + 22, 18, 14,
                 () -> {
                     CreativeGeneratorBlockEntity b = getMenu().getBlockEntity();
                     return b != null ? b.getAmperage() + "A" : "1A";
                 },
-                () -> { // left click: +A
+                () -> {
                     if (this.minecraft != null && this.minecraft.gameMode != null)
                         this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, 100);
                 },
-                () -> { // right click: -A
+                () -> {
                     if (this.minecraft != null && this.minecraft.gameMode != null)
                         this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, 101);
                 }
@@ -60,7 +66,7 @@ public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGener
                 },
                 () -> {
                     CreativeGeneratorBlockEntity b = getMenu().getBlockEntity();
-                    if (b != null) b.toggleOutput(); // local prediction
+                    if (b != null) b.toggleOutput();
                     if (this.minecraft != null && this.minecraft.gameMode != null)
                         this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, 0);
                 }
@@ -147,7 +153,7 @@ public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGener
             VoltageTier current = be.getSelectedTier();
             VoltageTier prev = current.prev();
             if (prev != current && prev != VoltageTier.ELV) {
-                getMenu().setTier(prev); // local
+                getMenu().setTier(prev);
                 clickButton(50);
             }
         }
@@ -160,7 +166,7 @@ public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGener
             VoltageTier current = be.getSelectedTier();
             VoltageTier next = current.next();
             if (next != current) {
-                getMenu().setTier(next); // local
+                getMenu().setTier(next);
                 clickButton(51);
             }
         }

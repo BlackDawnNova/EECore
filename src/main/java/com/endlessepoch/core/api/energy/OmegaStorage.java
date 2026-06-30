@@ -65,7 +65,6 @@ public class OmegaStorage implements IOmegaEnergyStorage {
         tieredEnergy.put(VoltageTier.ELV, energy);
     }
 
-    // NBT serialization
     public void saveToNBT(CompoundTag tag) {
         tag.putString("energy", energy.toBigInteger().toString());
         tag.putString("capacity", capacity.toString());

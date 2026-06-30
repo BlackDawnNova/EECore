@@ -81,5 +81,6 @@
   "eecore.visualizer.empty": "Scan a structure with the scanner first",
   "eecore.visualizer.controller_label": "§cFlashing glass§r = Controller",
   "eecore.visualizer.click_hint": "§7Click a block to inspect",
+  "eecore.visualizer.immersive_hint": "§7G=Reset  Scroll=Zoom",
   "eecore.visualizer.pick_hint": "§7Click another block or wait %s s"
 }

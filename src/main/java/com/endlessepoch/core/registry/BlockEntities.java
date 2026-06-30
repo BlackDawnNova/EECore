@@ -27,7 +27,6 @@ public class BlockEntities {
                             Blocks.CREATIVE_CONSUMER.get()).build(null)
             );
 
-    // ===== NovaNet test =====
     public static final Supplier<BlockEntityType<ScannerControllerBlockEntity>> SCANNER_CONTROLLER =
             BLOCK_ENTITIES.register("scanner_controller",
                     () -> BlockEntityType.Builder.of(ScannerControllerBlockEntity::new,

@@ -81,5 +81,6 @@
   "eecore.visualizer.empty": "请用扫描器扫描结构",
   "eecore.visualizer.controller_label": "§c红§r§9蓝§r闪烁玻璃 = 控制器",
   "eecore.visualizer.click_hint": "§7点击方块查看信息",
+  "eecore.visualizer.immersive_hint": "§7G=复位  滚轮=缩放",
   "eecore.visualizer.pick_hint": "§7点击其他方块或等待 %s 秒"
 }

@@ -8,6 +8,8 @@ import java.util.UUID;
 
 /**
  * Data record for a laser link between a transmitter and a receiver.
+ * <p>
+ * 发射器与接收器之间激光链接的数据记录。
  */
 public final class LaserConnection {
 
@@ -19,7 +21,7 @@ public final class LaserConnection {
     private final VoltageTier tier;
     private final double distance;
     private final double efficiency;
-    private volatile double currentPower; // Ω/t flowing currently
+    private volatile double currentPower;
 
     public LaserConnection(UUID transmitterId, UUID receiverId,
                            BlockPos transmitterPos, BlockPos receiverPos,
@@ -34,7 +36,6 @@ public final class LaserConnection {
         this.efficiency = TransmitterRangeScanner.getEfficiency(this.distance);
     }
 
-    // ===== Getters =====
     public UUID getId() { return id; }
     public UUID getTransmitterId() { return transmitterId; }
     public UUID getReceiverId() { return receiverId; }
@@ -43,13 +44,13 @@ public final class LaserConnection {
     public VoltageTier getTier() { return tier; }
     public double getDistance() { return distance; }
 
-    /** Transmission efficiency (0.0 ~ 1.0). */
+    /** Transmission efficiency (0.0 ~ 1.0). / 传输效率（0.0 ~ 1.0）。 */
     public double getEfficiency() { return efficiency; }
 
-    /** Current power flowing (Ω/t). */
+    /** Current power flowing (Omega/t). / 当前流动的功率（Omega/t）。 */
     public double getCurrentPower() { return currentPower; }
     public void setCurrentPower(double power) { this.currentPower = power; }
 
-    /** Whether energy is actively flowing. */
+    /** Whether energy is actively flowing. / 能量是否正在主动流动。 */
     public boolean isActive() { return currentPower > 0.01; }
 }

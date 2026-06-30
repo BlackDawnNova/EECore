@@ -83,7 +83,6 @@ public class EECore {
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
-        // Init NovaNet registry (push-mode node registration)
         NovaNetRegistry reg = new NovaNetRegistry();
         NovaNodeRegistration.init(reg);
 
@@ -104,7 +103,6 @@ public class EECore {
                 (be, side) -> be
         );
 
-        // NovaNet transmitter exposes Ω energy via Capability
         event.registerBlockEntity(
                 EECoreCapabilities.OMEGA_ENERGY,
                 BlockEntities.TEST_TRANSMITTER.get(),
@@ -115,7 +113,6 @@ public class EECore {
     private void registerPayloadHandlers(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
 
-        // Generator sync
         registrar.playToClient(
                 SyncGeneratorPacket.TYPE,
                 SyncGeneratorPacket.STREAM_CODEC,
@@ -131,7 +128,6 @@ public class EECore {
                 }
         );
 
-        // Consumer sync
         registrar.playToClient(
                 SyncConsumerPacket.TYPE,
                 SyncConsumerPacket.STREAM_CODEC,
@@ -147,7 +143,6 @@ public class EECore {
                 }
         );
 
-        // Pattern sync: server → client (scanned multiblock structures)
         registrar.playToClient(
                 SyncPatternPacket.TYPE,
                 SyncPatternPacket.STREAM_CODEC,

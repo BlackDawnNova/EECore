@@ -20,19 +20,11 @@ public enum VoltageTier {
     BV(10, "真空衰变级"),
     QV(11, "普朗克级");
 
-    // ============================================================
-    //  核心常量
-    // ============================================================
-
     public static final BigInteger QV_MIN = BigInteger.TEN.pow(21);
     public static final BigInteger HARD_LIMIT = BigInteger.TEN.pow(1000);
     private static final int TOTAL_TIERS = 12;
     private static final int STEPS = TOTAL_TIERS - 1;
     public static final int[] COMMON_AMPERAGES = {1, 2, 4, 8, 16};
-
-    // ============================================================
-    //  计算函数
-    // ============================================================
 
     private static BigInteger calculateMinVoltage(int n) {
         if (n == 0) return BigInteger.ONE;
@@ -50,10 +42,6 @@ public enum VoltageTier {
         return calculateMinVoltage(n + 1);
     }
 
-    // ============================================================
-    //  枚举字段
-    // ============================================================
-
     private final int index;
     private final String chineseName;
     private final BigInteger minVoltage;
@@ -65,10 +53,6 @@ public enum VoltageTier {
         this.minVoltage = calculateMinVoltage(index);
         this.maxVoltage = calculateMaxVoltage(index);
     }
-
-    // ============================================================
-    //  Getters（全部返回 BigInteger，没有 long）
-    // ============================================================
 
     public int getIndex() { return index; }
     public String getShortName() { return name(); }
@@ -88,10 +72,6 @@ public enum VoltageTier {
     public BigInteger getPowerPerSecond(int amperage) {
         return getPowerPerTick(amperage).multiply(BigInteger.valueOf(20));
     }
-
-    // ============================================================
-    //  等级判断
-    // ============================================================
 
     public boolean canHandle(BigInteger otherVoltage) {
         if (otherVoltage == null) return false;
@@ -120,10 +100,6 @@ public enum VoltageTier {
         return canHandle(power);
     }
 
-    // ============================================================
-    //  等级跳转
-    // ============================================================
-
     public VoltageTier next() {
         int idx = this.index + 1;
         return idx < values().length ? values()[idx] : this;
@@ -133,10 +109,6 @@ public enum VoltageTier {
         int idx = this.index - 1;
         return idx >= 0 ? values()[idx] : this;
     }
-
-    // ============================================================
-    //  等级匹配
-    // ============================================================
 
     public static VoltageTier fromVoltage(OmegaValue power) {
         if (power == null) return ELV;
@@ -176,10 +148,6 @@ public enum VoltageTier {
         }
         return ELV;
     }
-
-    // ============================================================
-    //  显示工具
-    // ============================================================
 
     public String getHexColor() {
         return switch (this) {

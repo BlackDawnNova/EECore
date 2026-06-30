@@ -15,7 +15,6 @@ public class Items {
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(Registries.ITEM, EECore.MOD_ID);
 
-    // ===== 方块对应的物品 =====
     public static final Supplier<BlockItem> CREATIVE_GENERATOR_ITEM =
             ITEMS.register("creative_generator",
                     () -> new BlockItem(Blocks.CREATIVE_GENERATOR.get(),
@@ -28,7 +27,6 @@ public class Items {
                             new Item.Properties().stacksTo(64))
             );
 
-    // ===== NovaNet test =====
     public static final Supplier<BlockItem> TEST_TRANSMITTER_ITEM =
             ITEMS.register("test_transmitter",
                     () -> new BlockItem(Blocks.TEST_TRANSMITTER.get(),

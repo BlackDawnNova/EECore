@@ -39,7 +39,6 @@ public class CreativeGeneratorBlock extends BaseEntityBlock {
         return RenderShape.MODEL;
     }
 
-    // Same useWithoutItem pattern
     @Override
     public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide()) {

@@ -14,7 +14,6 @@ public class TransmitterEnergyBuffer {
 
     /** Create a buffer sized for the transmitter's voltage tier. */
     public TransmitterEnergyBuffer(VoltageTier tier) {
-        // Buffer size scales with tier: LV=1kΩ, MV=10kΩ, HV=100kΩ, ...
         long capacity = 1000L << (tier.ordinal() * 2);
         this.storage = new OmegaStorage(capacity, capacity, 0, tier);
     }
@@ -46,7 +45,6 @@ public class TransmitterEnergyBuffer {
         return !storage.getEnergyStored().isZero();
     }
 
-    // NBT
     public void saveToNBT(CompoundTag tag) { storage.saveToNBT(tag); }
     public void loadFromNBT(CompoundTag tag) { storage.loadFromNBT(tag); }
 

@@ -47,7 +47,6 @@ public abstract class AnimatedItem extends Item {
                                 List<Component> tooltip, TooltipFlag flag) {
         if (animation == null) return;
 
-        // Animated title (use titleKey if set, otherwise item name)
         if (animation.titleRenderer() != null) {
             String key = titleKey != null ? titleKey : getDescriptionId();
             String title = Component.translatable(key).getString();
@@ -56,15 +55,12 @@ public abstract class AnimatedItem extends Item {
 
         tooltip.add(Component.empty());
 
-        // Extra description lines
         for (String key : animation.extraLines()) {
             if (key != null && !key.isEmpty()) {
                 tooltip.add(Component.translatable(key));
             }
         }
 
-        // Author line (last, with a blank line before it, animated)
-        // Renderer receives the translation KEY and handles translate+animate internally
         if (showAuthor && animation.authorRenderer() != null) {
             tooltip.add(Component.empty());
             tooltip.add(animation.authorRenderer().apply("eecore.item.author"));

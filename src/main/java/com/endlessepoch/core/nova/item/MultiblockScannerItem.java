@@ -83,7 +83,6 @@ public class MultiblockScannerItem extends AnimatedItem {
             if (!level.isClientSide()) clearSelections(stack, player);
             return InteractionResultHolder.success(stack);
         }
-        // Right-click air opens visualizer
         if (level.isClientSide()) {
             net.minecraft.client.Minecraft.getInstance()
                     .setScreen(new com.endlessepoch.core.nova.client.MultiblockVisualizerScreen());
@@ -91,10 +90,7 @@ public class MultiblockScannerItem extends AnimatedItem {
         return InteractionResultHolder.success(stack);
     }
 
-    // Clear via shift-right-click-air instead
-    // (onLeftClickEntity removed in 1.21.1; use use() for air interaction)
-
-    // ===== Mark positions =====
+    // onLeftClickEntity removed in 1.21.1; use use() for air interaction
 
     private InteractionResult markPosition(ItemStack stack, Player player, BlockPos pos) {
         CompoundTag tag = getTag(stack);
@@ -114,7 +110,6 @@ public class MultiblockScannerItem extends AnimatedItem {
             player.displayClientMessage(
                     Component.translatable("eecore.scanner.ready").withStyle(ChatFormatting.GREEN), true);
         } else {
-            // Reset to pos1
             tag.remove("pos2");
             tag.putIntArray("pos1", new int[]{pos.getX(), pos.getY(), pos.getZ()});
             saveTag(stack, tag);
@@ -124,8 +119,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         }
         return InteractionResult.SUCCESS;
     }
-
-    // ===== Scan =====
 
     private InteractionResult scanStructure(ItemStack stack, ServerPlayer player, Level level) {
         CompoundTag tag = getTag(stack);
@@ -149,12 +142,10 @@ public class MultiblockScannerItem extends AnimatedItem {
         int sizeY = maxY - minY + 1;
         int sizeZ = maxZ - minZ + 1;
 
-        // Map blocks → characters
         java.util.List<BlockPos> controllerPositions = new java.util.ArrayList<>();
         Map<Block, Character> blockToChar = new LinkedHashMap<>();
         Map<Character, BlockState> definitions = new LinkedHashMap<>();
 
-        // First pass: scan into raw 3D char array
         char[][][] raw = new char[sizeY][sizeZ][sizeX];
         BlockPos controllerPos = null;
         int controllerCount = 0;
@@ -205,7 +196,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         }
 
         if (controllerCount > 1) {
-            // Store controller positions for client-side highlighting
             int[] posArr = new int[controllerPositions.size() * 3];
             for (int i = 0; i < controllerPositions.size(); i++) {
                 posArr[i * 3] = controllerPositions.get(i).getX();
@@ -230,7 +220,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         int newCx = controllerPos.getX(), newCz = controllerPos.getZ();
         // Skip rotation for SOUTH (player faces NORTH) — test what happens raw
         if (controllerFront != net.minecraft.core.Direction.NORTH) {
-            // Single-pass: compute all rotated positions into a list
             java.util.List<int[]> rotData = new java.util.ArrayList<>();
             int rMinX = 0, rMaxX = 0, rMinZ = 0, rMaxZ = 0;
             for (int y = 0; y < sizeY; y++)
@@ -272,7 +261,6 @@ public class MultiblockScannerItem extends AnimatedItem {
                 newCx, controllerPos.getY(), newCz,
                 layers, definitions);
 
-        // Register
         String name = "scanned_" + System.currentTimeMillis() % 100000;
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath("eecore", name);
         MultiBlockRegistry.registerLocal(player.getUUID(), id, pattern);
@@ -298,8 +286,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         };
     }
 
-    // ===== Clear =====
-
     private void clearSelections(ItemStack stack, Player player) {
         CompoundTag tag = getTag(stack);
         boolean had = tag.contains("pos1") || tag.contains("pos2") || tag.contains("controllers");
@@ -313,8 +299,6 @@ public class MultiblockScannerItem extends AnimatedItem {
                     Component.translatable("eecore.scanner.cleared").withStyle(ChatFormatting.GRAY), true);
         }
     }
-
-    // ===== NBT helpers =====
 
     private CompoundTag getTag(ItemStack stack) {
         CustomData cd = stack.get(DataComponents.CUSTOM_DATA);
@@ -332,24 +316,19 @@ public class MultiblockScannerItem extends AnimatedItem {
         return new BlockPos(arr[0], arr[1], arr[2]);
     }
 
-    // ===== Tooltip (extends AnimatedItem base) =====
-
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext ctx,
                                 List<Component> tooltip, TooltipFlag flag) {
-        // Animated title
         String titleKey = this.titleKey != null ? this.titleKey : getDescriptionId();
         String title = Component.translatable(titleKey).getString();
         tooltip.add(animation.titleRenderer().apply(title));
         tooltip.add(Component.empty());
 
-        // Extra lines from animation config
         for (String key : animation.extraLines()) {
             if (key != null && !key.isEmpty())
                 tooltip.add(Component.translatable(key));
         }
 
-        // Marked positions
         CompoundTag tag = getTag(stack);
         BlockPos p1 = getPos(tag, "pos1");
         BlockPos p2 = getPos(tag, "pos2");
@@ -367,8 +346,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         tooltip.add(Component.empty());
         tooltip.add(animation.authorRenderer().apply("eecore.item.author"));
     }
-
-    // ===== Getters for renderer =====
 
     public static BlockPos getPos1(ItemStack stack) {
         CustomData cd = stack.get(DataComponents.CUSTOM_DATA);

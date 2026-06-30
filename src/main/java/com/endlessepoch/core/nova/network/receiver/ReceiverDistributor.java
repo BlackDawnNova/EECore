@@ -29,7 +29,7 @@ public final class ReceiverDistributor {
             for (int dy = -range; dy <= range; dy++) {
                 for (int dz = -range; dz <= range; dz++) {
                     if (dx * dx + dy * dy + dz * dz > range2) continue;
-                    if (!buffer.hasEnergy()) return; // Stop if buffer empty
+                    if (!buffer.hasEnergy()) return;
 
                     scanPos.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
                     if (!level.isLoaded(scanPos)) continue;
@@ -42,7 +42,6 @@ public final class ReceiverDistributor {
                     if (target == null) continue;
                     if (target.getMaxInput().isZero()) continue;
 
-                    // Extract from buffer and push to machine
                     EnergyPacket toSend = buffer.extract(tier, true);
                     if (toSend == null || toSend.isEmpty()) continue;
 
@@ -51,7 +50,6 @@ public final class ReceiverDistributor {
 
                     EnergyPacket accepted = target.receivePacket(toSend, false);
                     if (accepted == null || accepted.isEmpty()) {
-                        // Refund: machine didn't take it, put back
                         buffer.receive(toSend, false);
                     }
                 }

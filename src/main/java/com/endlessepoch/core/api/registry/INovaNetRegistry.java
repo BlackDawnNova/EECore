@@ -13,14 +13,17 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
+ * NovaNet 中央注册表 —— 所有网络模块的可插拔策略模式。
  * NovaNet central registry — pluggable strategy pattern for all network modules.
+ * <p>
+ * EECore 提供默认实现。其他模组可在 {@code EnergySystemInitEvent} 期间
+ * 注册自己的提供者来替换任意模块。
  * <p>
  * EECore provides default implementations. Other mods replace any module
  * by registering their own provider during {@code EnergySystemInitEvent}.
  */
 public interface INovaNetRegistry {
 
-    // ===== Node management =====
     void registerNode(INovaNode node);
     void unregisterNode(INovaNode node);
     Optional<INovaNode> getNode(UUID nodeId);
@@ -28,7 +31,6 @@ public interface INovaNetRegistry {
     Set<INovaNode> getAllNodes();
     Set<INovaNode> getNodesInRange(BlockPos center, int radius);
 
-    // ===== Strategy providers =====
     void registerSecurityProvider(IEnergySecurityProvider provider);
     IEnergySecurityProvider getSecurityProvider();
 
@@ -41,7 +43,6 @@ public interface INovaNetRegistry {
     void registerTeamProvider(ITeamProvider provider);
     ITeamProvider getTeamProvider();
 
-    // ===== Component system =====
     void registerComponent(IComponent component);
     Optional<IComponent> getComponent(String componentId);
     Set<IComponent> getComponents(Class<? extends IComponent> type);

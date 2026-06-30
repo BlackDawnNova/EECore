@@ -5,7 +5,6 @@ import net.neoforged.api.distmarker.OnlyIn;
 
 @OnlyIn(Dist.CLIENT)
 public class CyberGUIStyle {
-    // 基础颜色
     public final int bgDark;
     public final int border;
     public final int borderGlow;

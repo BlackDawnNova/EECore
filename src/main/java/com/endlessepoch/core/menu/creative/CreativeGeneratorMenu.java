@@ -52,7 +52,6 @@ public class CreativeGeneratorMenu extends AbstractContainerMenu {
         }
     }
 
-    // ===== 服务端操作方法 =====
     public void toggleOutput() { if (be != null) be.toggleOutput(); }
     public void setTier(VoltageTier tier) { if (be != null) be.setTier(tier); }
     public void resetToLV() { if (be != null) be.resetToLV(); }

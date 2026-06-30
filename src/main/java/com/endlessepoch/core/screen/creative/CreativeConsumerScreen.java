@@ -57,14 +57,12 @@ public class CreativeConsumerScreen extends CreativeMachineScreen<CreativeConsum
         ));
     }
 
-    // ---- helpers ----
 
     private void clickButton(int id) {
         if (this.minecraft != null && this.minecraft.gameMode != null)
             this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, id);
     }
 
-    // ---- renders ----
 
     @Override
     protected void renderMainInfo(GuiGraphics g) {

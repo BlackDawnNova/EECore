@@ -15,10 +15,6 @@ public final class AnimatedText {
 
     private AnimatedText() {}
 
-    // ============================================================
-    //  Preset animations (use these for quick setup)
-    // ============================================================
-
     /** Rainbow wave: default speed. */
     public static MutableComponent rainbow(String text) {
         return rainbow(text, 20, 10, 1f, 0.7f);
@@ -50,10 +46,6 @@ public final class AnimatedText {
     public static MutableComponent blink(String text) {
         return blink(text, 400, 0x00FF88, 0x006633);
     }
-
-    // ============================================================
-    //  Parameterized versions (other mods control everything)
-    // ============================================================
 
     /**
      * Full-control rainbow wave.
@@ -104,10 +96,6 @@ public final class AnimatedText {
         return Component.literal(text).withStyle(s -> s.withColor(color));
     }
 
-    // ============================================================
-    //  Totally custom — other mods define their own color logic
-    // ============================================================
-
     /**
      * Per-character custom color provider.
      * @param text     the text
@@ -123,10 +111,6 @@ public final class AnimatedText {
         }
         return out;
     }
-
-    // ============================================================
-    //  Utilities
-    // ============================================================
 
     /** Static gradient from start color to end color across the text. */
     public static MutableComponent gradient(String text, int fromColor, int toColor) {
@@ -159,8 +143,6 @@ public final class AnimatedText {
     public static MutableComponent bold(String text) {
         return Component.literal(text).withStyle(ChatFormatting.BOLD);
     }
-
-    // Color utils
 
     private static int lerpColor(int c1, int c2, float f) {
         f = Math.max(0, Math.min(1, f));

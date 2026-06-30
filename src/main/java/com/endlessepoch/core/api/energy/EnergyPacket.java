@@ -7,23 +7,28 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * Ω Energy Packet.
+ * <p>
+ * Energy data packet containing voltage tier, amperage (A), and energy (Ω).
+ * Used for energy transfer between machines, supporting step-down, splitting, and merging.
+ * <p>
  * Ω 能量数据包。
  * <p>
  * 包含电压等级、电流（A）和能量（Ω）三个核心属性。
  * 在机器之间传输能量时使用，支持降压、分割、合并等操作。
  *
- * <p><b>关键公式：</b>
+ * <p><b>Key Formulas / 关键公式：</b>
  * <ul>
- *   <li>功率（Ω/t）= 电压 × 电流</li>
- *   <li>能量（Ω）= 功率 × tick 数（由创建者指定）</li>
- *   <li>降级后：功率守恒（电压↓ 电流↑），能量按损耗因子衰减</li>
+ *   <li>Power (Ω/t) = Voltage × Current / 功率（Ω/t）= 电压 × 电流</li>
+ *   <li>Energy (Ω) = Power × ticks (specified by creator) / 能量（Ω）= 功率 × tick 数（由创建者指定）</li>
+ *   <li>After step-down: power conserved (voltage↓ current↑), energy attenuated by loss factor / 降级后：功率守恒（电压↓ 电流↑），能量按损耗因子衰减</li>
  * </ul>
  *
  * <pre>{@code
- * // 创建一个 LV 级 1A 能量包（能量 50 Ω）
+ * // Create an LV 1A energy packet with 50 Ω energy
  * EnergyPacket pkt = new EnergyPacket(VoltageTier.LV, 1, 50);
  *
- * // 降级到 ELV（损耗按全局配置，默认 0.8/级）
+ * // Step down to ELV (loss per global config, default 0.8/step)
  * EnergyPacket stepped = pkt.stepDownTo(VoltageTier.ELV);
  * }</pre>
  */
@@ -56,7 +61,6 @@ public class EnergyPacket {
     private final BigInteger amperage;
     private final OmegaValue energy;
 
-    // ===== 构造方法 =====
     public EnergyPacket(VoltageTier tier, BigInteger amperage, OmegaValue energy) {
         this.tier = tier;
         this.amperage = amperage != null && amperage.signum() > 0 ? amperage : BigInteger.ONE;
@@ -79,13 +83,11 @@ public class EnergyPacket {
         this(tier, BigInteger.ONE, OmegaValue.of(energy));
     }
 
-    // ===== Getters =====
     public VoltageTier getTier() { return tier; }
     public BigInteger getAmperage() { return amperage; }
     public OmegaValue getEnergy() { return energy; }
     public boolean isEmpty() { return energy.isZero(); }
 
-    // ===== 功率计算（全部返回 BigInteger） =====
     public BigInteger getVoltage() { return tier.getMinVoltage(); }
 
     public BigInteger getPowerPerTick() {
@@ -96,7 +98,6 @@ public class EnergyPacket {
         return getPowerPerTick().multiply(BigInteger.valueOf(20));
     }
 
-    // ===== 电压匹配 =====
     public boolean canBeReceivedBy(VoltageTier machineTier) {
         return tier.getMinVoltage().compareTo(machineTier.getMinVoltage()) <= 0;
     }
@@ -105,7 +106,6 @@ public class EnergyPacket {
         return tier.getMinVoltage().compareTo(maxVoltage) <= 0;
     }
 
-    // ===== 降级 =====
     public EnergyPacket stepDownTo(VoltageTier targetTier) {
         if (targetTier.getMinVoltage().compareTo(tier.getMinVoltage()) >= 0) return this;
 
@@ -119,9 +119,7 @@ public class EnergyPacket {
         int steps = tier.ordinal() - targetTier.ordinal();
         OmegaValue currentEnergy = energy;
         if (lossPerStep == 1.0) {
-            // 无损耗：直接使用原始能量
         } else if (lossPerStep == 0.0) {
-            // 全损耗：能量归零
             currentEnergy = OmegaValue.zero();
         } else {
             // 有理数精度：将 lossPerStep 转为分子/分母（分母固定 100）
@@ -135,7 +133,6 @@ public class EnergyPacket {
         return new EnergyPacket(targetTier, newAmperage, currentEnergy);
     }
 
-    // ===== 分割 =====
     public List<EnergyPacket> split(int count) {
         if (count <= 1) return List.of(this);
         OmegaValue perPacket = energy.divide(count);
@@ -148,7 +145,6 @@ public class EnergyPacket {
         return result;
     }
 
-    // ===== 合并 =====
     public static EnergyPacket merge(List<EnergyPacket> packets) {
         if (packets.isEmpty()) {
             return new EnergyPacket(VoltageTier.ELV, BigInteger.ONE, OmegaValue.zero());
@@ -163,7 +159,6 @@ public class EnergyPacket {
         return new EnergyPacket(firstTier, firstAmperage, total);
     }
 
-    // ===== FE 换算（BigInteger 版本，推荐） =====
     public BigInteger getFEBigInteger() {
         return EnergyUnit.FE.convertFromOmega(energy.toBigInteger());
     }
@@ -176,7 +171,6 @@ public class EnergyPacket {
         return EnergyUnit.FE.convertFromOmega(getPowerPerSecond());
     }
 
-    // ===== FE 换算（long 版本，已废弃） =====
     /**
      * @deprecated 大数值会溢出。使用 {@link #getFEBigInteger()}.
      */
@@ -201,7 +195,6 @@ public class EnergyPacket {
         return getFEPerSecondBigInteger().longValue();
     }
 
-    // ===== 显示 =====
     @Override
     public String toString() {
         return energy.toDisplayString() + " @ " + tier.getShortName() + " " + amperage + "A";

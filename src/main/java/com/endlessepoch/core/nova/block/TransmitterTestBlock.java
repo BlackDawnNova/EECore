@@ -52,7 +52,6 @@ public class TransmitterTestBlock extends Block implements EntityBlock {
         if (!(be instanceof TransmitterBlockEntity tx)) return InteractionResult.PASS;
 
         if (player.isShiftKeyDown()) {
-            // Shift + empty hand = try form
             if (level.isClientSide()) return InteractionResult.SUCCESS;
 
             var patterns = MultiBlockRegistry.getAll(player.getUUID());
@@ -72,7 +71,6 @@ public class TransmitterTestBlock extends Block implements EntityBlock {
             return InteractionResult.SUCCESS;
         }
 
-        // Normal right-click = open GUI / show info
         if (!level.isClientSide()) {
             player.sendSystemMessage(Component.literal(
                     "NovaNet Transmitter | Tier: " + tx.getTier().getShortName()
