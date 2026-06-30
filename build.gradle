@@ -36,7 +36,18 @@ neoForge {
     runs {
         client {
             client()
-
+            programArguments = [
+                    "--enable-native-access=ALL",
+                    "--width",
+                    "2560",
+                    "--height",
+                    "1440",
+                    "--username",
+                    "blackdawn",
+                    "--quickPlaySinglePlayer",
+                    "新的世界"
+            ]
+            gameDirectory = project.file('run')
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }

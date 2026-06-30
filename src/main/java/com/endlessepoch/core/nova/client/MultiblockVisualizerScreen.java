@@ -3,18 +3,27 @@ package com.endlessepoch.core.nova.client;
 import com.endlessepoch.core.api.multiblock.MultiBlockPattern;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderStateShard;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
+import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import java.util.*;
@@ -25,6 +34,25 @@ import java.util.*;
  */
 @OnlyIn(Dist.CLIENT)
 public class MultiblockVisualizerScreen extends Screen {
+
+    private record PickRay(Vector3f start, Vector3f direction) {}
+
+    private static final RenderType HIGHLIGHT_LINES = RenderType.create(
+            "eecore_visualizer_highlight_lines",
+            DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.DEBUG_LINES,
+            1536,
+            false,
+            false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
+                    .setLineState(new RenderStateShard.LineStateShard(OptionalDouble.of(3.5)))
+                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(RenderStateShard.LEQUAL_DEPTH_TEST)
+                    .setWriteMaskState(RenderStateShard.COLOR_DEPTH_WRITE)
+                    .setCullState(RenderStateShard.NO_CULL)
+                    .createCompositeState(false)
+    );
 
     private final List<Map.Entry<ResourceLocation, MultiBlockPattern>> patterns;
     private int selectedIndex;
@@ -50,16 +78,30 @@ public class MultiblockVisualizerScreen extends Screen {
     private static final long PICK_INFO_DURATION_MS = 15000;
 
     // Pick temp data (used during the render loop, not persisted between frames)
-    private double bestPickDistSq;
+    private double bestPickRayT;
     private BlockPos bestPickPos;
     private BlockState bestPickState;
 
     private boolean immersive() { return userZoom > 3f; }
 
     public MultiblockVisualizerScreen() {
+        this(null);
+    }
+
+    public MultiblockVisualizerScreen(ResourceLocation selectedPatternId) {
         super(Component.translatable("eecore.visualizer.title"));
         this.patterns = new ArrayList<>(MultiBlockRegistry.getAll().entrySet());
-        this.selectedIndex = patterns.isEmpty() ? -1 : 0;
+        this.selectedIndex = findPatternIndex(selectedPatternId);
+    }
+
+    private int findPatternIndex(ResourceLocation patternId) {
+        if (patterns.isEmpty()) return -1;
+        if (patternId == null) return 0;
+
+        for (int i = 0; i < patterns.size(); i++) {
+            if (patterns.get(i).getKey().equals(patternId)) return i;
+        }
+        return 0;
     }
 
     // ================================================================
@@ -179,21 +221,28 @@ public class MultiblockVisualizerScreen extends Screen {
         RenderSystem.enableDepthTest();
         PoseStack model = new PoseStack();
         model.translate(renderL + rw / 2f, renderT + rh / 2f, 0);
-        model.last().pose().mul(new org.joml.Matrix4f().setOrtho(-rw/2f, rw/2f, -rh/2f, rh/2f, 100f, 4000f));
+        Matrix4f projection = new Matrix4f().setOrtho(-rw / 2f, rw / 2f, -rh / 2f, rh / 2f, 100f, 4000f);
+        model.mulPose(projection);
         model.translate(0, 0, -cameraDist);
         model.mulPose(new Quaternionf().rotateX((float) Math.toRadians(-rotX)));
         model.mulPose(new Quaternionf().rotateY((float) Math.toRadians(rotY)));
         model.scale(blockPx, blockPx, blockPx);
         model.translate(-pat.width*0.5f, -pat.height*0.5f, -pat.depth*0.5f);
+        Matrix4f patternToScreen = new Matrix4f(model.last().pose());
 
         var renderer = Minecraft.getInstance().getBlockRenderer();
         var buf = Minecraft.getInstance().renderBuffers().bufferSource();
 
         // Reset pick tracking for this frame
+        Vector3f pickRayStart = null;
+        Vector3f pickRayDirection = null;
         if (pendingPick) {
-            bestPickDistSq = Double.MAX_VALUE;
+            bestPickRayT = Double.MAX_VALUE;
             bestPickPos = null;
             bestPickState = null;
+            PickRay pickRay = createPickRay(patternToScreen, pendingPickMx, pendingPickMy, pat.width, pat.height, pat.depth);
+            pickRayStart = pickRay.start();
+            pickRayDirection = pickRay.direction();
         }
 
         for (int y = 0; y < pat.height; y++)
@@ -210,56 +259,15 @@ public class MultiblockVisualizerScreen extends Screen {
                     model.pushPose();
                     model.translate(x, y, z);
 
-                    // === INLINE PICK: 8-corner 2D bbox + center distance ===
+                    // Pick the nearest block hit by the mouse ray in pattern-local space.
                     if (pendingPick) {
-                        // Project all 8 corners to get screen-space bounding box
-                        float minSx = Float.MAX_VALUE, maxSx = -Float.MAX_VALUE;
-                        float minSy = Float.MAX_VALUE, maxSy = -Float.MAX_VALUE;
-                        float cx = 0, cy = 0;
-                        Vector4f tmp2 = new Vector4f();
-                        for (int ci = 0; ci < 8; ci++) {
-                            float ox = (ci & 1) != 0 ? 1f : 0f;
-                            float oy = (ci & 2) != 0 ? 1f : 0f;
-                            float oz = (ci & 4) != 0 ? 1f : 0f;
-                            tmp2.set(ox, oy, oz, 1f);
-                            tmp2.mul(model.last().pose());
-                            float sx = tmp2.x;
-                            float sy = tmp2.y;
-                            if (ci == 7) { cx = sx; cy = sy; } // last corner ≈ center-ish
-                            if (sx < minSx) minSx = sx;
-                            if (sx > maxSx) maxSx = sx;
-                            if (sy < minSy) minSy = sy;
-                            if (sy > maxSy) maxSy = sy;
+                        double hit = intersectRayAabb(pickRayStart, pickRayDirection,
+                                x, y, z, x + 1, y + 1, z + 1);
+                        if (hit >= 0 && hit < bestPickRayT) {
+                            bestPickRayT = hit;
+                            bestPickPos = new BlockPos(x, y, z);
+                            bestPickState = st;
                         }
-                        // Get actual center for better accuracy
-                        tmp2.set(0.5f, 0.5f, 0.5f, 1f);
-                        tmp2.mul(model.last().pose());
-                        cx = tmp2.x; cy = tmp2.y;
-                        // Check if click is inside the 2D bbox (with 2px margin)
-                        float margin = 2f;
-                        if (pendingPickMx >= minSx - margin && pendingPickMx <= maxSx + margin
-                                && pendingPickMy >= minSy - margin && pendingPickMy <= maxSy + margin) {
-                            float ddx = pendingPickMx - cx;
-                            float ddy = pendingPickMy - cy;
-                            double distSq = ddx * ddx + ddy * ddy;
-                            // Among overlapping blocks, pick the one with closest center
-                            if (distSq < bestPickDistSq) {
-                                bestPickDistSq = distSq;
-                                bestPickPos = new BlockPos(x, y, z);
-                                bestPickState = st;
-                            }
-                        }
-                    }
-
-                    // Highlight picked block with gray-white gradient wireframe
-                    if (pickResult != null && x == pickResult.getX() && y == pickResult.getY() && z == pickResult.getZ()) {
-                        var hlVc = buf.getBuffer(net.minecraft.client.renderer.RenderType.lines());
-                        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(0, 0, 0, 1, 1, 1);
-                        float pulse = (float)(Math.sin(System.currentTimeMillis() * 0.003) * 0.15 + 0.75);
-                        net.minecraft.client.renderer.LevelRenderer.renderLineBox(model, hlVc, box, pulse, pulse, pulse, 0.9f);
-                        // Second pass: brighter outer glow
-                        net.minecraft.world.phys.AABB glow = new net.minecraft.world.phys.AABB(-0.03, -0.03, -0.03, 1.03, 1.03, 1.03);
-                        net.minecraft.client.renderer.LevelRenderer.renderLineBox(model, hlVc, glow, pulse * 0.6f, pulse * 0.6f, pulse * 0.6f, 0.4f);
                     }
 
                     renderer.renderSingleBlock(st, model, buf, 0xF000F0, OverlayTexture.NO_OVERLAY);
@@ -278,10 +286,122 @@ public class MultiblockVisualizerScreen extends Screen {
         }
 
         buf.endBatch();
+        renderPickedBlockHighlight(model, buf);
         RenderSystem.disableDepthTest();
         if (!immersive()) drawRenderBorder(g);
 
         g.drawString(font, Component.translatable("eecore.visualizer.controller_label"), renderL + 4, renderT + 4, 0xFFFFFF);
+    }
+
+    private void renderPickedBlockHighlight(PoseStack model, net.minecraft.client.renderer.MultiBufferSource.BufferSource buf) {
+        if (pickResult == null || pickBlockState == null || cachedScene == null) return;
+
+        model.pushPose();
+        model.translate(pickResult.getX(), pickResult.getY(), pickResult.getZ());
+
+        VertexConsumer hlVc = buf.getBuffer(HIGHLIGHT_LINES);
+        var shape = pickBlockState.getShape(cachedScene, pickResult, CollisionContext.empty());
+        float pulse = (float)(Math.sin(System.currentTimeMillis() * 0.003) * 0.15 + 0.75);
+        for (AABB box : shape.toAabbs()) {
+            renderDebugLineBox(model.last(), hlVc, box, pulse, pulse, pulse, 0.9f);
+        }
+
+        model.popPose();
+        buf.endBatch(HIGHLIGHT_LINES);
+    }
+
+    private static void renderDebugLineBox(PoseStack.Pose pose, VertexConsumer consumer, AABB box,
+                                           float red, float green, float blue, float alpha) {
+        addLine(pose, consumer, box.minX, box.minY, box.minZ, box.maxX, box.minY, box.minZ, red, green, blue, alpha);
+        addLine(pose, consumer, box.maxX, box.minY, box.minZ, box.maxX, box.minY, box.maxZ, red, green, blue, alpha);
+        addLine(pose, consumer, box.maxX, box.minY, box.maxZ, box.minX, box.minY, box.maxZ, red, green, blue, alpha);
+        addLine(pose, consumer, box.minX, box.minY, box.maxZ, box.minX, box.minY, box.minZ, red, green, blue, alpha);
+
+        addLine(pose, consumer, box.minX, box.maxY, box.minZ, box.maxX, box.maxY, box.minZ, red, green, blue, alpha);
+        addLine(pose, consumer, box.maxX, box.maxY, box.minZ, box.maxX, box.maxY, box.maxZ, red, green, blue, alpha);
+        addLine(pose, consumer, box.maxX, box.maxY, box.maxZ, box.minX, box.maxY, box.maxZ, red, green, blue, alpha);
+        addLine(pose, consumer, box.minX, box.maxY, box.maxZ, box.minX, box.maxY, box.minZ, red, green, blue, alpha);
+
+        addLine(pose, consumer, box.minX, box.minY, box.minZ, box.minX, box.maxY, box.minZ, red, green, blue, alpha);
+        addLine(pose, consumer, box.maxX, box.minY, box.minZ, box.maxX, box.maxY, box.minZ, red, green, blue, alpha);
+        addLine(pose, consumer, box.maxX, box.minY, box.maxZ, box.maxX, box.maxY, box.maxZ, red, green, blue, alpha);
+        addLine(pose, consumer, box.minX, box.minY, box.maxZ, box.minX, box.maxY, box.maxZ, red, green, blue, alpha);
+    }
+
+    private static void addLine(PoseStack.Pose pose, VertexConsumer consumer,
+                                double x1, double y1, double z1,
+                                double x2, double y2, double z2,
+                                float red, float green, float blue, float alpha) {
+        consumer.addVertex(pose, (float)x1, (float)y1, (float)z1).setColor(red, green, blue, alpha);
+        consumer.addVertex(pose, (float)x2, (float)y2, (float)z2).setColor(red, green, blue, alpha);
+    }
+
+    private static PickRay createPickRay(Matrix4f patternToScreen, int mouseX, int mouseY,
+                                         int width, int height, int depth) {
+        float[] depthRange = projectedDepthRange(patternToScreen, width, height, depth);
+        float backDepth = depthRange[0] - 1f;
+        float frontDepth = depthRange[1] + 1f;
+        Matrix4f screenToPattern = new Matrix4f(patternToScreen).invert();
+
+        Vector3f rayStart = unproject(mouseX, mouseY, frontDepth, screenToPattern);
+        Vector3f rayEnd = unproject(mouseX, mouseY, backDepth, screenToPattern);
+        return new PickRay(
+                rayStart,
+                new Vector3f(rayEnd.x - rayStart.x, rayEnd.y - rayStart.y, rayEnd.z - rayStart.z)
+        );
+    }
+
+    private static Vector3f unproject(int screenX, int screenY, float screenZ, Matrix4f screenToPattern) {
+        Vector4f point = new Vector4f(screenX, screenY, screenZ, 1f).mul(screenToPattern);
+        point.div(point.w);
+        return new Vector3f(point.x, point.y, point.z);
+    }
+
+    private static float[] projectedDepthRange(Matrix4f matrix, int width, int height, int depth) {
+        float minZ = Float.MAX_VALUE;
+        float maxZ = -Float.MAX_VALUE;
+        Vector4f corner = new Vector4f();
+        for (int i = 0; i < 8; i++) {
+            corner.set((i & 1) == 0 ? 0 : width,
+                    (i & 2) == 0 ? 0 : height,
+                    (i & 4) == 0 ? 0 : depth,
+                    1f).mul(matrix);
+            minZ = Math.min(minZ, corner.z);
+            maxZ = Math.max(maxZ, corner.z);
+        }
+        return new float[]{minZ, maxZ};
+    }
+
+    private static double intersectRayAabb(Vector3f origin, Vector3f direction,
+                                           double minX, double minY, double minZ,
+                                           double maxX, double maxY, double maxZ) {
+        double tMin = 0;
+        double tMax = 1;
+        double[] mins = {minX, minY, minZ};
+        double[] maxs = {maxX, maxY, maxZ};
+        double[] o = {origin.x, origin.y, origin.z};
+        double[] d = {direction.x, direction.y, direction.z};
+
+        for (int axis = 0; axis < 3; axis++) {
+            if (Math.abs(d[axis]) < 1.0E-7) {
+                if (o[axis] < mins[axis] || o[axis] > maxs[axis]) return -1;
+                continue;
+            }
+
+            double inv = 1.0 / d[axis];
+            double near = (mins[axis] - o[axis]) * inv;
+            double far = (maxs[axis] - o[axis]) * inv;
+            if (near > far) {
+                double tmp = near;
+                near = far;
+                far = tmp;
+            }
+            tMin = Math.max(tMin, near);
+            tMax = Math.min(tMax, far);
+            if (tMin > tMax) return -1;
+        }
+
+        return tMin;
     }
 
     private void drawRenderBorder(GuiGraphics g) {

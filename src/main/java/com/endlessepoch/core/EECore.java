@@ -4,7 +4,10 @@ import com.endlessepoch.core.api.EECoreCapabilities;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
 import com.endlessepoch.core.api.registry.NovaNetRegistry;
 import com.endlessepoch.core.api.tier.VoltageTier;
+import com.endlessepoch.core.command.EECoreCommands;
+import com.endlessepoch.core.nova.client.ClientPacketHandlers;
 import com.endlessepoch.core.nova.network.node.NovaNodeRegistration;
+import com.endlessepoch.core.network.OpenMbVisPacket;
 import com.endlessepoch.core.network.SyncConsumerPacket;
 import com.endlessepoch.core.network.SyncGeneratorPacket;
 import com.endlessepoch.core.network.SyncPatternPacket;
@@ -26,6 +29,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -75,6 +79,7 @@ public class EECore {
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::registerCapabilities);
         modEventBus.addListener(this::registerPayloadHandlers);
+        NeoForge.EVENT_BUS.addListener(EECoreCommands::onRegisterCommands);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
@@ -155,6 +160,12 @@ public class EECore {
                         );
                     });
                 }
+        );
+
+        registrar.playToClient(
+                OpenMbVisPacket.TYPE,
+                OpenMbVisPacket.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> ClientPacketHandlers.openMbVis(payload))
         );
     }
 }
