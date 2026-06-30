@@ -18,12 +18,14 @@ public class CreativeConsumerScreen extends CreativeMachineScreen<CreativeConsum
     @Override
     protected void createMainButtons(int startX, int cy) {
         CreativeConsumerBlockEntity be = getMenu().getBlockEntity();
-        if (be == null) return;
 
         cyberButtons.add(new CyberButton(
                 startX, cy + BUTTON_Y, BUTTON_W, BUTTON_H,
                 Component.translatable("eecore.gui.consumer.clear").getString(),
-                () -> getMenu().clearAll()
+                () -> {
+                    if (be != null) be.clearAll();
+                    clickButton(0);
+                }
         ));
 
         cyberButtons.add(new CyberButton(
@@ -34,21 +36,35 @@ public class CreativeConsumerScreen extends CreativeMachineScreen<CreativeConsum
                             ? Component.translatable("eecore.gui.consumer.auto").getString()
                             : Component.translatable("eecore.gui.consumer.manual").getString();
                 },
-                () -> getMenu().toggleAutoMode()
+                () -> {
+                    CreativeConsumerBlockEntity b = getMenu().getBlockEntity();
+                    if (b != null) b.toggleAutoMode();
+                    clickButton(1);
+                }
         ));
 
         cyberButtons.add(new CyberButton(
                 startX + 2 * (BUTTON_W + BUTTON_GAP), cy + BUTTON_Y, BUTTON_W, BUTTON_H,
                 () -> {
                     CreativeConsumerBlockEntity b = getMenu().getBlockEntity();
-                    return b != null && b.isLogToChat() ? "ON" : "OFF";
+                    return b != null && b.isLogToChat() ? "显示" : "隐藏";
                 },
                 () -> {
                     CreativeConsumerBlockEntity b = getMenu().getBlockEntity();
-                    if (b != null) getMenu().setLogToChat(!b.isLogToChat());
+                    if (b != null) b.setLogToChat(!b.isLogToChat());
+                    clickButton(2);
                 }
         ));
     }
+
+    // ---- helpers ----
+
+    private void clickButton(int id) {
+        if (this.minecraft != null && this.minecraft.gameMode != null)
+            this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, id);
+    }
+
+    // ---- renders ----
 
     @Override
     protected void renderMainInfo(GuiGraphics g) {
@@ -71,12 +87,12 @@ public class CreativeConsumerScreen extends CreativeMachineScreen<CreativeConsum
             Component text = Component.translatable("eecore.gui.auto_adapt");
             int tw = font.width(text);
             int tx = leftPos + (imageWidth - tw) / 2;
-            g.drawString(font, text, tx, topPos + 34, style.textSecondary, false);
+            g.drawString(font, text, tx, topPos + 32, style.textSecondary, false);
         } else {
             String tierText = be.getManualTier().getShortName();
             int tw = font.width(tierText);
             int tx = leftPos + (imageWidth - tw) / 2;
-            g.drawString(font, tierText, tx, topPos + 34, style.textPrimary, false);
+            g.drawString(font, tierText, tx, topPos + 32, style.textPrimary, false);
         }
     }
 
@@ -103,7 +119,10 @@ public class CreativeConsumerScreen extends CreativeMachineScreen<CreativeConsum
         if (be != null && !be.isAutoMode()) {
             VoltageTier current = be.getManualTier();
             VoltageTier prev = current.prev();
-            if (prev != current && prev != VoltageTier.ELV) getMenu().setManualTier(prev);
+            if (prev != current && prev != VoltageTier.ELV) {
+                getMenu().setManualTier(prev); // local prediction
+                clickButton(50);
+            }
         }
     }
 
@@ -113,7 +132,10 @@ public class CreativeConsumerScreen extends CreativeMachineScreen<CreativeConsum
         if (be != null && !be.isAutoMode()) {
             VoltageTier current = be.getManualTier();
             VoltageTier next = current.next();
-            if (next != current) getMenu().setManualTier(next);
+            if (next != current) {
+                getMenu().setManualTier(next); // local prediction
+                clickButton(51);
+            }
         }
     }
 }

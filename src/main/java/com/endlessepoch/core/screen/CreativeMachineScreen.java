@@ -2,18 +2,15 @@ package com.endlessepoch.core.screen;
 
 import com.endlessepoch.core.gui.CyberButton;
 import com.endlessepoch.core.gui.CyberGUIStyle;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
 
 public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> extends AbstractContainerScreen<T> {
 
@@ -26,13 +23,14 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
     protected static final int BUTTON_H = 16;
     protected static final int BUTTON_GAP = 4;
     protected static final int ARROW_SIZE = 16;
-    protected static final int RAIN_COUNT = 16;
+
+    protected static final int RAIN_COLUMNS = 8;
 
     protected CyberGUIStyle style = CyberGUIStyle.GREEN;
 
-    protected final Random random = new Random();
-    protected final List<RainChar> rainChars = new ArrayList<>();
-    protected long lastRainUpdate = 0;
+    // Matrix rain (initialized in init())
+    private MatrixRain[] rainStreams;
+    protected long lastRainTick = 0;
 
     protected long lastBlinkTime = 0;
     protected boolean blinkState = true;
@@ -71,11 +69,13 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         int cx = (this.width - this.imageWidth) / 2;
         int cy = (this.height - this.imageHeight) / 2;
 
-        rainChars.clear();
-        for (int i = 0; i < RAIN_COUNT; i++) {
-            rainChars.add(new RainChar());
-        }
         lastBlinkTime = System.currentTimeMillis();
+
+        // Init Matrix rain — one stream per column, evenly spaced
+        rainStreams = new MatrixRain[RAIN_COLUMNS];
+        for (int i = 0; i < RAIN_COLUMNS; i++) {
+            rainStreams[i] = new MatrixRain(i, RAIN_COLUMNS);
+        }
 
         int startX = cx + 24;
         createMainButtons(startX, cy);
@@ -147,8 +147,8 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         g.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, style.bgDark);
 
         updateRain();
-        for (RainChar rc : rainChars) {
-            rc.render(g, font, leftPos, topPos, imageWidth, 65);
+        for (MatrixRain rain : rainStreams) {
+            rain.render(g, font, leftPos, topPos, imageWidth);
         }
 
         renderMainBorder(g);
@@ -259,17 +259,6 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         g.drawString(font, title, tx, sepY - 4, style.textSecondary, false);
     }
 
-    // Matrix rain
-
-    protected void updateRain() {
-        long now = System.currentTimeMillis();
-        if (now - lastRainUpdate < 40) return;
-        lastRainUpdate = now;
-        for (RainChar rc : rainChars) {
-            rc.update();
-        }
-    }
-
     protected void updateBlink() {
         long now = System.currentTimeMillis();
         if (now - lastBlinkTime > 500) {
@@ -282,10 +271,14 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            for (CyberButton btn : cyberButtons) {
-                if (btn.isMouseOver(mouseX, mouseY)) {
+        for (CyberButton btn : cyberButtons) {
+            if (btn.isMouseOver(mouseX, mouseY)) {
+                if (button == 0 && btn.action != null) {
                     btn.action.run();
+                    return true;
+                }
+                if (button == 1 && btn.rightAction != null) {
+                    btn.rightAction.run();
                     return true;
                 }
             }
@@ -296,80 +289,76 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
     @Override
     protected void renderLabels(GuiGraphics g, int mx, int my) {}
 
-    // ============================================================
-    //  数字雨字符
-    // ============================================================
+    // Matrix rain
 
-    protected class RainChar {
-        protected float x, y, speed;
-        protected String charSet;
-        protected char currentChar;
-        protected final List<Character> trail = new ArrayList<>();
-        protected int trailLength;
-        protected long lastChangeTime;
-        protected int changeInterval;
-        protected static final String BINARY = "01";
-        protected static final String TEXT = "EECORE";
+    protected void updateRain() {
+        long now = System.currentTimeMillis();
+        if (now - lastRainTick < 80) return;
+        lastRainTick = now;
+        for (MatrixRain r : rainStreams) r.tick();
+    }
 
-        public RainChar() { reset(); }
+    static class MatrixRain {
+        private final int col;
+        private float y;
+        private float speed;
+        private char[] chars;
+        private int headIdx;
+        private long lastCharChange;
 
-        protected void reset() {
-            x = random.nextInt(imageWidth - 20) + 10;
-            y = -random.nextInt(40);
-            speed = 0.5f + random.nextFloat() * 1.2f;
-            charSet = random.nextBoolean() ? BINARY : TEXT;
-            currentChar = charSet.charAt(random.nextInt(charSet.length()));
-            trailLength = 3 + random.nextInt(5);
-            trail.clear();
-            for (int i = 0; i < trailLength; i++) {
-                trail.add(charSet.charAt(random.nextInt(charSet.length())));
-            }
-            lastChangeTime = System.currentTimeMillis();
-            changeInterval = 60 + random.nextInt(100);
+        MatrixRain(int colIndex, int totalCols) {
+            this.col = colIndex;
+            this.y = -(10 * (2 + (int)(Math.random() * 8)));
+            this.speed = 1.2f + (float)Math.random() * 1.0f;
+            this.chars = new char[16 + (int)(Math.random() * 8)];
+            for (int i = 0; i < chars.length; i++) chars[i] = randomChar();
+            this.headIdx = 0;
         }
 
-        public void update() {
+        void reset(int lineH) {
+            y = -(lineH * (2 + (int)(Math.random() * 8)));
+            speed = 1.2f + (float)Math.random() * 1.0f;
+            for (int i = 0; i < chars.length; i++) chars[i] = randomChar();
+            headIdx = 0;
+        }
+
+        void tick() {
             y += speed;
             long now = System.currentTimeMillis();
-            if (now - lastChangeTime > changeInterval) {
-                for (int i = trailLength - 1; i > 0; i--) {
-                    trail.set(i, trail.get(i - 1));
-                }
-                trail.set(0, currentChar);
-                currentChar = charSet.charAt(random.nextInt(charSet.length()));
-                lastChangeTime = now;
+            if (now - lastCharChange > 250 + (int)(Math.random() * 200)) {
+                chars[headIdx] = randomChar();
+                headIdx = (headIdx + 1) % chars.length;
+                lastCharChange = now;
             }
-            if (y > 80) {
-                reset();
-                y = -random.nextInt(20);
+            if (y > 70) reset(10);
+        }
+
+        void render(GuiGraphics g, net.minecraft.client.gui.Font font, int ox, int oy, int areaW) {
+            int x = ox + 10 + col * (areaW - 20) / RAIN_COLUMNS;
+            int lines = 12;
+            for (int i = 0; i < lines; i++) {
+                float cy = y - i * (font.lineHeight + 1);
+                if (cy < 0 || cy >= 66) continue;
+                int idx = (headIdx - i + chars.length) % chars.length;
+                float t = (float) i / lines;
+                int color = fadeColor(0xFF004400, 0xFF00CC00, t);
+                if (i == 0) color = 0xFF88FF88; // head bright white-green
+                g.drawString(font, String.valueOf(chars[idx]), x, (int)(oy + cy), color, false);
             }
         }
 
-        public void render(GuiGraphics g, Font font, int ox, int oy, int areaW, int areaH) {
-            for (int i = 0; i < trailLength; i++) {
-                float cy = y - i * (font.lineHeight + 2);
-                if (cy < 0 || cy >= areaH) continue;
-                char ch = trail.get(i);
-                float norm = Math.max(0, Math.min(1, (oy + cy - oy) / (float) areaH));
-                int color = interpolateColor(0xFF004400, 0xFF00AA00, norm);
-                g.drawString(font, String.valueOf(ch), (int) (ox + x), (int) (oy + cy), color, false);
-            }
-            float curY = y - trailLength * (font.lineHeight + 2);
-            if (curY >= 0 && curY < areaH) {
-                float norm = Math.max(0, Math.min(1, (oy + curY - oy) / (float) areaH));
-                int color = interpolateColor(0xFF00FF00, 0xFF88FF88, norm);
-                g.drawString(font, String.valueOf(currentChar), (int) (ox + x), (int) (oy + curY), color, false);
-            }
+        private char randomChar() {
+            return Math.random() < 0.5 ? '0' : '1';
         }
 
-        protected int interpolateColor(int c1, int c2, float f) {
+        private int fadeColor(int c1, int c2, float f) {
             f = Math.max(0, Math.min(1, f));
             int a1 = (c1 >> 24) & 0xFF, r1 = (c1 >> 16) & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = c1 & 0xFF;
             int a2 = (c2 >> 24) & 0xFF, r2 = (c2 >> 16) & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = c2 & 0xFF;
-            return ((int) (a1 + (a2 - a1) * f) << 24) |
-                    ((int) (r1 + (r2 - r1) * f) << 16) |
-                    ((int) (g1 + (g2 - g1) * f) << 8) |
-                    (int) (b1 + (b2 - b1) * f);
+            return ((int)(a1 + (a2 - a1) * f) << 24)
+                 | ((int)(r1 + (r2 - r1) * f) << 16)
+                 | ((int)(g1 + (g2 - g1) * f) << 8)
+                 | (int)(b1 + (b2 - b1) * f);
         }
     }
 }

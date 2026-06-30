@@ -56,6 +56,27 @@ public class CreativeConsumerMenu extends AbstractContainerMenu {
     public void toggleAutoMode() { if (be != null) be.toggleAutoMode(); }
     public void setManualTier(VoltageTier tier) { if (be != null) be.setManualTier(tier); }
 
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        if (be == null) return false;
+        return switch (id) {
+            case 0 -> { be.clearAll(); yield true; }
+            case 1 -> { be.toggleAutoMode(); yield true; }
+            case 2 -> { be.setLogToChat(!be.isLogToChat()); yield true; }
+            case 50 -> {
+                VoltageTier prev = be.getManualTier().prev();
+                if (prev != be.getManualTier() && prev != VoltageTier.ELV) be.setManualTier(prev);
+                yield true;
+            }
+            case 51 -> {
+                VoltageTier next = be.getManualTier().next();
+                if (next != be.getManualTier()) be.setManualTier(next);
+                yield true;
+            }
+            default -> super.clickMenuButton(player, id);
+        };
+    }
+
     public CreativeConsumerBlockEntity getBlockEntity() { return be; }
     public Level getLevel() { return level; }
 

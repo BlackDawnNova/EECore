@@ -36,8 +36,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CreativeGeneratorBlockEntity extends BlockEntity
         implements MenuProvider, IOmegaEnergyStorage {
 
-    // ===== 核心状态 =====
+    // Core state
     private volatile VoltageTier selectedTier = VoltageTier.LV;
+    private volatile BigInteger amperage = BigInteger.ONE;
     private volatile BigInteger outputPerTick = BigInteger.valueOf(50);
     private final AtomicBoolean outputEnabled = new AtomicBoolean(true);
     private volatile boolean logToChat = false;
@@ -56,8 +57,8 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
 
     public CreativeGeneratorBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntities.CREATIVE_GENERATOR.get(), pos, state);
-        this.outputPerTick = selectedTier.getMinVoltage();
-        // 清除该位置可能的旧 pending 状态残留
+        this.outputPerTick = selectedTier.getMinVoltage().multiply(amperage);
+        // Clear stale pending state for this position
         pendingEnable.remove(pos);
         pendingTier.remove(pos);
         pendingOutput.remove(pos);
@@ -80,7 +81,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         if (!outputEnabled.get()) return;
 
         if (tickCounter % 1 == 0) {
-            EnergyPacket packet = new EnergyPacket(selectedTier, 1, OmegaValue.of(outputPerTick));
+            EnergyPacket packet = new EnergyPacket(selectedTier, amperage, OmegaValue.of(outputPerTick));
             boolean sent = false;
             for (Direction dir : Direction.values()) {
                 var neighbor = level.getBlockEntity(worldPosition.relative(dir));
@@ -116,7 +117,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
             this.outputEnabled.set(enabled);
             if (tier != null) {
                 this.selectedTier = tier;
-                this.outputPerTick = tier.getMinVoltage();
+                this.outputPerTick = tier.getMinVoltage().multiply(amperage);
             }
             if (outputStr != null) {
                 try {
@@ -147,6 +148,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
                 worldPosition,
                 selectedTier.getShortName(),
                 outputPerTick,
+                amperage,
                 outputEnabled.get()
         );
 
@@ -161,6 +163,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
     public void updateFromSync(SyncGeneratorPacket packet) {
         this.selectedTier = VoltageTier.fromShortName(packet.tierName());
         this.outputPerTick = packet.output();
+        this.amperage = packet.amperage();
         this.outputEnabled.set(packet.enabled());
         setChanged();
         if (level != null && level.isClientSide()) {
@@ -185,7 +188,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
             return;
         }
         this.selectedTier = tier;
-        this.outputPerTick = tier.getMinVoltage();
+        this.outputPerTick = tier.getMinVoltage().multiply(amperage);
         addLog(Component.translatable("eecore.generator.log.power_set",
                 tier.getShortName(), outputPerTick.toString()));
         setChanged();
@@ -195,9 +198,45 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         sendSyncToClients();
     }
 
+    /** Cycle up: 1 → 2 → 4 → 8 → 16 → 1. */
+    public void cycleAmperageUp() {
+        int[] options = VoltageTier.COMMON_AMPERAGES;
+        int idx = 0;
+        for (int i = 0; i < options.length; i++) {
+            if (BigInteger.valueOf(options[i]).equals(amperage)) {
+                idx = (i + 1) % options.length;
+                break;
+            }
+        }
+        applyAmperage(BigInteger.valueOf(options[idx]));
+    }
+
+    /** Cycle down: 16 → 8 → 4 → 2 → 1 → 16. */
+    public void cycleAmperageDown() {
+        int[] options = VoltageTier.COMMON_AMPERAGES;
+        int idx = options.length - 1;
+        for (int i = 0; i < options.length; i++) {
+            if (BigInteger.valueOf(options[i]).equals(amperage)) {
+                idx = (i - 1 + options.length) % options.length;
+                break;
+            }
+        }
+        applyAmperage(BigInteger.valueOf(options[idx]));
+    }
+
+    private void applyAmperage(BigInteger newAmp) {
+        this.amperage = newAmp;
+        this.outputPerTick = selectedTier.getMinVoltage().multiply(amperage);
+        addLog(Component.translatable("eecore.generator.log.amperage_set",
+                amperage.toString(), outputPerTick.toString()));
+        setChanged();
+        sendSyncToClients();
+    }
+
     public void resetToLV() {
         this.selectedTier = VoltageTier.LV;
-        this.outputPerTick = VoltageTier.LV.getMinVoltage();
+        this.amperage = BigInteger.ONE;
+        this.outputPerTick = VoltageTier.LV.getMinVoltage().multiply(amperage);
         this.outputEnabled.set(true);
         totalGenerated = OmegaValue.zero();
         logs.clear();
@@ -325,6 +364,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
 
     // ===== Getters =====
     public VoltageTier getSelectedTier() { return selectedTier; }
+    public BigInteger getAmperage() { return amperage; }
     public BigInteger getOutputPerTick() { return outputPerTick; }
     public boolean isOutputEnabled() { return outputEnabled.get(); }
     public OmegaValue getTotalGenerated() { return totalGenerated; }
@@ -350,6 +390,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider prov) {
         super.saveAdditional(tag, prov);
         tag.putString("tier", selectedTier.getShortName());
+        tag.putString("amperage", amperage.toString());
         tag.putString("output", outputPerTick.toString());
         tag.putBoolean("enabled", outputEnabled.get());
         tag.putString("totalGenerated", totalGenerated.toBigInteger().toString());
@@ -360,6 +401,11 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider prov) {
         super.loadAdditional(tag, prov);
         selectedTier = VoltageTier.fromShortName(tag.getString("tier"));
+        try {
+            amperage = new BigInteger(tag.getString("amperage"));
+        } catch (Exception e) {
+            amperage = BigInteger.ONE;
+        }
         try {
             outputPerTick = new BigInteger(tag.getString("output"));
         } catch (NumberFormatException e) {

@@ -59,6 +59,21 @@ public class CreativeGeneratorMenu extends AbstractContainerMenu {
     public void setLogToChat(boolean enabled) { if (be != null) be.setLogToChat(enabled); }
     public void setOutputPerTick(BigInteger v) { if (be != null) be.setOutputPerTick(v); }
 
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        if (be == null) return false;
+        return switch (id) {
+            case 0 -> { be.toggleOutput(); yield true; }
+            case 1 -> { be.resetToLV(); yield true; }
+            case 2 -> { be.setLogToChat(!be.isLogToChat()); yield true; }
+            case 50  -> { be.setTier(be.getSelectedTier().prev()); yield true; }
+            case 51  -> { be.setTier(be.getSelectedTier().next()); yield true; }
+            case 100 -> { be.cycleAmperageUp(); yield true; }
+            case 101 -> { be.cycleAmperageDown(); yield true; }
+            default -> super.clickMenuButton(player, id);
+        };
+    }
+
     public CreativeGeneratorBlockEntity getBlockEntity() { return be; }
     public Level getLevel() { return level; }
 

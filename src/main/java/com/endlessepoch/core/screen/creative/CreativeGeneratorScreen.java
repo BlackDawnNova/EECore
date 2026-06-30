@@ -14,8 +14,35 @@ import java.math.BigInteger;
 
 public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGeneratorMenu> {
 
+    private CyberButton ampBtn;
+
     public CreativeGeneratorScreen(CreativeGeneratorMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        int cx = (this.width - this.imageWidth) / 2;
+        int cy = (this.height - this.imageHeight) / 2;
+        // Amp button: below the arrow row, uses standard container click → server
+        ampBtn = new CyberButton(
+                cx + 80, cy + BUTTON_Y + 22, 18, 14,
+                () -> {
+                    CreativeGeneratorBlockEntity b = getMenu().getBlockEntity();
+                    return b != null ? b.getAmperage() + "A" : "1A";
+                },
+                () -> { // left click: +A
+                    if (this.minecraft != null && this.minecraft.gameMode != null)
+                        this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, 100);
+                },
+                () -> { // right click: -A
+                    if (this.minecraft != null && this.minecraft.gameMode != null)
+                        this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, 101);
+                }
+        );
+        ampBtn.visible = false;
+        cyberButtons.add(ampBtn);
     }
 
     @Override
@@ -31,24 +58,36 @@ public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGener
                             ? Component.translatable("eecore.gui.generator.running").getString()
                             : Component.translatable("eecore.gui.generator.paused").getString();
                 },
-                () -> getMenu().toggleOutput()
+                () -> {
+                    CreativeGeneratorBlockEntity b = getMenu().getBlockEntity();
+                    if (b != null) b.toggleOutput(); // local prediction
+                    if (this.minecraft != null && this.minecraft.gameMode != null)
+                        this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, 0);
+                }
         ));
 
         cyberButtons.add(new CyberButton(
                 startX + BUTTON_W + BUTTON_GAP, cy + BUTTON_Y, BUTTON_W, BUTTON_H,
                 Component.translatable("eecore.gui.generator.reset").getString(),
-                () -> getMenu().resetToLV()
+                () -> {
+                    CreativeGeneratorBlockEntity b = getMenu().getBlockEntity();
+                    if (b != null) b.resetToLV();
+                    if (this.minecraft != null && this.minecraft.gameMode != null)
+                        this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, 1);
+                }
         ));
 
         cyberButtons.add(new CyberButton(
                 startX + 2 * (BUTTON_W + BUTTON_GAP), cy + BUTTON_Y, BUTTON_W, BUTTON_H,
                 () -> {
                     CreativeGeneratorBlockEntity b = getMenu().getBlockEntity();
-                    return b != null && b.isLogToChat() ? "ON" : "OFF";
+                    return b != null && b.isLogToChat() ? "显示" : "隐藏";
                 },
                 () -> {
                     CreativeGeneratorBlockEntity b = getMenu().getBlockEntity();
-                    if (b != null) getMenu().setLogToChat(!b.isLogToChat());
+                    if (b != null) b.setLogToChat(!b.isLogToChat());
+                    if (this.minecraft != null && this.minecraft.gameMode != null)
+                        this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, 2);
                 }
         ));
     }
@@ -61,11 +100,13 @@ public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGener
         VoltageTier tier = be.getSelectedTier();
         String tierShort = tier != null ? tier.getShortName() : "LV";
         BigInteger output = be.getOutputPerTick();
+        String ampStr = be.getAmperage().toString();
+
         Component line1 = Component.translatable("eecore.gui.generator.tick_output",
-                OmegaValue.of(output).toDisplayString(), tierShort);
+                OmegaValue.of(output).toDisplayString(), tierShort, ampStr);
         int tw1 = font.width(line1);
         int tx1 = leftPos + (imageWidth - tw1) / 2;
-        g.drawString(font, line1, tx1, topPos + 50, style.textSecondary, false);
+        g.drawString(font, line1, tx1, topPos + 48, style.textSecondary, false);
     }
 
     @Override
@@ -78,6 +119,12 @@ public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGener
         int tx = leftPos + (imageWidth - tw) / 2;
         int ty = topPos + BUTTON_Y + (BUTTON_H - 8) / 2;
         g.drawString(font, Component.literal(tierText), tx, ty, style.textPrimary, false);
+    }
+
+    @Override
+    protected void updateVisibility() {
+        super.updateVisibility();
+        if (ampBtn != null) ampBtn.visible = showSettings;
     }
 
     @Override
@@ -99,7 +146,10 @@ public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGener
         if (be != null) {
             VoltageTier current = be.getSelectedTier();
             VoltageTier prev = current.prev();
-            if (prev != current && prev != VoltageTier.ELV) getMenu().setTier(prev);
+            if (prev != current && prev != VoltageTier.ELV) {
+                getMenu().setTier(prev); // local
+                clickButton(50);
+            }
         }
     }
 
@@ -109,7 +159,15 @@ public class CreativeGeneratorScreen extends CreativeMachineScreen<CreativeGener
         if (be != null) {
             VoltageTier current = be.getSelectedTier();
             VoltageTier next = current.next();
-            if (next != current) getMenu().setTier(next);
+            if (next != current) {
+                getMenu().setTier(next); // local
+                clickButton(51);
+            }
         }
+    }
+
+    private void clickButton(int id) {
+        if (this.minecraft != null && this.minecraft.gameMode != null)
+            this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, id);
     }
 }

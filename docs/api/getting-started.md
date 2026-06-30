@@ -159,3 +159,12 @@ public class MyMachineBE extends BlockEntity implements IOmegaEnergyStorage {
     }
 }
 ```
+
+---
+
+## More Systems / 更多系统
+
+- [NovaNet Energy Network](novanet.md) — Wireless energy transfer framework
+- [Multiblock Structure System](multiblock.md) — Scan, preview, form structures
+- [Team System](team.md) — Per-team energy network isolation
+- [Animation API](animation.md) — Rainbow/blink/gradient tooltips

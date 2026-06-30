@@ -265,3 +265,5 @@ After 3 steps: × 0.8 = 51.2%
 After 4 steps: × 0.8 = 40.96%
 Total loss: 59.04%
 ```
+
+	

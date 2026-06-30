@@ -1,8 +1,13 @@
 package com.endlessepoch.core;
 
 import com.endlessepoch.core.api.EECoreCapabilities;
+import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
+import com.endlessepoch.core.api.registry.NovaNetRegistry;
+import com.endlessepoch.core.api.tier.VoltageTier;
+import com.endlessepoch.core.nova.network.node.NovaNodeRegistration;
 import com.endlessepoch.core.network.SyncConsumerPacket;
 import com.endlessepoch.core.network.SyncGeneratorPacket;
+import com.endlessepoch.core.network.SyncPatternPacket;
 import com.endlessepoch.core.registry.BlockEntities;
 import com.endlessepoch.core.registry.Blocks;
 import com.endlessepoch.core.registry.Items;
@@ -12,8 +17,10 @@ import com.endlessepoch.core.blockentity.creative.CreativeGeneratorBlockEntity;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -48,6 +55,10 @@ public class EECore {
                     .displayItems((params, output) -> {
                         output.accept(Items.CREATIVE_GENERATOR_ITEM.get());
                         output.accept(Items.CREATIVE_CONSUMER_ITEM.get());
+                        output.accept(Items.TEST_TRANSMITTER_ITEM.get());
+                        output.accept(Items.LASER_LINK_CARD.get());
+                        output.accept(Items.SCANNER_CONTROLLER_ITEM.get());
+                        output.accept(Items.MULTIBLOCK_SCANNER.get());
                     })
                     .build()
     );
@@ -67,10 +78,13 @@ public class EECore {
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {
-        LOGGER.info(MOD_NAME + " 初始化完成");
-        LOGGER.info("能量单位: Ω (1Ω = 2FE)");
-        LOGGER.info("电压等级: ELV · LV · MV · HV · EHV · UHV · PHV · XHV · PLV · SV · BV · QV");
-        LOGGER.info("创造机器已注册");
+        // Init NovaNet registry (push-mode node registration)
+        NovaNetRegistry reg = new NovaNetRegistry();
+        NovaNodeRegistration.init(reg);
+
+        LOGGER.info(MOD_NAME + " initialized");
+        LOGGER.info("Omega system: 12 tiers ELV~QV, 1Ω = 2FE");
+        LOGGER.info("NovaNet: node registry active, test multiblock registered");
     }
 
     private void registerCapabilities(RegisterCapabilitiesEvent event) {
@@ -82,6 +96,13 @@ public class EECore {
         event.registerBlockEntity(
                 EECoreCapabilities.OMEGA_ENERGY,
                 BlockEntities.CREATIVE_CONSUMER.get(),
+                (be, side) -> be
+        );
+
+        // NovaNet transmitter exposes Ω energy via Capability
+        event.registerBlockEntity(
+                EECoreCapabilities.OMEGA_ENERGY,
+                BlockEntities.TEST_TRANSMITTER.get(),
                 (be, side) -> be
         );
     }
@@ -117,6 +138,21 @@ public class EECore {
                             consumerBe.updateFromSync(payload);
                             level.sendBlockUpdated(payload.pos(), be.getBlockState(), be.getBlockState(), 3);
                         }
+                    });
+                }
+        );
+
+        // Pattern sync: server → client (scanned multiblock structures)
+        registrar.playToClient(
+                SyncPatternPacket.TYPE,
+                SyncPatternPacket.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        com.endlessepoch.core.api.multiblock.MultiBlockRegistry.registerLocal(
+                                context.player().getUUID(),
+                                payload.patternId(),
+                                payload.toPattern()
+                        );
                     });
                 }
         );

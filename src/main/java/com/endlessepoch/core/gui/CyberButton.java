@@ -12,20 +12,27 @@ public class CyberButton {
     public int x, y, w, h;
     public Supplier<String> textSupplier;
     public Runnable action;
+    public Runnable rightAction;
     public boolean hovered;
     public boolean visible = true;
 
     public CyberButton(int x, int y, int w, int h, Supplier<String> textSupplier, Runnable action) {
+        this(x, y, w, h, textSupplier, action, null);
+    }
+
+    public CyberButton(int x, int y, int w, int h, String text, Runnable action) {
+        this(x, y, w, h, () -> text, action, null);
+    }
+
+    public CyberButton(int x, int y, int w, int h, Supplier<String> textSupplier,
+                       Runnable action, Runnable rightAction) {
         this.x = x;
         this.y = y;
         this.w = w;
         this.h = h;
         this.textSupplier = textSupplier;
         this.action = action;
-    }
-
-    public CyberButton(int x, int y, int w, int h, String text, Runnable action) {
-        this(x, y, w, h, () -> text, action);
+        this.rightAction = rightAction;
     }
 
     public void render(GuiGraphics g, Font font, CyberGUIStyle style) {

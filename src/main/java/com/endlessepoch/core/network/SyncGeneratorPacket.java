@@ -14,6 +14,7 @@ public record SyncGeneratorPacket(
         BlockPos pos,
         String tierName,
         BigInteger output,
+        BigInteger amperage,
         boolean enabled
 ) implements CustomPacketPayload {
 
@@ -28,6 +29,8 @@ public record SyncGeneratorPacket(
                     SyncGeneratorPacket::tierName,
                     NetworkCodecs.BIG_INTEGER,
                     SyncGeneratorPacket::output,
+                    NetworkCodecs.BIG_INTEGER,
+                    SyncGeneratorPacket::amperage,
                     ByteBufCodecs.BOOL,
                     SyncGeneratorPacket::enabled,
                     SyncGeneratorPacket::new

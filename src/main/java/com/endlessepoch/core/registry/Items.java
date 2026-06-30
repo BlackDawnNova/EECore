@@ -1,6 +1,8 @@
 package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
+import com.endlessepoch.core.nova.item.LaserLinkCardItem;
+import com.endlessepoch.core.nova.item.MultiblockScannerItem;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -24,5 +26,28 @@ public class Items {
             ITEMS.register("creative_consumer",
                     () -> new BlockItem(Blocks.CREATIVE_CONSUMER.get(),
                             new Item.Properties().stacksTo(64))
+            );
+
+    // ===== NovaNet test =====
+    public static final Supplier<BlockItem> TEST_TRANSMITTER_ITEM =
+            ITEMS.register("test_transmitter",
+                    () -> new BlockItem(Blocks.TEST_TRANSMITTER.get(),
+                            new Item.Properties().stacksTo(64))
+            );
+
+    public static final Supplier<LaserLinkCardItem> LASER_LINK_CARD =
+            ITEMS.register("laser_link_card",
+                    () -> new LaserLinkCardItem(new Item.Properties().stacksTo(1))
+            );
+
+    public static final Supplier<BlockItem> SCANNER_CONTROLLER_ITEM =
+            ITEMS.register("scanner_controller",
+                    () -> new BlockItem(Blocks.SCANNER_CONTROLLER.get(),
+                            new Item.Properties().stacksTo(64))
+            );
+
+    public static final Supplier<MultiblockScannerItem> MULTIBLOCK_SCANNER =
+            ITEMS.register("multiblock_scanner",
+                    () -> new MultiblockScannerItem(new Item.Properties().stacksTo(1))
             );
 }

@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "eecore:block/test_transmitter"
+    }
+  }
+}

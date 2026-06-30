@@ -60,6 +60,32 @@ if (cap != null) cap.receivePacket(new EnergyPacket(VoltageTier.MV, 1, 128), fal
 
 ---
 
+## NovaNet 能量网络
+
+无线能量传输框架。节点通过 Push 模式注册，支持发送端/接收端、激光链路、距离衰减。
+
+→ [docs/api/novanet.md](docs/api/novanet.md)
+
+## 多方块结构系统
+
+扫描仪标记两角 → Shift+右键扫描生成 Pattern。3D Visualizer 支持旋转/缩放/点击选块。多控制器时穿透渲染红光柱。
+
+→ [docs/api/multiblock.md](docs/api/multiblock.md)
+
+## 文档 / Documentation
+
+| 文档 | 说明 |
+|------|------|
+| [docs/README.md](docs/README.md) | 文档索引 |
+| [docs/api/getting-started.md](docs/api/getting-started.md) | Ω 能量快速接入 |
+| [docs/api/energy-system.md](docs/api/energy-system.md) | Ω 能量 API 全参 |
+| [docs/api/novanet.md](docs/api/novanet.md) | NovaNet 无线网络 |
+| [docs/api/multiblock.md](docs/api/multiblock.md) | 多方块结构系统 |
+| [docs/api/team.md](docs/api/team.md) | 队伍系统 |
+| [docs/api/animation.md](docs/api/animation.md) | 动画文字/物品 API |
+
+---
+
 ## 技术栈 / Tech Stack
 
 | 项目 | 版本 |
