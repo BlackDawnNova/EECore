@@ -34,13 +34,32 @@ import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.*;
 
-/**
- * Multiblock structure scanner.
- * <p>
- * Right-click two corners to mark a selection, then shift-right-click to scan
- * and auto-generate a {@link MultiBlockPattern} registered to {@link MultiBlockRegistry}.
- */
 public class MultiblockScannerItem extends AnimatedItem {
+
+    // Character pool for scanned blocks — A=air, K=controller, #=wildcard are reserved
+    private static final char[] CHAR_POOL = {
+        'B','C','D','E','F','G','H','I','J','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+        'b','c','d','e','f','g','h','i','j','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
+        '0','1','2','3','4','5','6','7','8','9',
+        '@','$','%','&','*','+','-','=','_','~','!','?','<','>','|',';',':',',','.','/',
+        '一','二','三','四','五','六','七','八','九','十',
+        '壹','贰','叁','肆','伍','陆','柒','捌','玖','拾',
+        '★','☆','♂','♀','©','®','™','€','¥','£',
+        'α','β','γ','δ','ε','ζ','η','θ','ι','κ','λ','μ','ν','ξ','π','ρ','σ','τ','υ','φ','χ','ψ','ω',
+        'Α','Β','Γ','Δ','Ε','Ζ','Η','Θ','Ι','Κ','Λ','Μ','Ν','Ξ','Ο','Π','Ρ','Σ','Τ','Υ','Φ','Χ','Ψ','Ω',
+        '←','→','↑','↓','↔','↕','↖','↗','↘','↙','⇐','⇒','⇑','⇓','⇔','⇕',
+        '⊕','⊖','⊗','⊘','⊙','⊚','⊛','⊜','⊝','∞','∝','∠','∟','∣',
+        '±','×','÷','≠','≤','≥','≡','≈','∼','∽',
+        '∃','∀','∂','∅','∆','∇','∈','∉','∋','∌','∏','∑','∓','∔',
+        '∫','∬','∭','∮','∯','∰','∱','∲','∳','■','□','▪','▫','▬','▭','▮','▯',
+        '▓','▒','░','█','▄','▌','▐','▀','○','●','◘','◙','◦','☼','☺','☻',
+        '♠','♣','♥','♦','♪','♫','◄','►','▲','▼',
+        '㏑','㏒','㏓','㏔','㏕','㏖','㎎','㎏','㎜','㎝','㎞','㎟','㎡','㎢','㎣','㎤',
+        '㏗','㏘','㏙','㏚','㏛','㏜','㏝','㏞','㏟','㎥','㎦','㎧','㎨','㎩','㎪','㎫',
+        'ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄋ','ㄌ','ㄍ','ㄎ','ㄏ',
+        'ㄐ','ㄑ','ㄒ','ㄓ','ㄔ','ㄕ','ㄖ','ㄗ','ㄘ','ㄙ'
+    };
+    private int poolIdx = 0;
 
     public MultiblockScannerItem(Properties properties) {
         super(properties, new ItemTooltipAnimation(
@@ -68,6 +87,11 @@ public class MultiblockScannerItem extends AnimatedItem {
 
         if (player == null) return InteractionResult.PASS;
         if (level.isClientSide()) return InteractionResult.SUCCESS;
+        if (!player.hasPermissions(2)) {
+            player.displayClientMessage(
+                    Component.translatable("eecore.scanner.no_permission").withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
+        }
 
         if (player.isShiftKeyDown()) {
             return scanStructure(stack, (ServerPlayer) player, level);
@@ -79,6 +103,13 @@ public class MultiblockScannerItem extends AnimatedItem {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        if (!player.hasPermissions(2)) {
+            if (!level.isClientSide()) {
+                player.displayClientMessage(
+                        Component.translatable("eecore.scanner.no_permission").withStyle(ChatFormatting.RED), true);
+            }
+            return InteractionResultHolder.fail(stack);
+        }
         if (player.isShiftKeyDown()) {
             if (!level.isClientSide()) clearSelections(stack, player);
             return InteractionResultHolder.success(stack);
@@ -89,8 +120,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         }
         return InteractionResultHolder.success(stack);
     }
-
-    // onLeftClickEntity removed in 1.21.1; use use() for air interaction
 
     private InteractionResult markPosition(ItemStack stack, Player player, BlockPos pos) {
         CompoundTag tag = getTag(stack);
@@ -142,15 +171,31 @@ public class MultiblockScannerItem extends AnimatedItem {
         int sizeY = maxY - minY + 1;
         int sizeZ = maxZ - minZ + 1;
 
+        java.util.Set<Block> uniqueBlocks = new java.util.HashSet<>();
+        for (int y = minY; y <= maxY; y++)
+            for (int z = minZ; z <= maxZ; z++)
+                for (int x = minX; x <= maxX; x++) {
+                    Block b = level.getBlockState(new BlockPos(x, y, z)).getBlock();
+                    if (b != net.minecraft.world.level.block.Blocks.AIR) uniqueBlocks.add(b);
+                }
+        if (uniqueBlocks.size() > CHAR_POOL.length) {
+            player.displayClientMessage(
+                    Component.translatable("eecore.scanner.too_many_types", uniqueBlocks.size(), CHAR_POOL.length)
+                            .withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
+        }
+
         java.util.List<BlockPos> controllerPositions = new java.util.ArrayList<>();
         Map<Block, Character> blockToChar = new LinkedHashMap<>();
         Map<Character, BlockState> definitions = new LinkedHashMap<>();
+        poolIdx = 0;
+        definitions.put('A', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+        definitions.put('#', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
 
         char[][][] raw = new char[sizeY][sizeZ][sizeX];
         BlockPos controllerPos = null;
         int controllerCount = 0;
         net.minecraft.core.Direction facing = net.minecraft.core.Direction.NORTH;
-        char nextChar = 'A';
 
         for (int y = 0; y < sizeY; y++) {
             for (int z = 0; z < sizeZ; z++) {
@@ -160,11 +205,11 @@ public class MultiblockScannerItem extends AnimatedItem {
                     Block block = state.getBlock();
 
                     if (block == net.minecraft.world.level.block.Blocks.AIR) {
-                        raw[y][z][x] = ' ';
+                        raw[y][z][x] = 'A';
                         continue;
                     }
 
-                    // Controller detection — must check every block, not just new types
+                    // Controller detection — must check every / 必须遍历所有方块检查控制器
                     if (level.getBlockEntity(wPos) instanceof com.endlessepoch.core.nova.block.ScannerControllerBlockEntity) {
                         controllerPositions.add(wPos);
                         controllerCount++;
@@ -180,7 +225,7 @@ public class MultiblockScannerItem extends AnimatedItem {
 
                     Character c = blockToChar.get(block);
                     if (c == null) {
-                        c = nextChar <= 'Z' ? nextChar++ : (nextChar <= 'z' ? (char)('a' + (nextChar++ - 'Z' - 1)) : 'X');
+                        c = poolIdx < CHAR_POOL.length ? CHAR_POOL[poolIdx++] : 'X';
                         blockToChar.put(block, c);
                         definitions.put(c, state);
                     }
@@ -218,7 +263,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         char[][][] rot = raw;
         int rotW = sizeX, rotD = sizeZ;
         int newCx = controllerPos.getX(), newCz = controllerPos.getZ();
-        // Skip rotation for SOUTH (player faces NORTH) — test what happens raw
         if (controllerFront != net.minecraft.core.Direction.NORTH) {
             java.util.List<int[]> rotData = new java.util.ArrayList<>();
             int rMinX = 0, rMaxX = 0, rMinZ = 0, rMaxZ = 0;
@@ -226,7 +270,7 @@ public class MultiblockScannerItem extends AnimatedItem {
                 for (int z = 0; z < sizeZ; z++)
                     for (int x = 0; x < sizeX; x++) {
                         char c = raw[y][z][x];
-                        if (c == ' ') { rotData.add(null); continue; }
+                        if (c == 'A') { rotData.add(null); continue; }
                         int[] r = rotateXZ(x - newCx, z - newCz, controllerFront);
                         rotData.add(new int[]{r[0], r[1], y, z, x});
                         rMinX = Math.min(rMinX, r[0]); rMaxX = Math.max(rMaxX, r[0]);
@@ -238,7 +282,7 @@ public class MultiblockScannerItem extends AnimatedItem {
             for (int y = 0; y < sizeY; y++)
                 for (int z = 0; z < rotD; z++)
                     for (int x = 0; x < rotW; x++)
-                        rot[y][z][x] = ' ';
+                        rot[y][z][x] = 'A';
             for (int[] rd : rotData) {
                 if (rd == null) continue;
                 int nx = rd[0] - rMinX, nz = rd[1] - rMinZ;
@@ -265,7 +309,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath("eecore", name);
         MultiBlockRegistry.registerLocal(player.getUUID(), id, pattern);
 
-        // Sync pattern to client so the Visualizer can display it
         PacketDistributor.sendToPlayer(player, SyncPatternPacket.fromPattern(id, pattern));
 
         clearSelections(stack, player);
@@ -276,7 +319,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         return InteractionResult.SUCCESS;
     }
 
-    /** Rotate XZ relative coordinates so the controller faces north. */
     private static int[] rotateXZ(int dx, int dz, net.minecraft.core.Direction facing) {
         return switch (facing) {
             case SOUTH -> new int[]{-dx, -dz};
@@ -342,7 +384,7 @@ public class MultiblockScannerItem extends AnimatedItem {
                     p2.getX(), p2.getY(), p2.getZ()).withStyle(ChatFormatting.GOLD));
         }
 
-        // Author (last line, blank before)
+        // Author (last line, blank before) / 最后一行显示作者，前面留空行
         tooltip.add(Component.empty());
         tooltip.add(animation.authorRenderer().apply("eecore.item.author"));
     }
@@ -359,10 +401,6 @@ public class MultiblockScannerItem extends AnimatedItem {
         return getPosStatic(cd.copyTag(), "pos2");
     }
 
-    /**
-     * Get all controller positions stored after a failed multi-controller scan.
-     * Returns empty list if no controllers stored.
-     */
     public static List<BlockPos> getControllerPositions(ItemStack stack) {
         CustomData cd = stack.get(DataComponents.CUSTOM_DATA);
         if (cd == null) return List.of();

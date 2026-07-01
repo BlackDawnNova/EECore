@@ -34,6 +34,8 @@ public final class MultiBlockPattern {
     private final String[][] layers;
     /** Character → BlockState mapping / 字符到 BlockState 的映射 */
     private final Map<Character, BlockState> definitions;
+    /** Character → alternative valid blocks (siblings) / 字符 → 可替换的同类方块组 */
+    private final Map<Character, Set<BlockState>> alternatives = new LinkedHashMap<>();
 
     public MultiBlockPattern(int width, int height, int depth,
                              int controllerX, int controllerY, int controllerZ,
@@ -45,7 +47,46 @@ public final class MultiBlockPattern {
         this.controllerY = controllerY;
         this.controllerZ = controllerZ;
         this.layers = layers;
-        this.definitions = Map.copyOf(definitions);
+        this.definitions = new LinkedHashMap<>(definitions);
+    }
+
+    /**
+     * Change the block state for a character (affects all blocks using this char).
+     * <p>
+     * 修改某个字符对应的方块类型（影响所有使用该字符的方块）。
+     */
+    public void setDefinition(char c, BlockState state) {
+        definitions.put(c, state);
+    }
+
+    /**
+     * Replace a single block at a specific position (creates a new unique char if needed).
+     * <p>
+     * 替换指定位置的单个方块（必要时创建新字符）。
+     */
+    public void setBlock(int x, int y, int z, BlockState state) {
+        if (y < 0 || y >= height || z < 0 || z >= layers[y].length) return;
+        String row = layers[y][z];
+        if (row == null || x < 0 || x >= row.length()) return;
+        char existing = row.charAt(x);
+        if (definitions.containsValue(state) && definitions.get(existing).getBlock() == state.getBlock()) return;
+        char newChar = findOrCreateChar(state);
+        StringBuilder sb = new StringBuilder(row);
+        sb.setCharAt(x, newChar);
+        layers[y][z] = sb.toString();
+    }
+
+    private char findOrCreateChar(BlockState state) {
+        for (var e : definitions.entrySet()) {
+            if (e.getValue().getBlock() == state.getBlock()) return e.getKey();
+        }
+        char c = 'A';
+        for (char c2 = 'A'; c2 <= 'Z'; c2++) {
+            if (c2 == 'K') continue;
+            if (!definitions.containsKey(c2)) { c = c2; break; }
+        }
+        definitions.put(c, state);
+        return c;
     }
 
     /**
@@ -62,7 +103,7 @@ public final class MultiBlockPattern {
         String row = layers[relY][relZ];
         if (row == null || relX < 0 || relX >= row.length()) return null;
         char c = row.charAt(relX);
-        if (c == ' ' || c == '_') return null;
+        if (c == ' ' || c == '_' || c == 'A' || c == '#') return null;
         return definitions.get(c);
     }
 
@@ -76,6 +117,29 @@ public final class MultiBlockPattern {
         String row = layers[relY][relZ];
         if (row == null || relX < 0 || relX >= row.length()) return ' ';
         return row.charAt(relX);
+    }
+
+    /**
+     * Register sibling blocks for a character — all are valid at positions with this char.
+     * <p>
+     * 为字符注册可替换的同类方块——该字符所在位置可以使用其中任意一种方块成型。
+     */
+    public void addAlternatives(char c, BlockState... states) {
+        alternatives.computeIfAbsent(c, k -> new LinkedHashSet<>()).addAll(List.of(states));
+    }
+
+    /**
+     * Get all valid alternatives for a character (including its own definition).
+     * <p>
+     * 获取字符的所有有效替换方块（包含自身定义）。
+     */
+    public Set<BlockState> getAlternatives(char c) {
+        Set<BlockState> result = new LinkedHashSet<>();
+        BlockState own = definitions.get(c);
+        if (own != null) result.add(own);
+        Set<BlockState> alt = alternatives.get(c);
+        if (alt != null) result.addAll(alt);
+        return result;
     }
 
     public Map<Character, BlockState> getDefinitions() { return definitions; }

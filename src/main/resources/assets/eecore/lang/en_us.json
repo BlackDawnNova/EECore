@@ -68,9 +68,11 @@
   "eecore.scanner.need_two": "Mark both corners first!",
   "eecore.scanner.done": "Pattern '%s' registered! Size: %sx%sx%s, Block types: %s",
   "eecore.scanner.no_controller": "No scanner controller in scan area!",
+  "eecore.scanner.too_many_types": "§cToo many block types (%s/%s)! Simplify the structure and try again.",
   "eecore.scanner.multiple_controllers": "Multiple controllers found! Only one allowed.",
   "eecore.scanner.multiple_controllers_highlight": "§c⚠ %s controllers found! Highlighted in world — clear all controllers and re-place them.",
   "eecore.scanner.cleared": "Selections cleared.",
+  "eecore.scanner.no_permission": "§cYou don't have permission to use the scanner! (OP required)",
   "eecore.scanner.pos1": "Corner 1: %s, %s, %s",
   "eecore.scanner.pos2": "Corner 2: %s, %s, %s",
 
@@ -79,8 +81,9 @@
   "eecore.visualizer.title": "EE-Core Multiblock Config",
   "eecore.visualizer.patterns": "Cached Structures",
   "eecore.visualizer.empty": "Scan a structure with the scanner first",
-  "eecore.visualizer.controller_label": "§cFlashing glass§r = Controller",
+  "eecore.visualizer.controller_label": "§cRed§r§9Blue§r pulsing glow = Controller",
   "eecore.visualizer.click_hint": "§7Click a block to inspect",
   "eecore.visualizer.immersive_hint": "§7G=Reset  Scroll=Zoom",
-  "eecore.visualizer.pick_hint": "§7Click another block or wait %s s"
+  "eecore.visualizer.pick_hint": "§7Click another block or wait %s s",
+  "eecore.visualizer.confirm_delete": "§eDelete this structure?"
 }

@@ -86,6 +86,7 @@ public class EECore {
         NovaNetRegistry reg = new NovaNetRegistry();
         NovaNodeRegistration.init(reg);
 
+        MultiBlockRegistry.registerControllerBlock(com.endlessepoch.core.registry.Blocks.SCANNER_CONTROLLER.get());
         LOGGER.info(MOD_NAME + " initialized");
         LOGGER.info("Omega system: 12 tiers ELV~QV, 1Ω = 2FE");
         LOGGER.info("NovaNet: node registry active, test multiblock registered");

@@ -68,19 +68,22 @@
   "eecore.scanner.need_two": "请先标记两个角！",
   "eecore.scanner.done": "结构 '%s' 已注册！尺寸: %sx%sx%s, 方块类型: %s",
   "eecore.scanner.no_controller": "扫描区域内没有扫描控制器！请放置扫描控制器方块。",
+  "eecore.scanner.too_many_types": "§c方块类型过多（%s/%s）！请精简结构后重新扫描。",
   "eecore.scanner.multiple_controllers": "检测到多个控制器！只能有一个。",
   "eecore.scanner.multiple_controllers_highlight": "§c⚠ 发现 %s 个控制器！已高亮显示——请清空所有控制器后重新放置。",
   "eecore.scanner.cleared": "已清除标记。",
+  "eecore.scanner.no_permission": "§c你没有权限使用扫描器！（需要OP权限）",
   "eecore.scanner.pos1": "角1: %s, %s, %s",
   "eecore.scanner.pos2": "角2: %s, %s, %s",
 
   "key.categories.eecore": "EECore",
   "key.eecore.multiblock_visualizer": "打开多方块可视化界面",
   "eecore.visualizer.title": "EE-Core 多方块结构配置界面",
-  "eecore.visualizer.patterns": "预缓存多方块结构",
+  "eecore.visualizer.patterns": "缓存结构",
   "eecore.visualizer.empty": "请用扫描器扫描结构",
-  "eecore.visualizer.controller_label": "§c红§r§9蓝§r闪烁玻璃 = 控制器",
+  "eecore.visualizer.controller_label": "§c红§r§9蓝§r脉冲光晕 = 控制器",
   "eecore.visualizer.click_hint": "§7点击方块查看信息",
   "eecore.visualizer.immersive_hint": "§7G=复位  滚轮=缩放",
-  "eecore.visualizer.pick_hint": "§7点击其他方块或等待 %s 秒"
+  "eecore.visualizer.pick_hint": "§7点击其他方块或等待 %s 秒",
+  "eecore.visualizer.confirm_delete": "§e确认删除此结构?"
 }

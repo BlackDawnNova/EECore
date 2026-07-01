@@ -18,10 +18,31 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class MultiBlockRegistry {
 
+    // Valid controller blocks / 有效控制器方块注册
+    private static final Set<net.minecraft.world.level.block.Block> CONTROLLER_BLOCKS = new LinkedHashSet<>();
+
     private static final Map<ResourceLocation, MultiBlockPattern> MOD_PATTERNS = new LinkedHashMap<>();
     private static final Map<UUID, Map<ResourceLocation, MultiBlockPattern>> LOCAL_PATTERNS = new ConcurrentHashMap<>();
 
     private MultiBlockRegistry() {}
+
+    /**
+     * Register a block as a valid multiblock controller (for replace suggestions).
+     * <p>
+     * 注册一个方块为有效的多方块控制器（用于替换建议）。
+     */
+    public static void registerControllerBlock(net.minecraft.world.level.block.Block block) {
+        CONTROLLER_BLOCKS.add(block);
+    }
+
+    /**
+     * Get all registered controller blocks.
+     * <p>
+     * 获取所有已注册的控制器方块。
+     */
+    public static Set<net.minecraft.world.level.block.Block> getControllerBlocks() {
+        return Collections.unmodifiableSet(CONTROLLER_BLOCKS);
+    }
 
     /**
      * Register a mod-provided pattern (called during common setup).
@@ -98,6 +119,18 @@ public final class MultiBlockRegistry {
         }
         all.putAll(MOD_PATTERNS);
         return Collections.unmodifiableMap(all);
+    }
+
+    /**
+     * Remove a single scanned pattern for a specific player.
+     * <p>
+     * 移除指定玩家的单个扫描模式。
+     *
+     * @return true if the pattern existed and was removed / 如果模式存在并被移除则返回 true
+     */
+    public static boolean removeLocal(UUID playerId, ResourceLocation id) {
+        Map<ResourceLocation, MultiBlockPattern> playerPatterns = LOCAL_PATTERNS.get(playerId);
+        return playerPatterns != null && playerPatterns.remove(id) != null;
     }
 
     /**
