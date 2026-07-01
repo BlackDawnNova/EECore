@@ -166,7 +166,7 @@ public class MultiblockVisualizerScreen extends Screen {
     // Floating info panel / 浮动信息面板 — draggable, always on top
     private boolean panelVisible = false;
     private int panelX = 10, panelY = 10;
-    private static final int PANEL_W = 200, PANEL_H = 120;
+    private static final int PANEL_W = 200, PANEL_H = 150;
     private static final int PANEL_EDIT_H = 180;
     private int panelH() { return replaceMode ? PANEL_EDIT_H : PANEL_H; }
 
@@ -447,6 +447,24 @@ public class MultiblockVisualizerScreen extends Screen {
 
     }
 
+    private static boolean onBtn(double mx, double my, int x, int y, int w) {
+        return mx >= x - 1 && mx <= x + w + 1 && my >= y - 1 && my <= y + 14;
+    }
+
+    private void drawButton(GuiGraphics g, net.minecraft.client.renderer.MultiBufferSource.BufferSource buf,
+                             org.joml.Matrix4f mat, String label, int x, int y, int w, boolean disabled) {
+        int h = 16;
+        g.fill(x, y, x + w, y + h, disabled ? 0x66000000 : 0xCC000000);
+        g.renderOutline(x, y, w, h, disabled ? 0xFF444444 : 0xFF999999);
+        g.renderOutline(x + 1, y + 1, w - 2, h - 2, disabled ? 0x22FFFFFF : 0x33FFFFFF);
+        String clean = label.replaceAll("§.", "");
+        int tw = font.width(clean);
+        int color = disabled ? 0xFF555555 : 0xFFFFFFFF;
+        font.drawInBatch(Component.literal(label),
+                x + (w - tw) / 2f, y + (h - 8) / 2f + 1, color,
+                false, mat, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+    }
+
     private void drawDialogBox(GuiGraphics g, int cx, int cy, int cw, int ch, Component title) {
         g.fill(cx, cy, cx + cw, cy + ch, 0xCC000000);
         g.renderOutline(cx, cy, cw, ch, 0xFFCCCCCC);
@@ -538,15 +556,20 @@ public class MultiblockVisualizerScreen extends Screen {
             if (editModeActive) {
                 boolean isCtrl = pickBlockState != null && selectedIndex >= 0
                         && patterns.get(selectedIndex).getValue().getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ()) == 'K';
-                font.drawInBatch(Component.literal("§7[单个]"), px + 12, py + 46, 0xFFFFFFFF, false,
-                        pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-                if (!isCtrl) {
-                    font.drawInBatch(Component.literal("§7[批量]"), px + 72, py + 46, 0xFFFFFFFF, false,
-                            pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+                int colW = 84, gap = 8, margin = (PANEL_W - colW * 2 - gap) / 2;
+                int x1 = px + margin, x2 = x1 + colW + gap, y1 = py + 52, y2 = py + 72;
+                var mat = g.pose().last().pose();
+                if (isCtrl) {
+                    drawButton(g, buf, mat, "§e 替换", x1, py + (ph - 16) / 2, PANEL_W - 2 * margin, false);
+                } else {
+                    drawButton(g, buf, mat, "§7 替换", x1, y1, colW, false);
+                    drawButton(g, buf, mat, "§7 批量", x2, y1, colW, false);
+                    drawButton(g, buf, mat, "§c 单删", x1, y2, colW, false);
+                    drawButton(g, buf, mat, "§c 批删", x2, y2, colW, false);
                 }
                 if (undoAvailable) {
-                    font.drawInBatch(Component.literal("§e↩ 撤销"), px + 130, py + 46, 0xFFFFFFFF, false,
-                            pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+                    int uw = font.width("↩ 撤销") + 16;
+                    drawButton(g, buf, mat, "↩ 撤销", px + (PANEL_W - uw) / 2, py + 94, uw - 4, false);
                 }
             } else {
                 // Browse mode — show pattern definition blocks / 浏览模式 — 显示结构中的可用方块
@@ -565,7 +588,7 @@ public class MultiblockVisualizerScreen extends Screen {
                 int gridX = px + 6, gridY = py + 38;
                 int idx = 0;
                 for (var bs : defBlocks) {
-                    if (idx >= cols * 3) break;
+                    if (idx >= cols * 4) break;
                     int col = idx % cols, row = idx / cols;
                     int ix = gridX + col * cellW, iy = gridY + row * cellH;
                     var itemStack = new net.minecraft.world.item.ItemStack(bs.getBlock());
@@ -579,8 +602,10 @@ public class MultiblockVisualizerScreen extends Screen {
                 }
             }
         } else {
-            String searchText = searchQuery.isEmpty() ? "§8[输入搜索...]" : "§f" + searchQuery + "_";
-            font.drawInBatch(Component.literal("§7搜索: " + searchText), px + 8, py + 28, 0xFFFFFFFF, false,
+            String showQ = searchQuery;
+            if (showQ.length() > 26) showQ = showQ.substring(showQ.length() - 26);
+            String searchText = searchQuery.isEmpty() ? "§8[输入搜索...]" : "§f" + showQ + "_";
+            font.drawInBatch(Component.literal("§7> " + searchText), px + 8, py + 28, 0xFFFFFFFF, false,
                     pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
             buf.endBatch();
 
@@ -850,23 +875,29 @@ public class MultiblockVisualizerScreen extends Screen {
         if (btn == 0 && panelVisible && !replaceMode && editModeActive) {
             int px2 = Math.max(0, Math.min(width - PANEL_W, panelX));
             int py2 = Math.max(0, Math.min(height - panelH(), panelY));
-            if (mx >= px2 + 10 && mx <= px2 + 54 && my >= py2 + 44 && my <= py2 + 56) {
+            int colW = 84, gap = 8, margin2 = (PANEL_W - colW * 2 - gap) / 2;
+            int x1 = px2 + margin2, x2 = x1 + colW + gap, y1 = py2 + 52, y2 = py2 + 72;
+            boolean isCtrl = pickResult != null && selectedIndex >= 0
+                    && patterns.get(selectedIndex).getValue().getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ()) == 'K';
+            int ctrlY = py2 + (panelH() - 16) / 2;
+            if (onBtn(mx, my, x1, isCtrl ? ctrlY : y1, isCtrl ? PANEL_W - 2 * margin2 : colW)) {
                 replaceMode = true; batchReplace = false; replaceSource = pickResult;
-                boolean isCtrl = pickResult != null && selectedIndex >= 0
-                        && patterns.get(selectedIndex).getValue().getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ()) == 'K';
-                if (isCtrl) {
-                    var ctrlBlocks = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.getControllerBlocks();
-                    searchResults = ctrlBlocks.stream().filter(b -> b.asItem() != net.minecraft.world.item.Items.AIR).toList();
-                } else {
+                searchResults = (isCtrl
+                        ? com.endlessepoch.core.api.multiblock.MultiBlockRegistry.getControllerBlocks()
+                        .stream().filter(b -> b.asItem() != net.minecraft.world.item.Items.AIR)
+                        : net.minecraft.core.registries.BuiltInRegistries.BLOCK.stream()
+                        .filter(b -> b.asItem() != net.minecraft.world.item.Items.AIR)).toList();
+                searchIdx = 0; searchScroll = 0; return true; }
+            if (!isCtrl) {
+                if (onBtn(mx, my, x2, y1, colW)) {
+                    replaceMode = true; batchReplace = true; replaceSource = pickResult;
                     searchResults = net.minecraft.core.registries.BuiltInRegistries.BLOCK.stream()
                             .filter(b -> b.asItem() != net.minecraft.world.item.Items.AIR).toList();
-                }
-                searchIdx = 0; searchScroll = 0; return true; }
-            if (mx >= px2 + 70 && mx <= px2 + 114 && my >= py2 + 44 && my <= py2 + 56) {
-                replaceMode = true; batchReplace = true; replaceSource = pickResult;
-                searchResults = net.minecraft.core.registries.BuiltInRegistries.BLOCK.stream().filter(b -> b.asItem() != net.minecraft.world.item.Items.AIR).toList();
-                searchIdx = 0; searchScroll = 0; return true; }
-            if (undoAvailable && mx >= px2 + 130 && mx <= px2 + 170 && my >= py2 + 44 && my <= py2 + 56) {
+                    searchIdx = 0; searchScroll = 0; return true; }
+                if (onBtn(mx, my, x1, y2, colW)) { deleteBlock(false); return true; }
+                if (onBtn(mx, my, x2, y2, colW)) { deleteBlock(true); return true; }
+            }
+            if (undoAvailable && mx >= px2 + 50 && mx <= px2 + 150 && my >= py2 + 92 && my <= py2 + 110) {
                 undoReplace(); return true; }
         }
         if (btn == 0 && panelVisible && replaceMode) {
@@ -1067,35 +1098,43 @@ if ((k == KEY_W || k == KEY_UP) && !editModeActive) { selectedIndex = Math.max(0
                 .toList();
     }
 
-    private void applyReplace(BlockState newState) {
-        if (selectedIndex < 0 || replaceSource == null) return;
-        MultiBlockPattern pat = patterns.get(selectedIndex).getValue();
-        int rx = replaceSource.getX(), ry = replaceSource.getY(), rz = replaceSource.getZ();
 
-        if (batchReplace) {
+    private void updateListScroll() {
+        int visibleCount = (listB - listT) / LINE_HEIGHT;
+        if (selectedIndex < listScrollOffset) listScrollOffset = selectedIndex;
+        if (selectedIndex >= listScrollOffset + visibleCount) listScrollOffset = Math.max(0, selectedIndex - visibleCount + 1);
+    }
+
+    // Single/batch delete — replace block(s) with air / 单/批量删除
+    private void deleteBlock(boolean batch) {
+        if (selectedIndex < 0 || pickResult == null) return;
+        applyReplace(net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), batch);
+    }
+
+    private void applyReplace(BlockState newState) {
+        applyReplace(newState, batchReplace);
+    }
+
+    private void applyReplace(BlockState newState, boolean batch) {
+        if (selectedIndex < 0 || pickResult == null) return;
+        MultiBlockPattern pat = patterns.get(selectedIndex).getValue();
+        int rx = pickResult.getX(), ry = pickResult.getY(), rz = pickResult.getZ();
+
+        if (batch) {
             char c = pat.getChar(rx, ry, rz);
             BlockState origDef = pat.getDefinitions().get(c);
             pat.setDefinition(c, newState);
-            // Push batch undo: restore char definition / 批量撤销: 恢复字符定义
-            undoStack.push(() -> {
-                pat.setDefinition(c, origDef);
-                cachedScene = null;
-            });
+            undoStack.push(() -> { pat.setDefinition(c, origDef); cachedScene = null; });
         } else {
-            BlockState orig = cachedScene != null ? cachedScene.getBlockState(replaceSource)
-                    : new EECoreSceneWorld(pat).getBlockState(replaceSource);
+            BlockState orig = cachedScene != null ? cachedScene.getBlockState(pickResult)
+                    : new EECoreSceneWorld(pat).getBlockState(pickResult);
             pat.setBlock(rx, ry, rz, newState);
-            // Push single undo: restore one block / 单个撤销: 恢复一个方块
-            undoStack.push(() -> {
-                pat.setBlock(rx, ry, rz, orig);
-                cachedScene = null;
-            });
+            undoStack.push(() -> { pat.setBlock(rx, ry, rz, orig); cachedScene = null; });
         }
 
         undoAvailable = true;
         cachedScene = null;
-        replaceMode = false;
-        pickResult = replaceSource;
+        pickResult = pickResult;
         pickBlockState = newState;
         panelVisible = true;
         replaceSource = null;
@@ -1103,12 +1142,6 @@ if ((k == KEY_W || k == KEY_UP) && !editModeActive) { selectedIndex = Math.max(0
         searchResults = java.util.List.of();
         searchIdx = -1;
         searchScroll = 0;
-    }
-
-    private void updateListScroll() {
-        int visibleCount = (listB - listT) / LINE_HEIGHT;
-        if (selectedIndex < listScrollOffset) listScrollOffset = selectedIndex;
-        if (selectedIndex >= listScrollOffset + visibleCount) listScrollOffset = Math.max(0, selectedIndex - visibleCount + 1);
     }
 
     private void undoReplace() {
