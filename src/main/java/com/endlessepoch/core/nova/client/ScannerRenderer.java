@@ -12,8 +12,11 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
@@ -23,9 +26,6 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import java.util.List;
 
-/**
- * Renders the scanner selection box and multi-controller highlights in-world.
- */
 @OnlyIn(Dist.CLIENT)
 @EventBusSubscriber(modid = EECore.MOD_ID, value = Dist.CLIENT)
 public final class ScannerRenderer {
@@ -132,5 +132,50 @@ public final class ScannerRenderer {
             if (s.getItem() instanceof MultiblockScannerItem) return s;
         }
         return null;
+    }
+
+    // Boundary block placement preview / 辅助块放置预缓存
+    private static long boundaryCacheTick = -1;
+    private static BlockPos boundaryCachePos = null;
+
+    @SubscribeEvent
+    public static void onRenderBoundary(RenderLevelStageEvent event) {
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc.player;
+        if (player == null) return;
+        ItemStack held = player.getMainHandItem();
+        if (!(held.getItem() instanceof BlockItem bi)
+                || !(bi.getBlock() instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock)) return;
+
+        long gametime = mc.level.getGameTime();
+        BlockPos target;
+        if (gametime == boundaryCacheTick && boundaryCachePos != null) {
+            target = boundaryCachePos;
+        } else {
+            var hit = player.pick(5.0, 0.0f, false);
+            if (hit.getType() == HitResult.Type.BLOCK) {
+                target = ((BlockHitResult) hit).getBlockPos().relative(((BlockHitResult) hit).getDirection());
+            } else {
+                target = BlockPos.containing(hit.getLocation());
+            }
+            boundaryCacheTick = gametime;
+            boundaryCachePos = target;
+        }
+        if (!mc.level.isEmptyBlock(target)) return;
+
+        PoseStack ps = event.getPoseStack();
+        Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
+        ps.pushPose();
+        ps.translate(-cam.x, -cam.y, -cam.z);
+        ps.translate(target.getX(), target.getY(), target.getZ());
+
+        float alpha = 0.5f + (float) Math.sin(System.currentTimeMillis() * 0.004) * 0.2f;
+        VertexConsumer vc = mc.renderBuffers().bufferSource().getBuffer(RenderType.lines());
+        LevelRenderer.renderLineBox(ps, vc,
+                new AABB(0.02, 0.02, 0.02, 0.98, 0.98, 0.98),
+                0.4f, 0.8f, 1.0f, alpha);
+        mc.renderBuffers().bufferSource().endBatch();
+        ps.popPose();
     }
 }

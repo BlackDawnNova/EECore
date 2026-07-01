@@ -3,6 +3,7 @@ package com.endlessepoch.core.registry;
 import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.block.creative.CreativeConsumerBlock;
 import com.endlessepoch.core.block.creative.CreativeGeneratorBlock;
+import com.endlessepoch.core.nova.block.ScannerBoundaryBlock;
 import com.endlessepoch.core.nova.block.ScannerControllerBlock;
 import com.endlessepoch.core.nova.block.TransmitterTestBlock;
 import net.minecraft.core.registries.Registries;
@@ -52,6 +53,18 @@ public class Blocks {
                     .mapColor(MapColor.COLOR_LIGHT_BLUE)
                     .strength(2.0f)
                     .noOcclusion()
+            )
+    );
+
+    public static final Supplier<Block> SCANNER_BOUNDARY = BLOCKS.register(
+            "scanner_boundary",
+            () -> new ScannerBoundaryBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.STONE)
+                    .strength(1.0f)
+                    .noOcclusion()
+                    .noCollission()
+                    .replaceable()
+                    .noLootTable()
             )
     );
 }

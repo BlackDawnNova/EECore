@@ -62,6 +62,7 @@ public class EECore {
                         output.accept(Items.TEST_TRANSMITTER_ITEM.get());
                         output.accept(Items.LASER_LINK_CARD.get());
                         output.accept(Items.SCANNER_CONTROLLER_ITEM.get());
+                        output.accept(Items.SCANNER_BOUNDARY_ITEM.get());
                         output.accept(Items.MULTIBLOCK_SCANNER.get());
                     })
                     .build()

@@ -36,7 +36,7 @@ import java.util.*;
 
 public class MultiblockScannerItem extends AnimatedItem {
 
-    // Character pool for scanned blocks — A=air, K=controller, #=wildcard are reserved
+    // Character pool for scanned blocks — A=air, K=controller, #=wildcard are reserved / 扫描字符池：A=空气、K=控制器、#=通配符
     private static final char[] CHAR_POOL = {
         'B','C','D','E','F','G','H','I','J','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
         'b','c','d','e','f','g','h','i','j','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
@@ -123,6 +123,12 @@ public class MultiblockScannerItem extends AnimatedItem {
     }
 
     private InteractionResult markPosition(ItemStack stack, Player player, BlockPos pos) {
+        if (!(player.level().getBlockState(pos).getBlock()
+                instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock)) {
+            player.displayClientMessage(
+                    Component.translatable("eecore.scanner.boundary_required").withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
+        }
         CompoundTag tag = getTag(stack);
 
         if (!tag.contains("pos1")) {
@@ -204,6 +210,11 @@ public class MultiblockScannerItem extends AnimatedItem {
                         continue;
                     }
 
+                    if (block instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock) {
+                        raw[y][z][x] = 'A';
+                        continue;
+                    }
+
                     // Controller detection — must check every / 必须遍历所有方块检查控制器
                     if (level.getBlockEntity(wPos) instanceof com.endlessepoch.core.nova.block.ScannerControllerBlockEntity) {
                         controllerPositions.add(wPos);
@@ -226,6 +237,97 @@ public class MultiblockScannerItem extends AnimatedItem {
                     }
                     raw[y][z][x] = c;
                 }
+            }
+        }
+
+        int trimMinY = 0, trimMaxY = sizeY - 1;
+        int trimMinZ = 0, trimMaxZ = sizeZ - 1;
+        int trimMinX = 0, trimMaxX = sizeX - 1;
+
+        while (trimMinY <= trimMaxY) {
+            boolean allAir = true;
+            for (int z = trimMinZ; z <= trimMaxZ && allAir; z++) {
+                for (int x = trimMinX; x <= trimMaxX && allAir; x++) {
+                    if (raw[trimMinY][z][x] != 'A') { allAir = false; }
+                }
+            }
+            if (allAir) trimMinY++;
+            else break;
+        }
+        while (trimMinY <= trimMaxY) {
+            boolean allAir = true;
+            for (int z = trimMinZ; z <= trimMaxZ && allAir; z++) {
+                for (int x = trimMinX; x <= trimMaxX && allAir; x++) {
+                    if (raw[trimMaxY][z][x] != 'A') { allAir = false; }
+                }
+            }
+            if (allAir) trimMaxY--;
+            else break;
+        }
+        while (trimMinZ <= trimMaxZ) {
+            boolean allAir = true;
+            for (int y = trimMinY; y <= trimMaxY && allAir; y++) {
+                for (int x = trimMinX; x <= trimMaxX && allAir; x++) {
+                    if (raw[y][trimMinZ][x] != 'A') { allAir = false; }
+                }
+            }
+            if (allAir) trimMinZ++;
+            else break;
+        }
+        while (trimMinZ <= trimMaxZ) {
+            boolean allAir = true;
+            for (int y = trimMinY; y <= trimMaxY && allAir; y++) {
+                for (int x = trimMinX; x <= trimMaxX && allAir; x++) {
+                    if (raw[y][trimMaxZ][x] != 'A') { allAir = false; }
+                }
+            }
+            if (allAir) trimMaxZ--;
+            else break;
+        }
+        while (trimMinX <= trimMaxX) {
+            boolean allAir = true;
+            for (int y = trimMinY; y <= trimMaxY && allAir; y++) {
+                for (int z = trimMinZ; z <= trimMaxZ && allAir; z++) {
+                    if (raw[y][z][trimMinX] != 'A') { allAir = false; }
+                }
+            }
+            if (allAir) trimMinX++;
+            else break;
+        }
+        while (trimMinX <= trimMaxX) {
+            boolean allAir = true;
+            for (int y = trimMinY; y <= trimMaxY && allAir; y++) {
+                for (int z = trimMinZ; z <= trimMaxZ && allAir; z++) {
+                    if (raw[y][z][trimMaxX] != 'A') { allAir = false; }
+                }
+            }
+            if (allAir) trimMaxX--;
+            else break;
+        }
+
+        int newSizeX = trimMaxX - trimMinX + 1;
+        int newSizeY = trimMaxY - trimMinY + 1;
+        int newSizeZ = trimMaxZ - trimMinZ + 1;
+        if (newSizeX < sizeX || newSizeY < sizeY || newSizeZ < sizeZ) {
+            char[][][] trimmed = new char[newSizeY][newSizeZ][newSizeX];
+            for (int y = 0; y < newSizeY; y++) {
+                for (int z = 0; z < newSizeZ; z++) {
+                    System.arraycopy(raw[trimMinY + y][trimMinZ + z], trimMinX, trimmed[y][z], 0, newSizeX);
+                }
+            }
+            minX += trimMinX;
+            minY += trimMinY;
+            minZ += trimMinZ;
+            sizeX = newSizeX;
+            sizeY = newSizeY;
+            sizeZ = newSizeZ;
+            raw = trimmed;
+            if (controllerPos != null) {
+                controllerPos = new BlockPos(
+                        controllerPos.getX() - trimMinX,
+                        controllerPos.getY() - trimMinY,
+                        controllerPos.getZ() - trimMinZ
+                );
             }
         }
 

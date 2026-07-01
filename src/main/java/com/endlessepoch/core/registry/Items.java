@@ -2,6 +2,7 @@ package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.nova.item.LaserLinkCardItem;
+import com.endlessepoch.core.nova.block.ScannerBoundaryBlock;
 import com.endlessepoch.core.nova.item.MultiblockScannerItem;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.BlockItem;
@@ -41,6 +42,12 @@ public class Items {
     public static final Supplier<BlockItem> SCANNER_CONTROLLER_ITEM =
             ITEMS.register("scanner_controller",
                     () -> new BlockItem(Blocks.SCANNER_CONTROLLER.get(),
+                            new Item.Properties().stacksTo(64))
+            );
+
+    public static final Supplier<BlockItem> SCANNER_BOUNDARY_ITEM =
+            ITEMS.register("scanner_boundary",
+                    () -> new ScannerBoundaryBlock.Item(Blocks.SCANNER_BOUNDARY.get(),
                             new Item.Properties().stacksTo(64))
             );
 

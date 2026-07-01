@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "eecore:block/scanner_boundary" }
+  }
+}
