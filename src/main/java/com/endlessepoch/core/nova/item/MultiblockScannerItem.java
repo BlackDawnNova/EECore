@@ -60,6 +60,7 @@ public class MultiblockScannerItem extends AnimatedItem {
         'ㄐ','ㄑ','ㄒ','ㄓ','ㄔ','ㄕ','ㄖ','ㄗ','ㄘ','ㄙ'
     };
     private int poolIdx = 0;
+    private static final long MAX_VOLUME = 1_000_000;
 
     public MultiblockScannerItem(Properties properties) {
         super(properties, new ItemTooltipAnimation(
@@ -171,16 +172,10 @@ public class MultiblockScannerItem extends AnimatedItem {
         int sizeY = maxY - minY + 1;
         int sizeZ = maxZ - minZ + 1;
 
-        java.util.Set<Block> uniqueBlocks = new java.util.HashSet<>();
-        for (int y = minY; y <= maxY; y++)
-            for (int z = minZ; z <= maxZ; z++)
-                for (int x = minX; x <= maxX; x++) {
-                    Block b = level.getBlockState(new BlockPos(x, y, z)).getBlock();
-                    if (b != net.minecraft.world.level.block.Blocks.AIR) uniqueBlocks.add(b);
-                }
-        if (uniqueBlocks.size() > CHAR_POOL.length) {
+        long volume = (long) sizeX * sizeY * sizeZ;
+        if (volume > MAX_VOLUME) {
             player.displayClientMessage(
-                    Component.translatable("eecore.scanner.too_many_types", uniqueBlocks.size(), CHAR_POOL.length)
+                    Component.translatable("eecore.scanner.too_large", volume, MAX_VOLUME)
                             .withStyle(ChatFormatting.RED), true);
             return InteractionResult.FAIL;
         }
@@ -234,6 +229,13 @@ public class MultiblockScannerItem extends AnimatedItem {
             }
         }
 
+        if (blockToChar.size() > CHAR_POOL.length) {
+            player.displayClientMessage(
+                    Component.translatable("eecore.scanner.too_many_types", blockToChar.size(), CHAR_POOL.length)
+                            .withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
+        }
+
         if (controllerPos == null) {
             player.displayClientMessage(
                     Component.translatable("eecore.scanner.no_controller").withStyle(ChatFormatting.RED), true);
@@ -260,9 +262,9 @@ public class MultiblockScannerItem extends AnimatedItem {
         }
 
         net.minecraft.core.Direction controllerFront = facing;
-        char[][][] rot = raw;
         int rotW = sizeX, rotD = sizeZ;
         int newCx = controllerPos.getX(), newCz = controllerPos.getZ();
+        String[][] layers;
         if (controllerFront != net.minecraft.core.Direction.NORTH) {
             java.util.List<int[]> rotData = new java.util.ArrayList<>();
             int rMinX = 0, rMaxX = 0, rMinZ = 0, rMaxZ = 0;
@@ -278,27 +280,29 @@ public class MultiblockScannerItem extends AnimatedItem {
                     }
             rotW = Math.max(1, rMaxX - rMinX + 1);
             rotD = Math.max(1, rMaxZ - rMinZ + 1);
-            rot = new char[sizeY][rotD][rotW];
+            newCx = 0 - rMinX;
+            newCz = 0 - rMinZ;
+            layers = new String[sizeY][rotD];
             for (int y = 0; y < sizeY; y++)
-                for (int z = 0; z < rotD; z++)
-                    for (int x = 0; x < rotW; x++)
-                        rot[y][z][x] = 'A';
+                for (int z = 0; z < rotD; z++) {
+                    char[] row = new char[rotW];
+                    java.util.Arrays.fill(row, 'A');
+                    layers[y][z] = new String(row);
+                }
             for (int[] rd : rotData) {
                 if (rd == null) continue;
                 int nx = rd[0] - rMinX, nz = rd[1] - rMinZ;
-                rot[rd[2]][nz][nx] = raw[rd[2]][rd[3]][rd[4]];
+                int ly = rd[2], lz = nz, lx = nx;
+                char[] row = layers[ly][lz].toCharArray();
+                row[lx] = raw[rd[2]][rd[3]][rd[4]];
+                layers[ly][lz] = new String(row);
             }
-            newCx = 0 - rMinX;
-            newCz = 0 - rMinZ;
+        } else {
+            layers = new String[sizeY][sizeZ];
+            for (int y = 0; y < sizeY; y++)
+                for (int z = 0; z < sizeZ; z++)
+                    layers[y][z] = new String(raw[y][z]);
         }
-
-        String[][] layers = new String[sizeY][rotD];
-        for (int y = 0; y < sizeY; y++)
-            for (int z = 0; z < rotD; z++) {
-                StringBuilder row = new StringBuilder();
-                for (int x = 0; x < rotW; x++) row.append(rot[y][z][x]);
-                layers[y][z] = row.toString();
-            }
 
         MultiBlockPattern pattern = new MultiBlockPattern(
                 rotW, sizeY, rotD,

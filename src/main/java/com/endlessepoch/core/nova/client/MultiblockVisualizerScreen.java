@@ -312,6 +312,22 @@ public class MultiblockVisualizerScreen extends Screen {
         if (end < patterns.size()) g.drawString(font, "▼", listR - 8, listB - LINE_HEIGHT, COL_SCROLL_ARW);
     }
 
+    private boolean isEnclosed(EECoreSceneWorld scene, int x, int y, int z) {
+        return !scene.getBlockState(new BlockPos(x, y-1, z)).isAir()
+            && !scene.getBlockState(new BlockPos(x, y+1, z)).isAir()
+            && !scene.getBlockState(new BlockPos(x, y, z-1)).isAir()
+            && !scene.getBlockState(new BlockPos(x, y, z+1)).isAir()
+            && !scene.getBlockState(new BlockPos(x-1, y, z)).isAir()
+            && !scene.getBlockState(new BlockPos(x+1, y, z)).isAir();
+    }
+
+    private int lodSkip(float blockPx, int dim) {
+        if (blockPx >= 6 || dim < 8) return 1;
+        if (blockPx >= 3) return 2;
+        if (blockPx >= 1.5f) return 3;
+        return 4;
+    }
+
     private void drawRenderArea(GuiGraphics g) {
         int erL = rL(), erR = rR(), erT = rT(), erB = rB();
         int rwLoc = erR - erL, rhLoc = erB - erT;
@@ -321,6 +337,7 @@ public class MultiblockVisualizerScreen extends Screen {
         float blockDiag = (float) Math.sqrt(pat.width*pat.width + pat.height*pat.height + pat.depth*pat.depth);
         float cameraDist = CAM_DIST_FACTOR * (float)(vpSize * Math.sqrt(2)) / (blockDiag + CAM_DIST_EPS) * userZoom * CAM_DIST_SCALE;
         float blockPx = cameraDist * BLOCK_PX_FACTOR;
+        int skip = lodSkip(blockPx, Math.max(pat.width, Math.max(pat.height, pat.depth)));
 
         ResourceLocation id = patterns.get(selectedIndex).getKey();
         if (cachedScene == null || !id.equals(cachedPatternId)) {
@@ -358,6 +375,10 @@ public class MultiblockVisualizerScreen extends Screen {
         for (int y = 0; y < pat.height; y++)
             for (int z = 0; z < pat.depth; z++)
                 for (int x = 0; x < pat.width; x++) {
+                    if (skip > 1 && (x > 0 && x < pat.width-1) && (y > 0 && y < pat.height-1) && (z > 0 && z < pat.depth-1)) {
+                        if (((x * 31 + y * 37 + z * 41) & 0xFF) % skip != 0) continue;
+                    }
+
                     BlockState st = cachedScene.getBlockState(new BlockPos(x, y, z));
                     if (layerView >= 0 && y != layerView) continue;
                     if (st.isAir()) continue;
@@ -374,7 +395,9 @@ public class MultiblockVisualizerScreen extends Screen {
                         }
                     }
 
-                    renderer.renderSingleBlock(st, model, buf, PACKED_LIGHT, OverlayTexture.NO_OVERLAY);
+                    if (!isEnclosed(cachedScene, x, y, z)) {
+                        renderer.renderSingleBlock(st, model, buf, PACKED_LIGHT, OverlayTexture.NO_OVERLAY);
+                    }
                     model.popPose();
                 }
 
