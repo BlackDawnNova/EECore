@@ -134,6 +134,15 @@ public final class MultiBlockRegistry {
     }
 
     /**
+     * Remove a pattern from the global registry (used for file-loaded patterns).
+     * <p>
+     * 从全局注册表移除模式（用于从文件加载的结构）。
+     */
+    public static boolean removeMod(ResourceLocation id) {
+        return MOD_PATTERNS.remove(id) != null;
+    }
+
+    /**
      * Clear all scanned patterns for a specific player (called when player disconnects).
      * <p>
      * 清除指定玩家的所有扫描模式（在玩家断开连接时调用）。

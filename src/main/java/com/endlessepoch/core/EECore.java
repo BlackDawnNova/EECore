@@ -81,6 +81,7 @@ public class EECore {
         modEventBus.addListener(this::registerCapabilities);
         modEventBus.addListener(this::registerPayloadHandlers);
         NeoForge.EVENT_BUS.addListener(EECoreCommands::onRegisterCommands);
+        NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.multiblock.PatternStorage::onServerStarting);
     }
 
     private void commonSetup(FMLCommonSetupEvent event) {

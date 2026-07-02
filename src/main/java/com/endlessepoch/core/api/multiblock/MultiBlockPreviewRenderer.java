@@ -17,16 +17,14 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Matrix4f;
 
 /**
- * 在世界中渲染多方块结构的幽灵方块预览。
- * Renders ghost-block preview of a multiblock structure in-world.
+ * In-world preview of a multiblock structure (ghost blocks).
+ * 在世界中显示多方块结构的成形预览（幽灵方块）。
  * <p>
- * 当玩家手持空手对控制器潜行右键时触发。
- * 正确放置的方块渲染为绿色，缺失的方块渲染为红色。
- * 仅在客户端使用。
+ * Shows green outlines for correctly-placed blocks, red for missing ones.
+ * Only used client-side. Entry point not yet wired — reserved for addon multiblock use.
  * <p>
- * Triggered when a player shift-right-clicks the controller with an empty hand.
- * Correctly-placed blocks render green; missing blocks render red.
- * Only used client-side.
+ * 正确放置的方块显示绿色线框，缺失的显示红色线框。
+ * 仅在客户端使用。尚未接入触发入口，为后续自定义多方块结构预留。
  */
 @OnlyIn(Dist.CLIENT)
 public final class MultiBlockPreviewRenderer {

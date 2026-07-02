@@ -113,7 +113,9 @@ public class MultiblockVisualizerScreen extends Screen {
 
     // Confirm dialog state / 确认弹窗
     private boolean confirmShow = false;
+    private boolean confirmIsSave = false;
     private int confirmTargetIdx = -1;
+    private String saveFileName = "";
     private static final int CONFIRM_W = 200, CONFIRM_H = 80;
 
     // Edit mode toggle / 编辑模式开关 (Alt+`)
@@ -513,14 +515,14 @@ public class MultiblockVisualizerScreen extends Screen {
         RenderSystem.clear(256, false);
 
         int cx = (width - CONFIRM_W) / 2, cy = (height - CONFIRM_H) / 2;
-        drawDialogBox(g, cx, cy, CONFIRM_W, CONFIRM_H,
-                Component.translatable("eecore.visualizer.confirm_delete"));
+        String title = confirmIsSave ? "§e确认保存修改?" : "§e确认删除此结构?";
+        drawDialogBox(g, cx, cy, CONFIRM_W, CONFIRM_H, Component.literal(title));
 
         var buf = mc.renderBuffers().bufferSource();
         var pose = g.pose().last().pose();
 
-        String name = patterns.get(confirmTargetIdx).getKey().getPath();
-        font.drawInBatch(Component.literal("§7" + name), cx + 12, cy + 32, 0xCCCCCCCC, false,
+        String disp = confirmIsSave ? "§f" + saveFileName + "§7_" : "§7" + patterns.get(confirmTargetIdx).getKey().getPath();
+        font.drawInBatch(Component.literal(disp), cx + 12, cy + 32, 0xCCCCCCCC, false,
                 pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
 
         font.drawInBatch(Component.literal("§a✔ 确认"), cx + 20, cy + 58, 0xFFFFFFFF, false,
@@ -571,6 +573,8 @@ public class MultiblockVisualizerScreen extends Screen {
                     int uw = font.width("↩ 撤销") + 16;
                     drawButton(g, buf, mat, "↩ 撤销", px + (PANEL_W - uw) / 2, py + 94, uw - 4, false);
                 }
+                // Save button / 保存按钮
+                drawButton(g, buf, mat, "§b 💾 保存", px + 10, py + ph - 20, PANEL_W - 20, false);
             } else {
                 // Browse mode — show pattern definition blocks / 浏览模式 — 显示结构中的可用方块
                 buf.endBatch();
@@ -857,9 +861,20 @@ public class MultiblockVisualizerScreen extends Screen {
                 confirmShow = false;
                 if (confirmTargetIdx >= 0 && confirmTargetIdx < patterns.size()) {
                     var id = patterns.get(confirmTargetIdx).getKey();
-                    MultiBlockRegistry.removeLocal(Minecraft.getInstance().player.getUUID(), id);
-                    patterns.remove(confirmTargetIdx);
-                    selectedIndex = Math.min(selectedIndex, patterns.size() - 1);
+                    var pat = patterns.get(confirmTargetIdx).getValue();
+                    if (confirmIsSave) {
+                        String name = saveFileName.trim().isEmpty() ? id.getPath() : saveFileName.trim().replaceAll("[^a-zA-Z0-9_/-]", "_");
+                        var saveId = ResourceLocation.fromNamespaceAndPath(id.getNamespace(), name);
+                        com.endlessepoch.core.api.multiblock.PatternStorage.save(saveId, pat);
+                        Minecraft.getInstance().player.displayClientMessage(
+                                Component.literal("§a结构已保存: " + name), true);
+                    } else {
+                        MultiBlockRegistry.removeLocal(Minecraft.getInstance().player.getUUID(), id);
+                        MultiBlockRegistry.removeMod(id);
+                        com.endlessepoch.core.api.multiblock.PatternStorage.delete(id);
+                        patterns.remove(confirmTargetIdx);
+                        selectedIndex = Math.min(selectedIndex, patterns.size() - 1);
+                    }
                     pickResult = null;
                     pickBlockState = null;
                     panelVisible = false;
@@ -899,6 +914,12 @@ public class MultiblockVisualizerScreen extends Screen {
             }
             if (undoAvailable && mx >= px2 + 50 && mx <= px2 + 150 && my >= py2 + 92 && my <= py2 + 110) {
                 undoReplace(); return true; }
+            // Save button / 保存按钮
+            int ph = panelH();
+            if (onBtn(mx, my, px2 + 10, py2 + ph - 20, PANEL_W - 20) && selectedIndex >= 0) {
+                var pat = patterns.get(selectedIndex);
+                saveFileName = pat.getKey().getPath().replace("scanned_", "");
+                confirmShow = true; confirmIsSave = true; confirmTargetIdx = selectedIndex; return true; }
         }
         if (btn == 0 && panelVisible && replaceMode) {
             int px2 = Math.max(0, Math.min(width - PANEL_W, panelX));
@@ -1069,8 +1090,14 @@ public class MultiblockVisualizerScreen extends Screen {
             }
         }
 
-if (k == KEY_G && !editModeActive) { rotX = ROT_X_INIT; rotY = ROT_Y_INIT; userZoom = ZOOM_INIT; layerView = -1; return true; }
-if ((k == KEY_W || k == KEY_UP) && !editModeActive) { selectedIndex = Math.max(0, selectedIndex - 1); updateListScroll(); layerView = -1; return true; }
+        // Save dialog — backspace only (char input via charTyped) / 保存弹窗 — 退格键
+        if (confirmShow && confirmIsSave && k == 259 && !saveFileName.isEmpty()) {
+            saveFileName = saveFileName.substring(0, saveFileName.length() - 1);
+            return true;
+        }
+
+        if (k == KEY_G && !editModeActive) { rotX = ROT_X_INIT; rotY = ROT_Y_INIT; userZoom = ZOOM_INIT; layerView = -1; return true; }
+        if ((k == KEY_W || k == KEY_UP) && !editModeActive) { selectedIndex = Math.max(0, selectedIndex - 1); updateListScroll(); layerView = -1; return true; }
         if ((k == KEY_S || k == KEY_DN) && !editModeActive) { selectedIndex = Math.min(patterns.size() - 1, selectedIndex + 1); updateListScroll(); layerView = -1; return true; }
         return super.keyPressed(k, s, m);
     }
@@ -1134,14 +1161,13 @@ if ((k == KEY_W || k == KEY_UP) && !editModeActive) { selectedIndex = Math.max(0
 
         undoAvailable = true;
         cachedScene = null;
-        pickResult = pickResult;
-        pickBlockState = newState;
-        panelVisible = true;
-        replaceSource = null;
+        // Keep replace mode open with reset search / 保持替换模式，重置搜索
         searchQuery = "";
-        searchResults = java.util.List.of();
+        searchResults = net.minecraft.core.registries.BuiltInRegistries.BLOCK.stream()
+                .filter(b -> b.asItem() != net.minecraft.world.item.Items.AIR).toList();
         searchIdx = -1;
         searchScroll = 0;
+        replaceSource = null;
     }
 
     private void undoReplace() {
@@ -1161,6 +1187,11 @@ if ((k == KEY_W || k == KEY_UP) && !editModeActive) { selectedIndex = Math.max(0
 
     @Override
     public boolean charTyped(char cp, int modifiers) {
+        // Save dialog text input / 保存弹窗文字输入
+        if (confirmShow && confirmIsSave && cp >= 32 && cp != 127) {
+            saveFileName += cp;
+            return true;
+        }
         if (replaceMode && panelVisible && cp >= 32 && cp != 127) {
             searchQuery += cp;
             updateSearchResults();

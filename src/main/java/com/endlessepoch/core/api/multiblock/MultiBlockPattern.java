@@ -76,7 +76,8 @@ public final class MultiBlockPattern {
     public BlockState getExpectedState(int relX, int relY, int relZ) {
         if (relY < 0 || relY >= height || relZ < 0 || relZ >= depth || relX < 0 || relX >= width) return null;
         char c = layerData[relY].charAt(relZ * width + relX);
-        if (c == ' ' || c == '_' || c == 'A' || c == '#') return null;
+        if (c == ' ' || c == '_' || c == '#') return null;
+        if (c == 'A') return definitions.getOrDefault('A', null);
         return definitions.get(c);
     }
 
@@ -100,6 +101,67 @@ public final class MultiBlockPattern {
 
     public Map<Character, BlockState> getDefinitions() { return definitions; }
     public String[] getLayerData() { return layerData; }
+
+    /**
+     * Compact used character range — removes gaps from editing.
+     * After calling, used chars are contiguous starting from 'B'+.
+     * A=air and K=controller are preserved, #=wildcard untouched.
+     * <p>
+     * 压缩使用的字符范围，去除编辑产生的间隙。
+     * 压缩后已使用的字符从 'B' 开始连续排列。
+     * A=空气 K=控制器 #=通配符 不受影响。
+     */
+    public void compactify() {
+
+        java.util.Set<Character> used = new java.util.LinkedHashSet<>();
+        for (String s : layerData) {
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                if (c != 'A' && c != 'K' && c != '#') used.add(c);
+            }
+        }
+        if (used.size() <= 1) return;
+
+        java.util.List<Character> sorted = new java.util.ArrayList<>(used);
+        java.util.Collections.sort(sorted);
+        java.util.Map<Character, Character> remap = new java.util.HashMap<>();
+        char next = 'B';
+        for (char c : sorted) {
+            if (c != next) remap.put(c, next);
+            next++;
+            if (next == 'K') next++; // skip controller char / 跳过 K
+        }
+
+        if (remap.isEmpty()) return;
+
+        // Remap layer data / 重映射层数据
+        for (int i = 0; i < layerData.length; i++) {
+            char[] chars = layerData[i].toCharArray();
+            for (int j = 0; j < chars.length; j++) {
+                Character n = remap.get(chars[j]);
+                if (n != null) chars[j] = n;
+            }
+            layerData[i] = new String(chars);
+        }
+
+        // Remap definitions / 重映射定义
+        java.util.Map<Character, BlockState> newDefs = new java.util.LinkedHashMap<>();
+        for (var e : definitions.entrySet()) {
+            Character n = remap.get(e.getKey());
+            newDefs.put(n != null ? n : e.getKey(), e.getValue());
+        }
+        definitions.clear();
+        definitions.putAll(newDefs);
+
+        // Remap alternatives / 重映射可替换组
+        java.util.Map<Character, Set<BlockState>> newAlt = new java.util.LinkedHashMap<>();
+        for (var e : alternatives.entrySet()) {
+            Character n = remap.get(e.getKey());
+            newAlt.put(n != null ? n : e.getKey(), e.getValue());
+        }
+        alternatives.clear();
+        alternatives.putAll(newAlt);
+    }
 
     // Backward compat: rebuild [layer][row] array from packed data / 兼容旧API
     public String[][] getLayers() {

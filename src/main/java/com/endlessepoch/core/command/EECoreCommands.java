@@ -32,10 +32,19 @@ public final class EECoreCommands {
 
     private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal(EECore.MOD_ID)
+                .then(Commands.literal("reload")
+                        .requires(source -> source.hasPermission(4))
+                        .executes(ctx -> reloadStructures(ctx.getSource())))
                 .then(Commands.literal("debug")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("mbvis")
                                 .executes(ctx -> openDebugMbvis(ctx.getSource())))));
+    }
+
+    private static int reloadStructures(CommandSourceStack source) {
+        com.endlessepoch.core.api.multiblock.PatternStorage.loadAll();
+        source.sendSuccess(() -> Component.literal("§aEECore structures reloaded from disk."), true);
+        return 1;
     }
 
     private static int openDebugMbvis(CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
