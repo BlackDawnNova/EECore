@@ -4,59 +4,42 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-/**
- * Validates a multi-block structure against a pattern at a given world position.
- * <p>
- * 在给定的世界位置根据模式验证多方块结构。
- */
+/** Validates a pattern at a world position with tag count enforcement. / 验证多方块结构 */
 public final class MultiBlockValidator {
-
     private MultiBlockValidator() {}
 
-    /**
-     * Check if a pattern matches at the given controller position.
-     * <p>
-     * 检查在给定控制器位置处模式是否匹配。
-     *
-     * @param level    the world / 世界
-     * @param pattern  the pattern definition / 模式定义
-     * @param controllerPos position of the controller block / 控制器方块的位置
-     * @param facing   direction the pattern faces (north=default) / 模式朝向（默认为北）
-     * @return true if structure matches / 若结构匹配则返回 true
-     */
     public static boolean validate(Level level, MultiBlockPattern pattern,
                                    BlockPos controllerPos, Direction facing) {
         BlockPos origin = controllerPos.offset(
                 -pattern.controllerX, -pattern.controllerY, -pattern.controllerZ);
+        int w = pattern.width, d = pattern.depth;
+        Map<String, Integer> tagCounts = new LinkedHashMap<>();
+        Map<String, Integer> tagLimits = new LinkedHashMap<>();
 
-        int w = pattern.width;
-        int d = pattern.depth;
-
-        for (int y = 0; y < pattern.height; y++) {
-            for (int z = 0; z < d; z++) {
+        for (int y = 0; y < pattern.height; y++)
+            for (int z = 0; z < d; z++)
                 for (int x = 0; x < w; x++) {
                     char expected = pattern.getChar(x, y, z);
                     if (expected == ' ' || expected == '_') continue;
-
                     BlockState required = pattern.getExpectedState(x, y, z);
                     if (required == null) continue;
-
                     BlockPos worldPos = transform(origin, x, y, z, w, d, facing);
-                    BlockState actual = level.getBlockState(worldPos);
-
-                    if (!actual.getBlock().equals(required.getBlock())) return false;
+                    if (!level.getBlockState(worldPos).getBlock().equals(required.getBlock())) return false;
+                    for (String tag : pattern.getTags(expected)) {
+                        int mc = TagDefRegistry.getMaxCount(tag);
+                        if (mc > 0) { tagCounts.merge(tag, 1, Integer::sum); tagLimits.put(tag, mc); }
+                    }
                 }
-            }
+        for (var e : tagCounts.entrySet()) {
+            Integer limit = tagLimits.get(e.getKey());
+            if (limit != null && e.getValue() > limit) return false;
         }
         return true;
     }
 
-    /**
-     * Transform pattern-local coordinates to world coordinates.
-     * <p>
-     * 将模式局部坐标转换为世界坐标。
-     */
     public static BlockPos transform(BlockPos origin, int dx, int dy, int dz,
                                      int width, int depth, Direction facing) {
         return switch (facing) {

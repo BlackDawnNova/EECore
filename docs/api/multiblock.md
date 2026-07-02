@@ -1,183 +1,172 @@
-# 多方块结构系统 / Multiblock Structure System
+# 多方块结构系统 / Multiblock System
 
-完整的多方块结构框架：扫描 → 缓存 → 预览 → 成形。
-
----
-
-## 核心概念 / Concepts
-
-- **Pattern**：结构定义（多层字符网格 + 方块映射表）
-- **字符池**：A=空气，K=控制器，#=通配符，支持 306 种不同方块类型
-- **控制器**：仅通过 `registerControllerBlock()` 注册的方块被识别为 'K'
-- **扫描仪**：OP 专用手持物品，标记两角后扫描生成 Pattern
-- **Visualizer**：3D 预览界面，支持旋转/缩放/分层预览/编辑替换
-- **成形**：Shift+右键控制器，验证结构是否匹配 Pattern
+EECore 的多方块框架：扫描 → 预览 → 标记 → 成形。
 
 ---
 
-## 快速流程 / Quick Flow
+## 核心概念
+
+- **Pattern**：字符编码 3D 结构（多层网格 + 方块映射表）
+- **字符池**：A=空气，K=控制器，#=通配符，253 种可打印字符（0x21–0xFE）
+- **.ecs 格式**：EECore 私有二进制格式，gzip + CRC32，仅 EECore 可编解码
+- **标记 (Tag)**：给字符打标签名（如 `"gregtech:input_hatch"`），具体含义由附属 mod 通过 `TagDefRegistry` 定义
+- **控制器**：实现 `IMultiBlockController` 的方块
+- **成形**：Shift+右键控制器 → 匹配 Pattern → 验证方块和 tag 数量
+
+---
+
+## 快速流程
 
 ```
-① 放置控制器方块 + 结构方块
-② 手持扫描仪右键标记两个对角
-③ Shift+右键扫描 → Pattern 注册到缓存
-④ 右键空气 → 打开 3D Visualizer 预览
-⑤ Shift+右键控制器 → 成形验证
+① 放控制器 + 方块
+② 扫描仪标记两角 → Shift+右键扫描
+③ 右键空气 → Visualizer 预览
+④ 编辑模式 → 点方块 → "标记" → 输入标签名
+⑤ 保存为 .ecs（默认格式）
+⑥ Shift+右键控制器 → 成形验证
 ```
 
 ---
 
-## API 参考 / API Reference
+## .ecs 文件格式
+
+```
+[hdr] 魔数 "EECS" + 版本号(1/2) + 标志位(bit0=gzip)
+[crc] CRC32（头+载荷）
+[payload]
+  VarInt: width, height, depth, ctrlX/Y/Z
+  VarInt: 调色板大小
+    for each:
+      Byte: 字符
+      VarInt+UTF8: 方块ID
+      VarInt: tag数量 + for each: VarInt+UTF8 tag名
+  Byte: bitsPerVoxel
+  VarInt: 体素数
+  Byte[]: 体素数据（调色板索引）
+```
+
+附属 mod 可直接用 `ecsformat` 包中的 `EcsRawCodec`（纯 JDK，无 MC 依赖）解析。
+
+---
+
+## API
 
 ### MultiBlockPattern
 
 ```java
-// width, height, depth = 结构尺寸
-// controllerX/Y/Z = 控制器在结构内的相对坐标
-// layers = [layer][row] 字符层
-// definitions = 字符 → BlockState
+new MultiBlockPattern(w, h, d, cx, cy, cz, layers, definitions);
 
-new MultiBlockPattern(width, height, depth,
-    controllerX, controllerY, controllerZ,
-    layers, definitions);
+pattern.addAlternatives('B', ironBlock, steelBlock);
+pattern.getAlternatives('B');   // → {原方块, 替代方块}
+pattern.getTags('C');           // → ["tag_name"]
+pattern.setTags('C', List.of("gregtech:input_hatch"));
+byte[] data = pattern.toByteArray();
+MultiBlockPattern p2 = MultiBlockPattern.fromByteArray(data);
+```
 
-// 注册可替换的同类方块组
-pattern.addAlternatives('A', inputBus, inputHatch, steamHatch);
-pattern.getAlternatives('A'); // → {铁块, 输入总线, 输入仓, 蒸汽仓}
+### EECoreCodec
+
+```java
+EECoreCodec.encode(pattern);      // → byte[]
+EECoreCodec.decode(data);         // → MultiBlockPattern
+EECoreCodec.read(path);           // → MultiBlockPattern
+EECoreCodec.write(path, pattern);
+```
+
+### EcsRawCodec（纯 JDK，无 MC 依赖）
+
+```java
+EcsRawData data = EcsRawCodec.read(path);
+data.palette();   // → List<EcsPaletteEntry> (每个条目: character, blockId, tags)
 ```
 
 ### MultiBlockRegistry
 
 ```java
-// 注册全局结构（Mod 初始化时，所有玩家可见）
 MultiBlockRegistry.registerMod(id, pattern);
-
-// 注册玩家本地结构（扫描时的默认行为）
 MultiBlockRegistry.registerLocal(playerId, id, pattern);
-
-// 注册控制器方块（编辑模式下 'K' 的可替换列表）
 MultiBlockRegistry.registerControllerBlock(block);
-
-// 查询控制器方块
-MultiBlockRegistry.getControllerBlocks();
-
-// 删除单个玩家本地结构
+MultiBlockRegistry.get(playerId, id);
+MultiBlockRegistry.getAll(playerId);
 MultiBlockRegistry.removeLocal(playerId, id);
+```
 
-// 查询
-MultiBlockRegistry.get(playerId, id);   // 玩家 + 全局
-MultiBlockRegistry.getAll(playerId);     // 玩家可见的全部
+### TagDefRegistry
 
-// 清理（玩家断开时）
-MultiBlockRegistry.clearLocal(playerId);
+```java
+// 附属 mod 在 commonSetup 中注册
+TagDefRegistry.register("gregtech:input_hatch",
+    Set.of(SLV_HATCH, LV_HATCH, HV_HATCH),
+    4  // 全局上限
+);
+// .ecs 中对应 tag 的字符自动展开，验证时检查上限
 ```
 
 ### IMultiBlockController
 
-控制器方块的接口：
-
 ```java
-UUID getNodeId();            // 节点 ID
-boolean isFormed();          // 是否已成形
-void onMultiblockFormed();   // 成形回调 → 注册节点
-void onMultiblockBroken();   // 破坏回调 → 注销节点
-UUID getOwnerUUID();         // 拥有者
+UUID getNodeId();
+boolean isFormed();
+void onMultiblockFormed();
+void onMultiblockBroken();
+UUID getOwnerUUID();
 String getOwnerName();
-void stampOwner(UUID owner, String name);  // 烙印拥有者
+void stampOwner(UUID owner, String name);
 ```
 
 ---
 
-## 3D Visualizer / 3D 预览
-
-### 操作 / Controls
+## Visualizer 操作
 
 | 操作 | 效果 |
 |------|------|
-| 左键拖拽 | 旋转视角 |
-| 滚轮 | 缩放（>3× 进入沉浸模式）|
-| 左键点击方块 | 浏览模式：显示可替换方块；编辑模式：替换/撤销 |
-| G 键 | 重置视角（仅浏览模式） |
-| W/S | 切换结构（仅浏览模式） |
+| 左键拖拽 | 旋转 |
+| 滚轮 | 缩放 |
+| 左键点击方块 | 浏览模式：显示替代方块；编辑模式：替换/标记 |
+| G | 重置视角 |
+| W/S | 切换结构（浏览模式）|
 | Alt+` | 切换编辑/浏览模式 |
-| Del | 删除缓存结构（带确认弹窗） |
-| Ctrl+Z | 撤销替换（仅编辑模式） |
-| Ctrl+C | 复制方块名（仅编辑模式） |
-| Ctrl+V | 粘贴替换（仅编辑模式） |
+| Del | 删除（带确认） |
+| Ctrl+Z | 撤销 |
+| Ctrl+C | 复制方块名 |
+| Ctrl+V | 粘贴替换 |
 
-### 分层预览 / Layer View
+### 编辑模式
 
-屏幕右侧按钮组：**左键**=上一层，**右键**=下一层，**↻**=显示全部层。控制器光晕仅在当前层闪烁。
+| 按钮 | 功能 |
+|------|------|
+| 替换 | 搜索方块替换当前位置 |
+| 批量 | 替换所有同字符方块 |
+| 单删/批删 | 方块变空气 |
+| 标记 | 给字符打标签名（每字符最多一个）|
 
-### 方块搜索 / Block Search
-
-编辑模式下输入文字搜索方块，支持：
-- 英文名：`stone` → 所有石类方块
-- 拼音首字母：`st` → 石头，`ys` → 圆石
-- 全拼：`shitou` → 石头，`yushi` → 玉石
-- 模糊音：`zh=z, sh=s, ch=c, ang=an, ing=in, eng=en`
-- 空格分词：`red stone` → Redstone 相关
-- 滚轮翻页、点击选择
-
-基于 PinIn 拼音引擎（MIT 协议，嵌入式集成）。
-
-### Pick / 拾取
-
-点击预览区方块，使用 **Ray-AABB 求交**（Slab 法）计算命中：
-1. 从屏幕点击位置发射射线，经投影矩阵逆变换到模式空间
-2. 对每个方块做 AABB 求交，取 t 最近的命中
-3. 拖拽旋转时超过 5px 则不触发拾取（区分点击与拖拽）
-4. 选中方块显示**快速闪烁（300ms）灰白线框 + 3 层同心外发光**
-
-### 方块替换 / Block Replacement
-
-编辑模式下（Alt+`）点击方块后可选 **[单个]** 或 **[批量]**：
-- 单个替换：仅替换该位置，创建新字符
-- 批量替换：替换该字符的所有方块
-- 撤销栈支持连续多次撤销至原始状态
-- 'K' 控制器仅允许替换为已注册的控制器方块
+保存默认为 `.ecs` 格式。调试可用 `/eecore export <id> json` 导出可读 JSON。
 
 ---
 
-## 多控制器高亮 / Multi-Controller Highlight
+## 命令
 
-当扫描区域存在 > 1 个控制器时：
-
-- 服务端将控制器坐标存入物品 NBT `controllers`
-- 客户端渲染**穿透方块的脉冲红光柱 + 线框**
-- 光柱高 64 格，任何地形都可见
-- 提示：清理所有控制器后重新放置
-
-使用自定义 `RenderType`（`NO_DEPTH_TEST`）实现真·穿透渲染。
+```text
+/eecore reload                # 重载磁盘结构
+/eecore debug mbvis           # 打开调试结构
+/eecore export <id> [ecs|json] # 导出
+/eecore import <filename>     # 导入
+```
 
 ---
 
-## 扫描器权限 / Scanner Permission
-
-扫描器仅限 OP（权限等级 ≥ 2）使用。非 OP 玩家即使通过 `/give` 获取物品也无法标记或扫描。
-
----
-
-## 字符池 / Character Pool
-
-扫描器使用预定义字符池（306 种），保留字符：
-- `A` = 空气
-- `K` = 控制器
-- `#` = 通配符（任意方块）
-
-超过 306 种不同类型时拒绝扫描，提示精简结构。
-
----
-
-## 提供全局结构 / For Addon Mods
-
-附属 Mod 在 `FMLCommonSetupEvent` 中注册：
+## 附属 Mod 注册结构
 
 ```java
-MultiBlockPattern pattern = new MultiBlockPattern(3, 3, 3,
-    1, 0, 1, layers, definitions);
-MultiBlockRegistry.registerMod(
-    ResourceLocation.fromNamespaceAndPath("my_mod", "my_struct"),
-    pattern
-);
+MultiBlockPattern pattern = EECoreCodec.read(ecsFile);
+MultiBlockRegistry.registerMod(id, pattern);
+TagDefRegistry.register("my_mod:input_hatch", blocks, 4);
+MultiBlockRegistry.registerControllerBlock(controller);
 ```
+
+---
+
+## 许可
+
+v0.1.1 起：**GNU GPL v3.0**
+附属 mod 使用 EECore API 需遵守 GPL 3.0。

@@ -1,31 +1,19 @@
 package com.endlessepoch.core.api.multiblock;
 
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.Block;
-
 import java.util.*;
 
-/**
- * Defines a multiblock structure pattern.
- * <p>
- * 定义多方块结构模式。字符通过定义映射对应到 BlockState。
- * 其他模组可以通过代码或 JSON 定义模式。
- */
+/** Multiblock pattern: char-coded layers + definitions + tags. / 多方块结构模式 */
 public final class MultiBlockPattern {
-
-    public final int width;
-    public final int height;
-    public final int depth;
+    public final int width, height, depth;
     public final int controllerX, controllerY, controllerZ;
 
-    // One String per layer (height strings), each row is width chars / 每层一个字符串
-    private final String[] layerData;
+    private final String[] layerData; // [y] = packed String (all Z rows)
     private final Map<Character, BlockState> definitions;
     private final Map<Character, Set<BlockState>> alternatives = new LinkedHashMap<>();
+    private final Map<Character, List<String>> tags = new LinkedHashMap<>();
 
-    /**
-     * @param layers [layer][row] = char string
-     */
+    /** @param layers [layer][row] = char string */
     public MultiBlockPattern(int width, int height, int depth,
                              int controllerX, int controllerY, int controllerZ,
                              String[][] layers, Map<Character, BlockState> definitions) {
@@ -44,9 +32,7 @@ public final class MultiBlockPattern {
         this.definitions = new LinkedHashMap<>(definitions);
     }
 
-    public void setDefinition(char c, BlockState state) {
-        definitions.put(c, state);
-    }
+    public void setDefinition(char c, BlockState state) { definitions.put(c, state); }
 
     public void setBlock(int x, int y, int z, BlockState state) {
         if (y < 0 || y >= height || z < 0 || z >= depth || x < 0 || x >= width) return;
@@ -61,9 +47,8 @@ public final class MultiBlockPattern {
     }
 
     private char findOrCreateChar(BlockState state) {
-        for (var e : definitions.entrySet()) {
+        for (var e : definitions.entrySet())
             if (e.getValue().getBlock() == state.getBlock()) return e.getKey();
-        }
         char c = 'A';
         for (char c2 = 'A'; c2 <= 'Z'; c2++) {
             if (c2 == 'K') continue;
@@ -90,6 +75,7 @@ public final class MultiBlockPattern {
         alternatives.computeIfAbsent(c, k -> new LinkedHashSet<>()).addAll(List.of(states));
     }
 
+    /** Returns the original block + alternatives for a char. / 返回某字符的原方块和可替换方块 */
     public Set<BlockState> getAlternatives(char c) {
         Set<BlockState> result = new LinkedHashSet<>();
         BlockState own = definitions.get(c);
@@ -99,42 +85,39 @@ public final class MultiBlockPattern {
         return result;
     }
 
+    public List<String> getTags(char c) { return tags.getOrDefault(c, List.of()); }
+    public void setTags(char c, List<String> tagList) {
+        if (tagList == null || tagList.isEmpty()) tags.remove(c);
+        else tags.put(c, List.copyOf(tagList));
+    }
+
     public Map<Character, BlockState> getDefinitions() { return definitions; }
     public String[] getLayerData() { return layerData; }
 
-    /**
-     * Compact used character range — removes gaps from editing.
-     * After calling, used chars are contiguous starting from 'B'+.
-     * A=air and K=controller are preserved, #=wildcard untouched.
-     * <p>
-     * 压缩使用的字符范围，去除编辑产生的间隙。
-     * 压缩后已使用的字符从 'B' 开始连续排列。
-     * A=空气 K=控制器 #=通配符 不受影响。
-     */
+    /** Compact chars to safe pool (0x21-0xFE), no unprintable chars. / 压缩字符到安全范围 */
     public void compactify() {
-
         java.util.Set<Character> used = new java.util.LinkedHashSet<>();
-        for (String s : layerData) {
+        for (String s : layerData)
             for (int i = 0; i < s.length(); i++) {
                 char c = s.charAt(i);
                 if (c != 'A' && c != 'K' && c != '#') used.add(c);
             }
-        }
         if (used.size() <= 1) return;
+
+        char[] pool = EECoreStructureFormat.SAFE_CHAR_POOL;
+        if (used.size() > pool.length)
+            throw new IllegalStateException("Too many block types: " + used.size() + " > " + pool.length);
 
         java.util.List<Character> sorted = new java.util.ArrayList<>(used);
         java.util.Collections.sort(sorted);
         java.util.Map<Character, Character> remap = new java.util.HashMap<>();
-        char next = 'B';
+        int poolIdx = 0;
         for (char c : sorted) {
-            if (c != next) remap.put(c, next);
-            next++;
-            if (next == 'K') next++; // skip controller char / 跳过 K
+            char target = pool[poolIdx++];
+            if (c != target) remap.put(c, target);
         }
-
         if (remap.isEmpty()) return;
 
-        // Remap layer data / 重映射层数据
         for (int i = 0; i < layerData.length; i++) {
             char[] chars = layerData[i].toCharArray();
             for (int j = 0; j < chars.length; j++) {
@@ -143,27 +126,32 @@ public final class MultiBlockPattern {
             }
             layerData[i] = new String(chars);
         }
-
-        // Remap definitions / 重映射定义
         java.util.Map<Character, BlockState> newDefs = new java.util.LinkedHashMap<>();
-        for (var e : definitions.entrySet()) {
-            Character n = remap.get(e.getKey());
-            newDefs.put(n != null ? n : e.getKey(), e.getValue());
-        }
-        definitions.clear();
-        definitions.putAll(newDefs);
+        for (var e : definitions.entrySet())
+            newDefs.put(remap.getOrDefault(e.getKey(), e.getKey()), e.getValue());
+        definitions.clear(); definitions.putAll(newDefs);
 
-        // Remap alternatives / 重映射可替换组
         java.util.Map<Character, Set<BlockState>> newAlt = new java.util.LinkedHashMap<>();
-        for (var e : alternatives.entrySet()) {
-            Character n = remap.get(e.getKey());
-            newAlt.put(n != null ? n : e.getKey(), e.getValue());
-        }
-        alternatives.clear();
-        alternatives.putAll(newAlt);
+        for (var e : alternatives.entrySet())
+            newAlt.put(remap.getOrDefault(e.getKey(), e.getKey()), e.getValue());
+        alternatives.clear(); alternatives.putAll(newAlt);
+
+        java.util.Map<Character, List<String>> newTags = new java.util.LinkedHashMap<>();
+        for (var e : tags.entrySet())
+            newTags.put(remap.getOrDefault(e.getKey(), e.getKey()), e.getValue());
+        tags.clear(); tags.putAll(newTags);
     }
 
-    // Backward compat: rebuild [layer][row] array from packed data / 兼容旧API
+    public byte[] toByteArray() {
+        try { return EECoreCodec.encode(this); }
+        catch (java.io.IOException e) { throw new RuntimeException("Failed to encode", e); }
+    }
+
+    public static MultiBlockPattern fromByteArray(byte[] data) {
+        try { return EECoreCodec.decode(data); }
+        catch (java.io.IOException e) { throw new RuntimeException("Failed to decode", e); }
+    }
+
     public String[][] getLayers() {
         String[][] layers = new String[height][depth];
         for (int y = 0; y < height; y++)

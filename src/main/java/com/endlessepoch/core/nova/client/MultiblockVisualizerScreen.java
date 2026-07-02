@@ -17,6 +17,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -126,6 +127,10 @@ public class MultiblockVisualizerScreen extends Screen {
     private boolean batchReplace = false;
     private BlockPos replaceSource = null;
 
+    // Tag editing mode / 标签编辑模式
+    private boolean tagModeActive = false;
+    private String tagInput = "";
+
     private record PickRay(Vector3f start, Vector3f direction) {}
 
     private static final RenderType HIGHLIGHT_LINES = RenderType.create(
@@ -170,7 +175,12 @@ public class MultiblockVisualizerScreen extends Screen {
     private int panelX = 10, panelY = 10;
     private static final int PANEL_W = 200, PANEL_H = 150;
     private static final int PANEL_EDIT_H = 180;
-    private int panelH() { return replaceMode ? PANEL_EDIT_H : PANEL_H; }
+    private static final int PANEL_TAG_H = 260;
+    private int panelH() {
+        if (replaceMode) return PANEL_EDIT_H;
+        if (tagModeActive) return PANEL_TAG_H;
+        return PANEL_H;
+    }
 
     private String searchQuery = "";
     private java.util.List<net.minecraft.world.level.block.Block> searchResults = java.util.List.of();
@@ -569,9 +579,49 @@ public class MultiblockVisualizerScreen extends Screen {
                     drawButton(g, buf, mat, "§c 单删", x1, y2, colW, false);
                     drawButton(g, buf, mat, "§c 批删", x2, y2, colW, false);
                 }
-                if (undoAvailable) {
-                    int uw = font.width("↩ 撤销") + 16;
-                    drawButton(g, buf, mat, "↩ 撤销", px + (PANEL_W - uw) / 2, py + 94, uw - 4, false);
+                // Tag button / 标记按钮
+                if (!isCtrl) {
+                    int tagY = py + 94;
+                    drawButton(g, buf, mat, (tagModeActive ? "§b" : "§7") + " 标记", x1, tagY, colW * 2 + gap, false);
+                        // Tag editing UI when active / 标记编辑界面
+                    if (tagModeActive) {
+                        char pickedChar = patterns.get(selectedIndex).getValue()
+                                .getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
+                        var pat = patterns.get(selectedIndex).getValue();
+                        java.util.List<String> tags = pat.getTags(pickedChar);
+                        int tagUiY = py + 116;
+                        String labelText = "§7标记 [" + pickedChar + "]:";
+                        font.drawInBatch(Component.literal(labelText),
+                                px + (PANEL_W - font.width(labelText)) / 2, tagUiY, 0xFFCCCCCC, false, mat, buf,
+                                Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+                        tagUiY += 14;
+                        // Show each tag pill / 显示每个标记
+                        int indX = px + 8;
+                        for (String tag : tags) {
+                            String label = "✕ " + tag;
+                            int tw = font.width(label) + 8;
+                            if (indX + tw > px + PANEL_W - 8) { indX = px + 8; tagUiY += 14; }
+                            g.fill(indX, tagUiY, indX + tw, tagUiY + 12, 0x44333366);
+                            font.drawInBatch(Component.literal(label),
+                                    indX + 2, tagUiY + 2, 0xFFFFFFFF, false, mat, buf,
+                                    Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+                            indX += tw + 4;
+                        }
+                        // Only allow input if no tag yet / 无标记时才显示输入框
+                        if (tags.isEmpty()) {
+                            tagUiY += 22;
+                            String showTagInput = tagInput.isEmpty() ? "§8新标记..." : "§f" + tagInput + "▌";
+                            g.fill(px + 8, tagUiY, px + PANEL_W - 8, tagUiY + 14, 0x22111133);
+                            g.renderOutline(px + 8, tagUiY, PANEL_W - 16, 14, 0xFF666666);
+                            font.drawInBatch(Component.literal(showTagInput),
+                                    px + 10, tagUiY + 2, 0xFFFFFFFF, false, mat, buf,
+                                    Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+                            tagUiY += 20;
+                            font.drawInBatch(Component.literal("§8Enter添加"),
+                                    px + (PANEL_W - font.width("§8Enter添加")) / 2, tagUiY, 0xFF888888, false, mat, buf,
+                                    Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+                        }
+                    }
                 }
                 // Save button / 保存按钮
                 drawButton(g, buf, mat, "§b 💾 保存", px + 10, py + ph - 20, PANEL_W - 20, false);
@@ -911,9 +961,38 @@ public class MultiblockVisualizerScreen extends Screen {
                     searchIdx = 0; searchScroll = 0; return true; }
                 if (onBtn(mx, my, x1, y2, colW)) { deleteBlock(false); return true; }
                 if (onBtn(mx, my, x2, y2, colW)) { deleteBlock(true); return true; }
+                // Tag button toggle / 标记按钮切换
+                int tagBtnY = py2 + 94;
+                if (onBtn(mx, my, x1, tagBtnY, colW * 2 + gap)) {
+                    tagModeActive = !tagModeActive;
+                    tagInput = "";
+                    return true;
+                }
+                // Tag editing mode / 标记编辑模式
+                if (tagModeActive && selectedIndex >= 0 && pickResult != null) {
+                    char pickedChar = patterns.get(selectedIndex).getValue()
+                            .getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
+                    var pat = patterns.get(selectedIndex).getValue();
+                    java.util.List<String> tags = new java.util.ArrayList<>(pat.getTags(pickedChar));
+
+                    // Click on tag pills to delete / 点击 ✕ 删除标记
+                    int tX2 = px2 + 8;
+                    int tY2 = py2 + 130;
+                    for (int ti = 0; ti < tags.size(); ti++) {
+                        String tag = tags.get(ti);
+                        String label = "✕ " + tag;
+                        int tw = font.width(label) + 8;
+                        if (tX2 + tw > px2 + PANEL_W - 8) { tX2 = px2 + 8; tY2 += 14; }
+                        if (mx >= tX2 && mx <= tX2 + tw && my >= tY2 && my <= tY2 + 12 && mx <= tX2 + 10) {
+                            tags.remove(ti);
+                            pat.setTags(pickedChar, tags);
+                            cachedScene = null; return true;
+                        }
+                        tX2 += tw + 4;
+                    }
+                }
             }
-            if (undoAvailable && mx >= px2 + 50 && mx <= px2 + 150 && my >= py2 + 92 && my <= py2 + 110) {
-                undoReplace(); return true; }
+            // Undo button / 撤销按钮
             // Save button / 保存按钮
             int ph = panelH();
             if (onBtn(mx, my, px2 + 10, py2 + ph - 20, PANEL_W - 20) && selectedIndex >= 0) {
@@ -1096,6 +1175,30 @@ public class MultiblockVisualizerScreen extends Screen {
             return true;
         }
 
+        // Tag mode / 标记模式
+        if (tagModeActive && panelVisible && selectedIndex >= 0 && pickResult != null) {
+            char pickedChar = patterns.get(selectedIndex).getValue()
+                    .getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
+            var pat = patterns.get(selectedIndex).getValue();
+
+            // Enter: add new tag (only if no tag yet) / 添加标记（仅限无标记时）
+            if ((k == 257 || k == 335) && !tagInput.isEmpty()) {
+                if (!pat.getTags(pickedChar).isEmpty()) return true; // already tagged
+                java.util.List<String> tags = new java.util.ArrayList<>(pat.getTags(pickedChar));
+                tags.add(tagInput);
+                pat.setTags(pickedChar, tags);
+                tagInput = "";
+                cachedScene = null;
+                return true;
+            }
+
+            // Backspace / 退格
+            if (k == 259 && !tagInput.isEmpty()) {
+                tagInput = tagInput.substring(0, tagInput.length() - 1);
+                return true;
+            }
+        }
+
         if (k == KEY_G && !editModeActive) { rotX = ROT_X_INIT; rotY = ROT_Y_INIT; userZoom = ZOOM_INIT; layerView = -1; return true; }
         if ((k == KEY_W || k == KEY_UP) && !editModeActive) { selectedIndex = Math.max(0, selectedIndex - 1); updateListScroll(); layerView = -1; return true; }
         if ((k == KEY_S || k == KEY_DN) && !editModeActive) { selectedIndex = Math.min(patterns.size() - 1, selectedIndex + 1); updateListScroll(); layerView = -1; return true; }
@@ -1197,6 +1300,11 @@ public class MultiblockVisualizerScreen extends Screen {
             updateSearchResults();
             searchIdx = searchResults.isEmpty() ? -1 : 0;
             searchScroll = 0;
+            return true;
+        }
+        // Tag input / 标签输入
+        if (tagModeActive && panelVisible && cp >= 32 && cp != 127) {
+            if (tagInput.length() < 64) tagInput += cp;
             return true;
         }
         return super.charTyped(cp, modifiers);

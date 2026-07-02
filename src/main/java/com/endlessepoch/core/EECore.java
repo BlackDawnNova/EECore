@@ -11,6 +11,7 @@ import com.endlessepoch.core.network.OpenMbVisPacket;
 import com.endlessepoch.core.network.SyncConsumerPacket;
 import com.endlessepoch.core.network.SyncGeneratorPacket;
 import com.endlessepoch.core.network.SyncPatternPacket;
+import com.endlessepoch.core.network.SyncPatternBinaryPacket;
 import com.endlessepoch.core.registry.BlockEntities;
 import com.endlessepoch.core.registry.Blocks;
 import com.endlessepoch.core.registry.Items;
@@ -149,6 +150,20 @@ public class EECore {
         registrar.playToClient(
                 SyncPatternPacket.TYPE,
                 SyncPatternPacket.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        com.endlessepoch.core.api.multiblock.MultiBlockRegistry.registerLocal(
+                                context.player().getUUID(),
+                                payload.patternId(),
+                                payload.toPattern()
+                        );
+                    });
+                }
+        );
+
+        registrar.playToClient(
+                SyncPatternBinaryPacket.TYPE,
+                SyncPatternBinaryPacket.STREAM_CODEC,
                 (payload, context) -> {
                     context.enqueueWork(() -> {
                         com.endlessepoch.core.api.multiblock.MultiBlockRegistry.registerLocal(

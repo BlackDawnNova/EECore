@@ -2,7 +2,7 @@ package com.endlessepoch.core.nova.item;
 
 import com.endlessepoch.core.api.multiblock.MultiBlockPattern;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
-import com.endlessepoch.core.network.SyncPatternPacket;
+import com.endlessepoch.core.network.SyncPatternBinaryPacket;
 import com.endlessepoch.core.registry.Blocks;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -415,7 +415,7 @@ public class MultiblockScannerItem extends AnimatedItem {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath("eecore", name);
         MultiBlockRegistry.registerLocal(player.getUUID(), id, pattern);
 
-        PacketDistributor.sendToPlayer(player, SyncPatternPacket.fromPattern(id, pattern));
+        PacketDistributor.sendToPlayer(player, SyncPatternBinaryPacket.fromPattern(id, pattern));
 
         clearSelections(stack, player);
         player.displayClientMessage(
