@@ -6,8 +6,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
-/** Validates a pattern at a world position with tag count enforcement. / 验证多方块结构 */
 public final class MultiBlockValidator {
     private MultiBlockValidator() {}
 
@@ -27,7 +27,16 @@ public final class MultiBlockValidator {
                     BlockState required = pattern.getExpectedState(x, y, z);
                     if (required == null) continue;
                     BlockPos worldPos = transform(origin, x, y, z, w, d, facing);
-                    if (!level.getBlockState(worldPos).getBlock().equals(required.getBlock())) return false;
+                    BlockState actual = level.getBlockState(worldPos);
+
+                    if (!actual.getBlock().equals(required.getBlock())) {
+                        Set<BlockState> alts = pattern.getAlternatives(expected);
+                        boolean matched = false;
+                        for (BlockState alt : alts)
+                            if (actual.getBlock().equals(alt.getBlock())) { matched = true; break; }
+                        if (!matched) return false;
+                    }
+
                     for (String tag : pattern.getTags(expected)) {
                         int mc = TagDefRegistry.getMaxCount(tag);
                         if (mc > 0) { tagCounts.merge(tag, 1, Integer::sum); tagLimits.put(tag, mc); }

@@ -26,6 +26,12 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import java.util.List;
 
+/**
+ * Client-side renderer for multiblock scanner overlays.
+ * Draws selection boxes, controller highlights (with pulse animation), boundary placement preview.
+ * <p>
+ * 多方块扫描器客户端渲染器，绘制选区框、控制器高亮（脉冲动画）及边界放置预览。
+ */
 @OnlyIn(Dist.CLIENT)
 @EventBusSubscriber(modid = EECore.MOD_ID, value = Dist.CLIENT)
 public final class ScannerRenderer {
@@ -85,6 +91,33 @@ public final class ScannerRenderer {
                 AABB box = new AABB(minX + 0.002, minY + 0.002, minZ + 0.002,
                         maxX + 0.998, maxY + 0.998, maxZ + 0.998);
                 LevelRenderer.renderLineBox(ps, vc, box, 0f, 1f, 0f, 0.4f);
+            }
+        }
+
+        // Debug: panel outline on targeted controller / 面板线框调试
+        if (player.isShiftKeyDown() && mc.hitResult instanceof BlockHitResult bhr
+                && mc.level.getBlockEntity(bhr.getBlockPos()) instanceof com.endlessepoch.core.nova.block.ScannerControllerBlockEntity) {
+            BlockPos cpos = bhr.getBlockPos();
+            var state = mc.level.getBlockState(cpos);
+            if (state.hasProperty(com.endlessepoch.core.nova.block.ScannerControllerBlock.FACING)) {
+                var dir = state.getValue(com.endlessepoch.core.nova.block.ScannerControllerBlock.FACING);
+                VertexConsumer lvc = buf.getBuffer(RenderType.lines());
+                float d = 0.005f, i2 = 2f/16f, i14 = 14f/16f;
+                // Full block outline (green) / 完整方块边框
+                LevelRenderer.renderLineBox(ps, lvc, new AABB(cpos), 0, 1, 0, 0.4f);
+                // Panel outline on front face (red) / 正面面板边框
+                var box = switch (dir) {
+                    case NORTH -> new AABB(cpos.getX()+i2, cpos.getY()+i2, cpos.getZ()-d,
+                            cpos.getX()+i14, cpos.getY()+i14, cpos.getZ()+d);
+                    case SOUTH -> new AABB(cpos.getX()+i2, cpos.getY()+i2, cpos.getZ()+1-d,
+                            cpos.getX()+i14, cpos.getY()+i14, cpos.getZ()+1+d);
+                    case EAST -> new AABB(cpos.getX()+1-d, cpos.getY()+i2, cpos.getZ()+i2,
+                            cpos.getX()+1+d, cpos.getY()+i14, cpos.getZ()+i14);
+                    case WEST -> new AABB(cpos.getX()-d, cpos.getY()+i2, cpos.getZ()+i2,
+                            cpos.getX()+d, cpos.getY()+i14, cpos.getZ()+i14);
+                    default -> null;
+                };
+                if (box != null) LevelRenderer.renderLineBox(ps, lvc, box, 1, 0, 0, 0.8f);
             }
         }
 

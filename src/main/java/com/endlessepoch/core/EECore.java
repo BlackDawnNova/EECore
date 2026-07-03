@@ -1,6 +1,7 @@
 package com.endlessepoch.core;
 
 import com.endlessepoch.core.api.EECoreCapabilities;
+import com.endlessepoch.core.api.client.EmissiveHelper;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
 import com.endlessepoch.core.api.registry.NovaNetRegistry;
 import com.endlessepoch.core.api.tier.VoltageTier;
@@ -39,6 +40,12 @@ import com.mojang.logging.LogUtils;
 
 import java.util.function.Supplier;
 
+/**
+ * Main mod class for Endless Epoch Core.
+ * Handles mod lifecycle: registry setup, capability registration, network payload handlers, command registration.
+ * <p>
+ * 无尽纪元核心主模组类，管理注册表初始化、能力注册、网络载荷处理及命令注册。
+ */
 @Mod(EECore.MOD_ID)
 public class EECore {
 
@@ -46,7 +53,7 @@ public class EECore {
     public static final String MOD_NAME = "Endless Epoch Core";
     public static final String VERSION = "0.1.0";
 
-    private static final Logger LOGGER = LogUtils.getLogger();
+    public static final Logger LOGGER = LogUtils.getLogger();
 
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MOD_ID);
@@ -64,6 +71,7 @@ public class EECore {
                         output.accept(Items.LASER_LINK_CARD.get());
                         output.accept(Items.SCANNER_CONTROLLER_ITEM.get());
                         output.accept(Items.SCANNER_BOUNDARY_ITEM.get());
+
                         output.accept(Items.MULTIBLOCK_SCANNER.get());
                     })
                     .build()
@@ -71,6 +79,10 @@ public class EECore {
 
     public EECore(IEventBus modEventBus, ModContainer container) {
         LOGGER.info(MOD_NAME + " v" + VERSION + " 加载中...");
+        EmissiveHelper.registerEmissiveModel(
+                "eecore:scanner_controller",
+                "eecore:block/scanner_controller_front_e"
+        );
 
         Blocks.BLOCKS.register(modEventBus);
         Items.ITEMS.register(modEventBus);
@@ -85,16 +97,27 @@ public class EECore {
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.multiblock.PatternStorage::onServerStarting);
     }
 
+    /**
+     * Common setup: initialize NovaNet node registry and multiblock controller block.
+     * <p>
+     * 通用初始化：注册 NovaNet 节点系统和多方块控制器方块。
+     */
     private void commonSetup(FMLCommonSetupEvent event) {
         NovaNetRegistry reg = new NovaNetRegistry();
         NovaNodeRegistration.init(reg);
 
         MultiBlockRegistry.registerControllerBlock(com.endlessepoch.core.registry.Blocks.SCANNER_CONTROLLER.get());
+
         LOGGER.info(MOD_NAME + " initialized");
         LOGGER.info("Omega system: 12 tiers ELV~QV, 1Ω = 2FE");
         LOGGER.info("NovaNet: node registry active, test multiblock registered");
     }
 
+    /**
+     * Register omega energy capabilities for creative generator, consumer, and test transmitter.
+     * <p>
+     * 为创造模式发电机、消耗器和测试发射器注册 Omega 能量能力。
+     */
     private void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(
                 EECoreCapabilities.OMEGA_ENERGY,
@@ -114,6 +137,11 @@ public class EECore {
         );
     }
 
+    /**
+     * Register network payload handlers for sync packets (generator, consumer, pattern, multiblock-vis).
+     * <p>
+     * 注册网络载荷处理器，处理发电机、消耗器、模式及多方块预览的同步包。
+     */
     private void registerPayloadHandlers(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
 

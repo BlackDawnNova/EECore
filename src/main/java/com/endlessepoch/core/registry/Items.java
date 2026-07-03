@@ -11,6 +11,12 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
 
+/**
+ * Item registry for EECore.
+ * Holds DeferredRegister and supplier entries for all mod items.
+ * <p>
+ * EECore 物品注册表，包含所有模组物品的延迟注册与供应器。
+ */
 public class Items {
 
     public static final DeferredRegister<Item> ITEMS =

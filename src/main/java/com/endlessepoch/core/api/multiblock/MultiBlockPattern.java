@@ -1,5 +1,6 @@
 package com.endlessepoch.core.api.multiblock;
 
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import java.util.*;
 
@@ -87,8 +88,14 @@ public final class MultiBlockPattern {
 
     public List<String> getTags(char c) { return tags.getOrDefault(c, List.of()); }
     public void setTags(char c, List<String> tagList) {
-        if (tagList == null || tagList.isEmpty()) tags.remove(c);
-        else tags.put(c, List.copyOf(tagList));
+        if (tagList == null || tagList.isEmpty()) {
+            tags.remove(c);
+        } else {
+            tags.put(c, List.copyOf(tagList));
+            for (String tag : tagList)
+                for (Block b : TagDefRegistry.getBlocks(tag))
+                    addAlternatives(c, b.defaultBlockState());
+        }
     }
 
     public Map<Character, BlockState> getDefinitions() { return definitions; }

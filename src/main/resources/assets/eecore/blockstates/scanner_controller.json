@@ -1,5 +1,8 @@
 {
   "variants": {
-    "": { "model": "eecore:block/scanner_controller" }
+    "facing=north": { "model": "eecore:block/scanner_controller", "y": 0 },
+    "facing=east":  { "model": "eecore:block/scanner_controller", "y": 90 },
+    "facing=south": { "model": "eecore:block/scanner_controller", "y": 180 },
+    "facing=west":  { "model": "eecore:block/scanner_controller", "y": 270 }
   }
 }

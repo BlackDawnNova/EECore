@@ -100,6 +100,13 @@ public final class EcsRawCodec {
         Files.write(path, encode(data));
     }
 
+    /**
+     * Encode raw data into the binary payload (before optional compression).
+     * Layout: dimensions, controller position, palette entries (char, block ID, tags), voxel data.
+     * <p>
+     * 将原始数据编码为二进制载荷（压缩前）。
+     * 结构：尺寸、控制器坐标、调色板条目（字符、方块ID、标签）、体素数据。
+     */
     private static byte[] encodePayload(EcsRawData data) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);
@@ -133,6 +140,13 @@ public final class EcsRawCodec {
         return baos.toByteArray();
     }
 
+    /**
+     * Decode a binary payload back to EcsRawData.
+     * Handles version >= 2 for tag data; version 1 ignores tag bytes.
+     * <p>
+     * 将二进制载荷解码回 EcsRawData。
+     * 版本 >= 2 时包含标签数据，版本 1 跳过标签字节。
+     */
     private static EcsRawData decodePayload(byte[] payload, int version) throws IOException {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(payload));
 
@@ -161,14 +175,19 @@ public final class EcsRawCodec {
             palette.add(new EcsPaletteEntry(c, blockId, tags));
         }
 
-        int totalVoxels = readVarInt(in);
         in.readByte(); // bitsPerVoxel flag, discarded
+        int totalVoxels = readVarInt(in);
         byte[] voxelData = new byte[totalVoxels];
         in.readFully(voxelData);
 
         return new EcsRawData(w, h, d, cx, cy, cz, palette, voxelData);
     }
 
+    /**
+     * Write an integer as a variable-length (7-bit) encoding, similar to VarInt in Protobuf/Minecraft.
+     * <p>
+     * 以变长（7位）编码写入整数，类似 Protobuf / Minecraft VarInt。
+     */
     static void writeVarInt(DataOutputStream out, int value) throws IOException {
         while ((value & ~0x7F) != 0) {
             out.writeByte((value & 0x7F) | 0x80);
@@ -177,6 +196,12 @@ public final class EcsRawCodec {
         out.writeByte(value & 0x7F);
     }
 
+    /**
+     * Read a variable-length (7-bit) integer, the inverse of {@link #writeVarInt}.
+     * Throws if the VarInt exceeds 5 bytes (35 bits).
+     * <p>
+     * 读取变长（7位）整数，{@link #writeVarInt} 的逆操作。超过 5 字节（35 位）则抛出异常。
+     */
     static int readVarInt(DataInputStream in) throws IOException {
         int result = 0, shift = 0, b;
         do {
@@ -188,10 +213,12 @@ public final class EcsRawCodec {
         return result;
     }
 
+    /** int32 → big-endian byte[4] / 将 int32 转为大端序 4 字节数组 */
     private static byte[] i2b(int v) {
         return new byte[]{(byte)(v>>>24),(byte)(v>>>16),(byte)(v>>>8),(byte)v};
     }
 
+    /** big-endian byte[4] at offset → int32 / 将偏移处的大端序 4 字节转为 int32 */
     private static int b2i(byte[] b, int o) {
         return ((b[o]&0xFF)<<24)|((b[o+1]&0xFF)<<16)|((b[o+2]&0xFF)<<8)|(b[o+3]&0xFF);
     }

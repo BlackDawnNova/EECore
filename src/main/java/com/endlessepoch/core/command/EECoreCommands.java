@@ -4,6 +4,8 @@ import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.api.multiblock.MultiBlockPattern;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
 import com.endlessepoch.core.api.multiblock.PatternStorage;
+import com.endlessepoch.core.api.multiblock.TagDefRegistry;
+
 import com.endlessepoch.core.network.OpenMbVisPacket;
 import com.endlessepoch.core.network.SyncPatternBinaryPacket;
 import com.mojang.brigadier.CommandDispatcher;
@@ -20,8 +22,16 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+/**
+ * EECore command registration and execution.
+ * Handles /eecore reload, debug, export, import subcommands.
+ * <p>
+ * EECore 命令注册与执行，管理 reload / debug / export / import 子命令。
+ */
 public final class EECoreCommands {
 
     private static final ResourceLocation DEBUG_MBVIZ_ID =
@@ -68,7 +78,10 @@ public final class EECoreCommands {
 
     private static int openDebugMbvis(CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        MultiBlockPattern pattern = createDebugGrassPattern();
+        MultiBlockPattern pattern = createDebugTagPattern();
+        // Register test tag / 注册测试标记
+        TagDefRegistry.register("EECore:A",
+                java.util.Set.of(Blocks.IRON_BLOCK, Blocks.GOLD_BLOCK, Blocks.DIAMOND_BLOCK), 8);
 
         MultiBlockRegistry.registerLocal(player.getUUID(), DEBUG_MBVIZ_ID, pattern);
         PacketDistributor.sendToPlayer(
@@ -77,7 +90,7 @@ public final class EECoreCommands {
                 new OpenMbVisPacket(DEBUG_MBVIZ_ID)
         );
 
-        source.sendSuccess(() -> Component.literal("Opened EECore multiblock visualizer debug pattern."), true);
+        source.sendSuccess(() -> Component.literal("§aDebug pattern opened (1x1 controller). Tag EECore:A registered."), true);
         return 1;
     }
 
@@ -146,8 +159,7 @@ public final class EECoreCommands {
                         PacketDistributor.sendToPlayer(player,
                                 SyncPatternBinaryPacket.fromPattern(id, pattern));
                     } else if (name.endsWith(".json")) {
-                        // Trigger loadJsonFile path by reloading just this file
-                        PatternStorage.loadAll(); // fallback: reload everything
+                        PatternStorage.loadAll();
                     }
                 } catch (Exception e) {
                     source.sendFailure(Component.literal("§cFailed to import " + name + ": " + e.getMessage()));
@@ -163,16 +175,12 @@ public final class EECoreCommands {
         return 1;
     }
 
-    private static MultiBlockPattern createDebugGrassPattern() {
-        String[][] layers = new String[4][4];
-        for (int y = 0; y < 4; y++) {
-            for (int z = 0; z < 4; z++) {
-                layers[y][z] = "GGGG";
-            }
-        }
-
+    private static MultiBlockPattern createDebugTagPattern() {
+        // 1x1: just controller / 仅控制器测试
+        String[][] layers = new String[1][1];
+        layers[0] = new String[]{"K"};
         Map<Character, BlockState> definitions = new LinkedHashMap<>();
-        definitions.put('G', Blocks.GRASS_BLOCK.defaultBlockState());
-        return new MultiBlockPattern(4, 4, 4, 0, 0, 0, layers, definitions);
+        definitions.put('K', com.endlessepoch.core.registry.Blocks.SCANNER_CONTROLLER.get().defaultBlockState());
+        return new MultiBlockPattern(1, 1, 1, 0, 0, 0, layers, definitions);
     }
 }

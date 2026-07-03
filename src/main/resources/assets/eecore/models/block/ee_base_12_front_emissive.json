@@ -1,0 +1,40 @@
+{
+  "textures": {
+    "particle": "#all",
+    "all": "minecraft:block/blackstone",
+    "front": "minecraft:block/blackstone",
+    "overlay_emissive": "minecraft:block/blackstone"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 0.04],
+      "to": [16, 16, 16],
+      "faces": {
+        "down":  { "uv": [0, 0, 16, 16], "texture": "#all" },
+        "up":    { "uv": [0, 0, 16, 16], "texture": "#all" },
+        "north": { "uv": [0, 0, 16, 16], "texture": "#all" },
+        "south": { "uv": [0, 0, 16, 16], "texture": "#all" },
+        "west":  { "uv": [0, 0, 16, 16], "texture": "#all" },
+        "east":  { "uv": [0, 0, 16, 16], "texture": "#all" }
+      }
+    },
+    {
+      "from": [2, 2, 0],
+      "to": [14, 14, 0.02],
+      "neoforge_data": { "block_light": 15, "sky_light": 15 },
+      "shade": false,
+      "faces": {
+        "north": { "uv": [2, 2, 14, 14], "texture": "#front" }
+      }
+    },
+    {
+      "from": [2, 2, -0.004],
+      "to": [14, 14, -0.004],
+      "neoforge_data": { "block_light": 15, "sky_light": 15 },
+      "shade": false,
+      "faces": {
+        "north": { "uv": [2, 2, 14, 14], "texture": "#overlay_emissive" }
+      }
+    }
+  ]
+}

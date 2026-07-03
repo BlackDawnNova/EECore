@@ -61,6 +61,12 @@ public class ScannerControllerBlock extends Block implements EntityBlock {
         return new ScannerControllerBlockEntity(pos, state);
     }
 
+    /**
+     * On sneak-click: attempt to form any registered multiblock pattern at this controller.
+     * Server-side only; client returns SUCCESS to prevent off-hand activation.
+     * <p>
+     * 潜行右键点击时：尝试在此控制器位置成型任一已注册的多方块模式。仅服务端执行，客户端返回 SUCCESS 以防副手触发。
+     */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
                                                Player player, BlockHitResult hit) {
@@ -78,12 +84,9 @@ public class ScannerControllerBlock extends Block implements EntityBlock {
         }
 
         for (var e : patterns.entrySet()) {
-            for (Direction dir : new Direction[]{Direction.NORTH, Direction.EAST,
-                    Direction.SOUTH, Direction.WEST}) {
-                if (MultiBlockFormHandler.tryForm(be, e.getValue(), dir, player)) {
-                    player.sendSystemMessage(Component.literal("Formed: " + e.getKey()));
-                    return InteractionResult.SUCCESS;
-                }
+            if (MultiBlockFormHandler.tryForm(be, e.getValue(), sc.getFacing(), player)) {
+                player.sendSystemMessage(Component.literal("Formed: " + e.getKey()));
+                return InteractionResult.SUCCESS;
             }
         }
         player.sendSystemMessage(Component.literal("Invalid structure"));

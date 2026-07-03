@@ -39,6 +39,12 @@ public final class EECoreCodec {
         EcsRawCodec.write(path, toRaw(pattern));
     }
 
+    /**
+     * Convert a MultiBlockPattern to the intermediate EcsRawData representation.
+     * Builds a palette from definitions, flattens layers into a voxel index array.
+     * <p>
+     * 将 MultiBlockPattern 转换为中间表示 EcsRawData。从定义构建调色板，将层数据展平为体素索引数组。
+     */
     static EcsRawData toRaw(MultiBlockPattern pattern) {
         Map<Character, BlockState> defs = pattern.getDefinitions();
         Map<Character, String> paletteMap = new LinkedHashMap<>();
@@ -81,6 +87,12 @@ public final class EECoreCodec {
                 pattern.controllerX, pattern.controllerY, pattern.controllerZ, palette, voxels);
     }
 
+    /**
+     * Reconstruct a MultiBlockPattern from EcsRawData.
+     * Handles empty voxel data gracefully and restores tag associations.
+     * <p>
+     * 从 EcsRawData 重建 MultiBlockPattern。能正确处理空体素数据并恢复标签关联。
+     */
     static MultiBlockPattern fromRaw(EcsRawData raw) {
         Map<Character, BlockState> definitions = new LinkedHashMap<>();
         Map<Character, List<String>> charTags = new LinkedHashMap<>();
@@ -102,6 +114,25 @@ public final class EECoreCodec {
         List<EcsPaletteEntry> pal = raw.palette;
         byte[] voxels = raw.voxelData;
 
+        // Guard against empty voxel data / 保护空体素数据
+        if (voxels.length == 0) {
+            // Create empty layer data
+            String[] emptyLayers = new String[h];
+            StringBuilder airRow = new StringBuilder(w * d);
+            for (int i = 0; i < w * d; i++) airRow.append(EcsFormat.CHAR_AIR);
+            String emptyLayer = airRow.toString();
+            for (int y = 0; y < h; y++) emptyLayers[y] = emptyLayer;
+
+            String[][] layers2d = new String[h][d];
+            for (int y = 0; y < h; y++)
+                for (int z = 0; z < d; z++)
+                    layers2d[y][z] = emptyLayer.substring(z * w, (z + 1) * w);
+
+            return new MultiBlockPattern(w, h, d,
+                    raw.controllerX, raw.controllerY, raw.controllerZ,
+                    layers2d, new LinkedHashMap<>());
+        }
+
         String[] layerData = new String[h];
         int vi = 0;
         for (int y = 0; y < h; y++) {
@@ -122,12 +153,8 @@ public final class EECoreCodec {
         MultiBlockPattern pattern = new MultiBlockPattern(w, h, d,
                 raw.controllerX, raw.controllerY, raw.controllerZ, layers2d, definitions);
 
-        for (var e : charTags.entrySet()) {
+        for (var e : charTags.entrySet())
             pattern.setTags(e.getKey(), e.getValue());
-            for (String tag : e.getValue())
-                for (Block b : TagDefRegistry.getBlocks(tag))
-                    pattern.addAlternatives(e.getKey(), b.defaultBlockState());
-        }
         return pattern;
     }
 }

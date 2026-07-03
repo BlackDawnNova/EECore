@@ -1,6 +1,9 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "eecore:block/ee_base_12_front_emissive",
   "textures": {
-    "all": "eecore:block/scanner_controller"
+    "particle": "eecore:block/scanner_controller",
+    "all": "eecore:block/scanner_controller",
+    "front": "eecore:block/scanner_controller_front",
+    "overlay_emissive": "eecore:block/scanner_controller_front_e"
   }
 }

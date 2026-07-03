@@ -14,6 +14,12 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
 
+/**
+ * Block registry for EECore.
+ * Holds DeferredRegister and supplier entries for all mod blocks.
+ * <p>
+ * EECore 方块注册表，包含所有模组方块的延迟注册与供应器。
+ */
 public class Blocks {
     public static final DeferredRegister<Block> BLOCKS =
             DeferredRegister.create(Registries.BLOCK, EECore.MOD_ID);
