@@ -7,44 +7,40 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * API for registering block models with emissive glow rendering.
+ * API for registering block models with emissive cutoutMipped rendering.
  * <p>
- * 注册方块模型的发光渲染效果 API。
+ * Makes alpha textures render correctly — pixels with alpha &lt; 0.5 are discarded.
+ * The model JSON uses {@code neoforge_data} for full brightness.
+ * <p>
+ * 注册方块模型的 emissive 渲染，自动使用 cutoutMipped 渲染层处理透明纹理。
+ * 模型 JSON 通过 neoforge_data 实现全亮度发光。
  */
 @ApiStatus.AvailableSince("0.1.1")
 public final class EmissiveHelper {
 
     private static final Map<String, String> REGISTRY = new HashMap<>();
-    private static final Map<String, Boolean> GLOW_FLAGS = new HashMap<>();
 
     private EmissiveHelper() {}
 
-    /** Register with UV-offset glow enabled by default. / 默认启用 UV 偏移辉光。 */
+    /**
+     * Register a block model for emissive cutoutMipped rendering.
+     *
+     * @param blockModelId      the block model resource path (e.g. "addon:block/my_machine")
+     * @param emissiveTextureId the emissive texture resource path (e.g. "addon:block/my_machine_e")
+     */
     public static void registerEmissiveModel(ResourceLocation blockModelId, ResourceLocation emissiveTextureId) {
-        registerEmissiveModel(blockModelId.toString(), emissiveTextureId.toString(), true);
-    }
-
-    /** @see #registerEmissiveModel(ResourceLocation, ResourceLocation) */
-    public static void registerEmissiveModel(String blockModelPath, String emissiveTexturePath) {
-        registerEmissiveModel(blockModelPath, emissiveTexturePath, true);
+        REGISTRY.put(blockModelId.toString(), emissiveTextureId.toString());
     }
 
     /**
-     * Register for emissive rendering.
-     *
-     * @param enableGlow false = only cutoutMipped + neoforge_data brightness,
-     *                   no UV-offset glow duplicates / 不生成 UV 偏移辉光
+     * @see #registerEmissiveModel(ResourceLocation, ResourceLocation)
      */
-    public static void registerEmissiveModel(String blockModelPath, String emissiveTexturePath, boolean enableGlow) {
+    public static void registerEmissiveModel(String blockModelPath, String emissiveTexturePath) {
         REGISTRY.put(blockModelPath, emissiveTexturePath);
-        GLOW_FLAGS.put(blockModelPath, enableGlow);
     }
 
     @ApiStatus.Internal
-    public static Map<String, String> getRegistry() { return REGISTRY; }
-
-    @ApiStatus.Internal
-    public static boolean hasGlow(String modelPath) {
-        return GLOW_FLAGS.getOrDefault(modelPath, true);
+    public static Map<String, String> getRegistry() {
+        return REGISTRY;
     }
 }
