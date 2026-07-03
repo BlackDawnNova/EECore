@@ -24,7 +24,6 @@ public final class GlowModelRegistration {
 
         for (var entry : EmissiveHelper.getRegistry().entrySet()) {
             String blockModelPath = entry.getKey();
-
             String modelPath = blockModelPath.contains(":")
                     ? blockModelPath.substring(blockModelPath.indexOf(':') + 1)
                     : blockModelPath;

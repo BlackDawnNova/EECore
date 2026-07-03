@@ -21,7 +21,6 @@
     {
       "from": [2, 2, 0],
       "to": [14, 14, 0.02],
-      "neoforge_data": { "block_light": 15, "sky_light": 15 },
       "shade": false,
       "faces": {
         "north": { "uv": [2, 2, 14, 14], "texture": "#front" }

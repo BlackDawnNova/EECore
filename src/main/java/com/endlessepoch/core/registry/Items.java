@@ -57,6 +57,7 @@ public class Items {
                             new Item.Properties().stacksTo(64))
             );
 
+
     public static final Supplier<MultiblockScannerItem> MULTIBLOCK_SCANNER =
             ITEMS.register("multiblock_scanner",
                     () -> new MultiblockScannerItem(new Item.Properties().stacksTo(1))
