@@ -93,7 +93,7 @@ public final class EECoreCodec {
      * <p>
      * 从 EcsRawData 重建 MultiBlockPattern。能正确处理空体素数据并恢复标签关联。
      */
-    static MultiBlockPattern fromRaw(EcsRawData raw) {
+    public static MultiBlockPattern fromRaw(EcsRawData raw) {
         Map<Character, BlockState> definitions = new LinkedHashMap<>();
         Map<Character, List<String>> charTags = new LinkedHashMap<>();
 
@@ -152,9 +152,16 @@ public final class EECoreCodec {
 
         MultiBlockPattern pattern = new MultiBlockPattern(w, h, d,
                 raw.controllerX, raw.controllerY, raw.controllerZ, layers2d, definitions);
-
-        for (var e : charTags.entrySet())
+        for (var e : charTags.entrySet()) {
             pattern.setTags(e.getKey(), e.getValue());
+            for (String tag : e.getValue()) {
+                var blocks = com.endlessepoch.core.api.multiblock.TagDefRegistry.getBlocks(tag);
+                if (blocks != null) {
+                    for (var block : blocks)
+                        pattern.addAlternatives(e.getKey(), block.defaultBlockState());
+                }
+            }
+        }
         return pattern;
     }
 }

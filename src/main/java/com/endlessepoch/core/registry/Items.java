@@ -47,7 +47,7 @@ public class Items {
 
     public static final Supplier<BlockItem> SCANNER_CONTROLLER_ITEM =
             ITEMS.register("scanner_controller",
-                    () -> new BlockItem(Blocks.SCANNER_CONTROLLER.get(),
+                    () -> new com.endlessepoch.core.nova.block.ControllerItem((com.endlessepoch.core.nova.block.ScannerControllerBlock)Blocks.SCANNER_CONTROLLER.get(),
                             new Item.Properties().stacksTo(64))
             );
 

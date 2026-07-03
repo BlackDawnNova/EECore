@@ -88,5 +88,7 @@
   "eecore.visualizer.click_hint": "§7Click a block to inspect",
   "eecore.visualizer.immersive_hint": "§7G=Reset  Scroll=Zoom",
   "eecore.visualizer.pick_hint": "§7Click another block or wait %s s",
+  "eecore.preview.title": "EE-Core Structure Preview",
+  "eecore.preview.hint": "Scroll/Drag/Click | W/S=layer | G=reset | Esc=back",
   "eecore.visualizer.confirm_delete": "§eDelete this structure?"
 }

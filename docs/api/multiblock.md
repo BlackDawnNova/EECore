@@ -170,3 +170,23 @@ MultiBlockRegistry.registerControllerBlock(controller);
 
 v0.1.1 起：**GNU GPL v3.0**
 附属 mod 使用 EECore API 需遵守 GPL 3.0。
+
+## MultiblockLoader API (0.1.2+)
+
+Register multiblock machines from .ecs structure files.
+
+```java
+MultiblockLoader.load(ResourceLocation.parse("your_mod:structure_name"))
+    .where("TagName", Blocks.IRON_BLOCK)
+        .or(Blocks.GOLD_BLOCK)
+    .register(ResourceLocation.parse("your_mod:machine_id"));
+```
+
+The .ecs file should be placed at:
+- `src/main/resources/data/{namespace}/structures/{name}.ecs` (mod jar)
+- or `config/eecore/structures/{namespace}/{name}.ecs` (runtime)
+
+## Controller Preview
+
+Right-click air with any controller block to open a 3D preview of the bound structure.
+The preview is read-only and reads from disk/network — zero memory footprint on the client.

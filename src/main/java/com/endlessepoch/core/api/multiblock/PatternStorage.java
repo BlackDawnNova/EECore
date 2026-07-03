@@ -12,7 +12,7 @@ import java.util.*;
 
 /** Saves/loads patterns to disk as .ecs (binary) or .json (legacy). / 结构持久化 */
 public final class PatternStorage {
-    private static final Path ROOT = Path.of("config", "eecore", "structures");
+    private static final Path ROOT = Path.of("config", "eecore", "scanned");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private PatternStorage() {}
 
@@ -98,7 +98,8 @@ public final class PatternStorage {
             Path rel = ROOT.relativize(file);
             String ns = rel.getName(0).toString();
             String path = rel.getName(1).toString().replace(EECoreStructureFormat.EXTENSION, "").replace('_', '/');
-            MultiBlockRegistry.registerMod(ResourceLocation.fromNamespaceAndPath(ns, path), pattern);
+            var id = ResourceLocation.fromNamespaceAndPath(ns, path);
+            if (MultiBlockRegistry.get(id).isEmpty()) MultiBlockRegistry.registerMod(id, pattern);
         } catch (IOException e) { e.printStackTrace(); }
     }
 
@@ -145,7 +146,8 @@ public final class PatternStorage {
             Path rel = ROOT.relativize(file);
             String ns = rel.getName(0).toString();
             String path = rel.getName(1).toString().replace(".json", "").replace('_', '/');
-            MultiBlockRegistry.registerMod(ResourceLocation.fromNamespaceAndPath(ns, path), pattern);
+            var id = ResourceLocation.fromNamespaceAndPath(ns, path);
+            if (MultiBlockRegistry.get(id).isEmpty()) MultiBlockRegistry.registerMod(id, pattern);
         } catch (Exception e) { e.printStackTrace(); }
     }
 }

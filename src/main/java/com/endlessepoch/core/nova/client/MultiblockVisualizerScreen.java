@@ -149,11 +149,11 @@ public class MultiblockVisualizerScreen extends Screen {
                     .createCompositeState(false)
     );
 
-    private final List<Map.Entry<ResourceLocation, MultiBlockPattern>> patterns;
-    private int selectedIndex;
+     List<Map.Entry<ResourceLocation, MultiBlockPattern>> patterns;
+    protected int selectedIndex;
 
     private float rotX = ROT_X_INIT, rotY = ROT_Y_INIT;
-    private float userZoom = ZOOM_INIT;
+    protected float userZoom = ZOOM_INIT;
 
     private int cellSize, gridX, gridY;
     private int listL, listR, listT, listB;
@@ -187,7 +187,7 @@ public class MultiblockVisualizerScreen extends Screen {
     private int searchIdx = -1;
     private int searchScroll = 0;
     // Layer view (-1=all)
-    private int layerView = -1;
+    protected int layerView = -1;
 
     // Undo stack / 撤销栈 — push reverse operation per replace
     private final java.util.ArrayDeque<Runnable> undoStack = new java.util.ArrayDeque<>();
@@ -204,7 +204,7 @@ public class MultiblockVisualizerScreen extends Screen {
      * Immersive mode when zoom > threshold — render bounds expand to full screen.
      * 沉浸模式: 缩放超过阈值时渲染区扩展到全屏。
      */
-    private boolean immersive() { return userZoom > ZOOM_IMMERSIVE; }
+    protected boolean immersive() { return userZoom > ZOOM_IMMERSIVE; }
 
     private int rL() { return immersive() ? 0 : renderL; }
     private int rR() { return immersive() ? width : renderR; }
@@ -340,7 +340,7 @@ public class MultiblockVisualizerScreen extends Screen {
         return 4;
     }
 
-    private void drawRenderArea(GuiGraphics g) {
+    protected void drawRenderArea(GuiGraphics g) {
         int erL = rL(), erR = rR(), erT = rT(), erB = rB();
         int rwLoc = erR - erL, rhLoc = erB - erT;
         int vpSize = Math.min(rwLoc, rhLoc);
@@ -485,7 +485,7 @@ public class MultiblockVisualizerScreen extends Screen {
         g.hLine(cx + 10, cx + cw - 10, cy + 22, 0xFF888888);
     }
 
-    private void drawLayerControls(GuiGraphics g) {
+    protected void drawLayerControls(GuiGraphics g) {
         if (selectedIndex < 0) return;
         int bw = 24, bh = 28, gap = 3, bx = width - bw - 10, by = height / 2 - bh - gap / 2;
         int panelW = bw + 4, panelH = bh * 2 + gap + 4;
@@ -543,7 +543,7 @@ public class MultiblockVisualizerScreen extends Screen {
         buf.endBatch();
     }
 
-    private void drawFloatingPanel(GuiGraphics g, int mx, int my) {
+    protected void drawFloatingPanel(GuiGraphics g, int mx, int my) {
         if (!panelVisible || pickResult == null || pickBlockState == null) return;
 
         var mc = Minecraft.getInstance();

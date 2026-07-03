@@ -11,6 +11,12 @@ public final class ClientPacketHandlers {
     private ClientPacketHandlers() {}
 
     public static void openMbVis(OpenMbVisPacket payload) {
-        Minecraft.getInstance().setScreen(new MultiblockVisualizerScreen(payload.patternId()));
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        if (payload.readOnly())
+            mc.setScreen(new StructurePreviewScreen(payload.patternId(),
+                    payload.ecsBytes(), payload.alternatives()));
+        else
+            mc.setScreen(new MultiblockVisualizerScreen(payload.patternId()));
     }
 }

@@ -13,9 +13,17 @@ public final class MultiBlockValidator {
 
     public static boolean validate(Level level, MultiBlockPattern pattern,
                                    BlockPos controllerPos, Direction facing) {
-        BlockPos origin = controllerPos.offset(
-                -pattern.controllerX, -pattern.controllerY, -pattern.controllerZ);
+        int cx = pattern.controllerX, cy = pattern.controllerY, cz = pattern.controllerZ;
         int w = pattern.width, d = pattern.depth;
+        // Rotate origin with facing so controller cell always maps to controllerPos / 随朝向旋转原点，使控制器位置始终正确映射
+        BlockPos origin = switch (facing) {
+            case NORTH -> controllerPos.offset(-cx, -cy, -cz);
+            case SOUTH -> controllerPos.offset(-(w - 1 - cx), -cy, -(d - 1 - cz));
+            case EAST  -> controllerPos.offset(-(d - 1 - cz), -cy, -cx);
+            case WEST  -> controllerPos.offset(-cz, -cy, -(w - 1 - cx));
+            default    -> controllerPos.offset(-cx, -cy, -cz);
+        };
+
         Map<String, Integer> tagCounts = new LinkedHashMap<>();
         Map<String, Integer> tagLimits = new LinkedHashMap<>();
 
@@ -23,7 +31,7 @@ public final class MultiBlockValidator {
             for (int z = 0; z < d; z++)
                 for (int x = 0; x < w; x++) {
                     char expected = pattern.getChar(x, y, z);
-                    if (expected == ' ' || expected == '_') continue;
+                    if (expected == ' ' || expected == '_' || expected == 'A') continue;
                     BlockState required = pattern.getExpectedState(x, y, z);
                     if (required == null) continue;
                     BlockPos worldPos = transform(origin, x, y, z, w, d, facing);
