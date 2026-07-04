@@ -154,6 +154,8 @@ public class MultiblockVisualizerScreen extends Screen {
 
     private float rotX = ROT_X_INIT, rotY = ROT_Y_INIT;
     protected float userZoom = ZOOM_INIT;
+    private float prevRotX = ROT_X_INIT, prevRotY = ROT_Y_INIT;
+    private boolean rotating = false;
 
     private int cellSize, gridX, gridY;
     private int listL, listR, listT, listB;
@@ -324,22 +326,6 @@ public class MultiblockVisualizerScreen extends Screen {
         if (end < patterns.size()) g.drawString(font, "▼", listR - 8, listB - LINE_HEIGHT, COL_SCROLL_ARW);
     }
 
-    private boolean isEnclosed(EECoreSceneWorld scene, int x, int y, int z) {
-        return !scene.getBlockState(new BlockPos(x, y-1, z)).isAir()
-            && !scene.getBlockState(new BlockPos(x, y+1, z)).isAir()
-            && !scene.getBlockState(new BlockPos(x, y, z-1)).isAir()
-            && !scene.getBlockState(new BlockPos(x, y, z+1)).isAir()
-            && !scene.getBlockState(new BlockPos(x-1, y, z)).isAir()
-            && !scene.getBlockState(new BlockPos(x+1, y, z)).isAir();
-    }
-
-    private int lodSkip(float blockPx, int dim) {
-        if (blockPx >= 6 || dim < 8) return 1;
-        if (blockPx >= 3) return 2;
-        if (blockPx >= 1.5f) return 3;
-        return 4;
-    }
-
     protected void drawRenderArea(GuiGraphics g) {
         int erL = rL(), erR = rR(), erT = rT(), erB = rB();
         int rwLoc = erR - erL, rhLoc = erB - erT;
@@ -349,7 +335,16 @@ public class MultiblockVisualizerScreen extends Screen {
         float blockDiag = (float) Math.sqrt(pat.width*pat.width + pat.height*pat.height + pat.depth*pat.depth);
         float cameraDist = CAM_DIST_FACTOR * (float)(vpSize * Math.sqrt(2)) / (blockDiag + CAM_DIST_EPS) * userZoom * CAM_DIST_SCALE;
         float blockPx = cameraDist * BLOCK_PX_FACTOR;
-        int skip = lodSkip(blockPx, Math.max(pat.width, Math.max(pat.height, pat.depth)));
+        // Rotation LOD — drop quality during rotation only, not zoom / 旋转LOD — 仅旋转降精度，缩放不受影响
+        rotating = (rotX != prevRotX || rotY != prevRotY);
+        int rotationSkip = 1;
+        if (rotating && cachedScene != null) {
+            int nonAir = cachedScene.getPositions().size();
+            if (nonAir > 50_000) {
+                rotationSkip = Math.max(1, nonAir / 30_000);
+                rotationSkip = Math.min(rotationSkip, 32);
+            }
+        }
 
         ResourceLocation id = patterns.get(selectedIndex).getKey();
         if (cachedScene == null || !id.equals(cachedPatternId)) {
@@ -370,6 +365,21 @@ public class MultiblockVisualizerScreen extends Screen {
         model.translate(-pat.width*0.5f, -pat.height*0.5f, -pat.depth*0.5f);
         Matrix4f patternToScreen = new Matrix4f(model.last().pose());
 
+        // Back-face culling — compute camera direction in pattern space / 背面剔除 — 计算相机在结构空间的方向
+        float radX = (float) Math.toRadians(-rotX);
+        float radY = (float) Math.toRadians(rotY);
+        float cosX = (float) Math.cos(radX), sinX = (float) Math.sin(radX);
+        float dirX = -cosX * (float) Math.sin(radY);
+        float dirY = -sinX;
+        float dirZ = -cosX * (float) Math.cos(radY);
+        int visibleMask = 0;
+        if (dirX > 0.001f) visibleMask |= EECoreSceneWorld.FACE_PX;
+        if (dirX < -0.001f) visibleMask |= EECoreSceneWorld.FACE_NX;
+        if (dirY > 0.001f) visibleMask |= EECoreSceneWorld.FACE_UP;
+        if (dirY < -0.001f) visibleMask |= EECoreSceneWorld.FACE_DN;
+        if (dirZ > 0.001f) visibleMask |= EECoreSceneWorld.FACE_PZ;
+        if (dirZ < -0.001f) visibleMask |= EECoreSceneWorld.FACE_NZ;
+
         var renderer = Minecraft.getInstance().getBlockRenderer();
         var buf = Minecraft.getInstance().renderBuffers().bufferSource();
 
@@ -384,16 +394,18 @@ public class MultiblockVisualizerScreen extends Screen {
             pickRayDirection = pickRay.direction();
         }
 
-        for (int y = 0; y < pat.height; y++)
-            for (int z = 0; z < pat.depth; z++)
-                for (int x = 0; x < pat.width; x++) {
-                    if (skip > 1 && (x > 0 && x < pat.width-1) && (y > 0 && y < pat.height-1) && (z > 0 && z < pat.depth-1)) {
-                        if (((x * 31 + y * 37 + z * 41) & 0xFF) % skip != 0) continue;
+        for (var pos : cachedScene.getSurfacePositions()) {
+                    int x = pos.getX(), y = pos.getY(), z = pos.getZ();
+                    if (layerView >= 0 && y != layerView) continue;
+
+                    if ((cachedScene.getExposedFaceMask(pos) & visibleMask) == 0) continue;
+
+                    if (rotationSkip > 1) {
+                        if (((x * 31 + y * 37 + z * 41) & 0xFF) % rotationSkip != 0) continue;
                     }
 
-                    BlockState st = cachedScene.getBlockState(new BlockPos(x, y, z));
-                    if (layerView >= 0 && y != layerView) continue;
-                    if (st.isAir()) continue;
+                    BlockState st = cachedScene.getBlockState(pos);
+
                     model.pushPose();
                     model.translate(x, y, z);
 
@@ -402,14 +414,12 @@ public class MultiblockVisualizerScreen extends Screen {
                                 x, y, z, x + 1, y + 1, z + 1);
                         if (hit >= 0 && hit < bestPickRayT) {
                             bestPickRayT = hit;
-                            bestPickPos = new BlockPos(x, y, z);
+                            bestPickPos = pos;
                             bestPickState = st;
                         }
                     }
 
-                    if (!isEnclosed(cachedScene, x, y, z)) {
-                        renderer.renderSingleBlock(st, model, buf, PACKED_LIGHT, OverlayTexture.NO_OVERLAY);
-                    }
+                    renderer.renderSingleBlock(st, model, buf, PACKED_LIGHT, OverlayTexture.NO_OVERLAY);
                     model.popPose();
                 }
 
@@ -436,13 +446,11 @@ public class MultiblockVisualizerScreen extends Screen {
         float kR = kPulse ? 1.0f : 0.25f;
         float kB = kPulse ? 0.25f : 1.0f;
         VertexConsumer kVc = buf.getBuffer(CTRL_MARKER);
-        for (int y = 0; y < pat.height; y++)
-            for (int z = 0; z < pat.depth; z++)
-                for (int x = 0; x < pat.width; x++) {
-                    if (pat.getChar(x, y, z) != 'K') continue;
-                    var st2 = cachedScene.getBlockState(new BlockPos(x, y, z));
-                    if (!com.endlessepoch.core.api.multiblock.MultiBlockRegistry.getControllerBlocks().contains(st2.getBlock())) continue;
+        for (var cPos : cachedScene.getControllerPositions()) {
+                    int x = cPos.getX(), y = cPos.getY(), z = cPos.getZ();
                     if (layerView >= 0 && layerView != y) continue;
+                    var st2 = cachedScene.getBlockState(cPos);
+                    if (!com.endlessepoch.core.api.multiblock.MultiBlockRegistry.getControllerBlocks().contains(st2.getBlock())) continue;
                     model.pushPose();
                     model.translate(x, y, z);
                     renderSolidBox(model.last(), kVc,
@@ -457,6 +465,8 @@ public class MultiblockVisualizerScreen extends Screen {
         if (!immersive()) g.drawString(font, Component.translatable("eecore.visualizer.controller_label"), rL() + PADDING, rT() + PADDING, COL_WHITE);
         if (!immersive()) drawRenderBorder(g);
 
+        prevRotX = rotX;
+        prevRotY = rotY;
     }
 
     private static boolean onBtn(double mx, double my, int x, int y, int w) {

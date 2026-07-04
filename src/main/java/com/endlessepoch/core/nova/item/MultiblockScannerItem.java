@@ -178,25 +178,22 @@ public class MultiblockScannerItem extends AnimatedItem {
         int sizeY = maxY - minY + 1;
         int sizeZ = maxZ - minZ + 1;
 
-        long volume = (long) sizeX * sizeY * sizeZ;
-        if (volume > MAX_VOLUME) {
+        long totalVolume = (long) sizeX * sizeY * sizeZ;
+        long MAX_TOTAL = 500_000_000L;
+        if (totalVolume > MAX_TOTAL) {
             player.displayClientMessage(
-                    Component.translatable("eecore.scanner.too_large", volume, MAX_VOLUME)
+                    Component.translatable("eecore.scanner.area_too_large", totalVolume, MAX_TOTAL)
                             .withStyle(ChatFormatting.RED), true);
             return InteractionResult.FAIL;
         }
 
-        java.util.List<BlockPos> controllerPositions = new java.util.ArrayList<>();
-        Map<Block, Character> blockToChar = new LinkedHashMap<>();
-        Map<Character, BlockState> definitions = new LinkedHashMap<>();
-        poolIdx = 0;
-        definitions.put('A', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
-        definitions.put('#', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
-
-        char[][][] raw = new char[sizeY][sizeZ][sizeX];
-        BlockPos controllerPos = null;
+        // Pre-scan — count + validate before allocating / 预扫描 — 先计数校验再分配内存
+        int nonAirCount = 0;
         int controllerCount = 0;
+        BlockPos controllerWorldPos = null;
         net.minecraft.core.Direction facing = net.minecraft.core.Direction.NORTH;
+        java.util.List<BlockPos> controllerPositions = new java.util.ArrayList<>();
+        Map<Block, Boolean> blockSeen = new LinkedHashMap<>();
 
         for (int y = 0; y < sizeY; y++) {
             for (int z = 0; z < sizeZ; z++) {
@@ -205,24 +202,68 @@ public class MultiblockScannerItem extends AnimatedItem {
                     BlockState state = level.getBlockState(wPos);
                     Block block = state.getBlock();
 
-                    if (block == net.minecraft.world.level.block.Blocks.AIR) {
-                        raw[y][z][x] = 'A';
+                    if (block == net.minecraft.world.level.block.Blocks.AIR
+                            || block instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock) {
                         continue;
                     }
 
-                    if (block instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock) {
-                        raw[y][z][x] = 'A';
-                        continue;
+                    nonAirCount++;
+                    if (nonAirCount > MAX_VOLUME) {
+                        player.displayClientMessage(
+                                Component.translatable("eecore.scanner.too_many_blocks", MAX_VOLUME)
+                                        .withStyle(ChatFormatting.RED), true);
+                        return InteractionResult.FAIL;
                     }
 
-                    // Controller detection — must check every / 必须遍历所有方块检查控制器
-                    if (level.getBlockEntity(wPos) instanceof com.endlessepoch.core.nova.block.ScannerControllerBlockEntity) {
+                    blockSeen.putIfAbsent(block, true);
+
+                    if (level.getBlockEntity(wPos) instanceof com.endlessepoch.core.nova.block.ScannerControllerBlockEntity scc) {
                         controllerPositions.add(wPos);
                         controllerCount++;
                         if (controllerCount == 1) {
-                            controllerPos = new BlockPos(x, y, z);
-                            var scc = (com.endlessepoch.core.nova.block.ScannerControllerBlockEntity)level.getBlockEntity(wPos);
+                            controllerWorldPos = wPos;
                             facing = scc.getFacing();
+                        }
+                    }
+                }
+            }
+        }
+
+        if (blockSeen.size() > CHAR_POOL.length) {
+            player.displayClientMessage(
+                    Component.translatable("eecore.scanner.too_many_types", blockSeen.size(), CHAR_POOL.length)
+                            .withStyle(ChatFormatting.RED), true);
+            return InteractionResult.FAIL;
+        }
+
+        // Full scan — allocate array and encode pattern / 正式扫描 — 分配数组编码结构
+        Map<Block, Character> blockToChar = new LinkedHashMap<>();
+        Map<Character, BlockState> definitions = new LinkedHashMap<>();
+        poolIdx = 0;
+        definitions.put('A', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+        definitions.put('#', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+
+        char[][][] raw = new char[sizeY][sizeZ][sizeX];
+        BlockPos controllerPos = null;
+        controllerPositions.clear();
+
+        for (int y = 0; y < sizeY; y++) {
+            for (int z = 0; z < sizeZ; z++) {
+                for (int x = 0; x < sizeX; x++) {
+                    BlockPos wPos = new BlockPos(minX + x, minY + y, minZ + z);
+                    BlockState state = level.getBlockState(wPos);
+                    Block block = state.getBlock();
+
+                    if (block == net.minecraft.world.level.block.Blocks.AIR
+                            || block instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock) {
+                        raw[y][z][x] = 'A';
+                        continue;
+                    }
+
+                    if (level.getBlockEntity(wPos) instanceof com.endlessepoch.core.nova.block.ScannerControllerBlockEntity) {
+                        controllerPositions.add(wPos);
+                        if (controllerPos == null) {
+                            controllerPos = new BlockPos(x, y, z);
                         }
                         definitions.put('K', state);
                         raw[y][z][x] = 'K';
@@ -406,10 +447,23 @@ public class MultiblockScannerItem extends AnimatedItem {
                     layers[y][z] = new String(raw[y][z]);
         }
 
+        // Position collection — cache non-air positions for fast preview / 位置收集 — 缓存非空气坐标供预览快速遍历
+        java.util.List<BlockPos> nonAirPositions = new java.util.ArrayList<>(nonAirCount);
+        java.util.List<BlockPos> controllers = new java.util.ArrayList<>();
+        for (int y = 0; y < sizeY; y++)
+            for (int z = 0; z < rotD; z++)
+                for (int x = 0; x < rotW; x++)
+                    if (layers[y][z].charAt(x) != 'A') {
+                        var bp = new BlockPos(x, y, z);
+                        nonAirPositions.add(bp);
+                        if (layers[y][z].charAt(x) == 'K') controllers.add(bp);
+                    }
+
         MultiBlockPattern pattern = new MultiBlockPattern(
                 rotW, sizeY, rotD,
                 newCx, controllerPos.getY(), newCz,
-                layers, definitions);
+                layers, definitions,
+                nonAirPositions, controllers);
 
         String name = "scanned_" + System.currentTimeMillis() % 100000;
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath("eecore", name);

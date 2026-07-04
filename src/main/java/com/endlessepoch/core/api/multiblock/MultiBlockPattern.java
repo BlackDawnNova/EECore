@@ -1,5 +1,6 @@
 package com.endlessepoch.core.api.multiblock;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import java.util.*;
@@ -13,11 +14,15 @@ public final class MultiBlockPattern {
     private final Map<Character, BlockState> definitions;
     private final Map<Character, Set<BlockState>> alternatives = new LinkedHashMap<>();
     private final Map<Character, List<String>> tags = new LinkedHashMap<>();
+    private final java.util.List<BlockPos> nonAirPositions;
+    private final java.util.List<BlockPos> nonAirControllers;
 
     /** @param layers [layer][row] = char string */
     public MultiBlockPattern(int width, int height, int depth,
                              int controllerX, int controllerY, int controllerZ,
-                             String[][] layers, Map<Character, BlockState> definitions) {
+                             String[][] layers, Map<Character, BlockState> definitions,
+                             java.util.List<BlockPos> nonAirPositions,
+                             java.util.List<BlockPos> nonAirControllers) {
         this.width = width;
         this.height = height;
         this.depth = depth;
@@ -31,7 +36,42 @@ public final class MultiBlockPattern {
             this.layerData[y] = sb.toString();
         }
         this.definitions = new LinkedHashMap<>(definitions);
+        this.nonAirPositions = List.copyOf(nonAirPositions);
+        this.nonAirControllers = List.copyOf(nonAirControllers);
     }
+
+    /** Convenience constructor — auto-computes non-air positions. / 便捷构造，自动计算非空气位置 */
+    public MultiBlockPattern(int width, int height, int depth,
+                             int controllerX, int controllerY, int controllerZ,
+                             String[][] layers, Map<Character, BlockState> definitions) {
+        this(width, height, depth, controllerX, controllerY, controllerZ,
+             layers, definitions,
+             computePositions(layers, width, height, depth),
+             computeControllers(layers, width, height, depth));
+    }
+
+    private static java.util.List<BlockPos> computePositions(String[][] layers, int w, int h, int d) {
+        java.util.List<BlockPos> list = new java.util.ArrayList<>();
+        for (int y = 0; y < h; y++)
+            for (int z = 0; z < d; z++)
+                for (int x = 0; x < w; x++)
+                    if (layers[y][z].charAt(x) != 'A')
+                        list.add(new BlockPos(x, y, z));
+        return list;
+    }
+
+    private static java.util.List<BlockPos> computeControllers(String[][] layers, int w, int h, int d) {
+        java.util.List<BlockPos> list = new java.util.ArrayList<>();
+        for (int y = 0; y < h; y++)
+            for (int z = 0; z < d; z++)
+                for (int x = 0; x < w; x++)
+                    if (layers[y][z].charAt(x) == 'K')
+                        list.add(new BlockPos(x, y, z));
+        return list;
+    }
+
+    public java.util.List<BlockPos> getNonAirPositions() { return nonAirPositions; }
+    public java.util.List<BlockPos> getNonAirControllers() { return nonAirControllers; }
 
     public void setDefinition(char c, BlockState state) { definitions.put(c, state); }
 

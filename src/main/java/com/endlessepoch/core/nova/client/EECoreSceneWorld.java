@@ -15,35 +15,75 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Virtual world holding a multiblock pattern for 3D preview rendering.
  * Implements BlockAndTintGetter for vanilla block renderer queries.
+ * Stores pre-computed surface block info (exposed face bitmask) for fast back-face culling.
  */
 @OnlyIn(Dist.CLIENT)
 public class EECoreSceneWorld implements BlockAndTintGetter {
 
-    private final Map<BlockPos, BlockState> blocks = new HashMap<>();
+    // Exposed face bitmask bits / 暴露面掩码位
+    public static final int FACE_DN = 0x01, FACE_UP = 0x02, FACE_NZ = 0x04, FACE_PZ = 0x08, FACE_NX = 0x10, FACE_PX = 0x20;
+
+    private final MultiBlockPattern pattern;
+    private final Set<BlockPos> positions;
+    private final List<BlockPos> surfacePositions;
+    private final Set<BlockPos> controllerPositions;
+    private final Map<BlockPos, Integer> exposedFaceMask;
     private final int minY, maxY;
+    private final int centerX, centerY, centerZ;
 
     public EECoreSceneWorld(MultiBlockPattern pattern) {
-        for (int y = 0; y < pattern.height; y++)
-            for (int z = 0; z < pattern.depth; z++)
-                for (int x = 0; x < pattern.width; x++) {
-                    char c = pattern.getChar(x, y, z);
-                    if (c == ' ' || c == '_') continue;
-                    BlockState state = pattern.getExpectedState(x, y, z);
-                    if (state != null) blocks.put(new BlockPos(x, y, z), state);
-                }
+        this.pattern = pattern;
+        this.positions = new LinkedHashSet<>(pattern.getNonAirPositions());
+        this.controllerPositions = new HashSet<>(pattern.getNonAirControllers());
+        this.centerX = pattern.controllerX;
+        this.centerY = pattern.controllerY;
+        this.centerZ = pattern.controllerZ;
+        this.exposedFaceMask = new HashMap<>();
+        var surfaceSet = new ArrayList<BlockPos>();
+        for (var pos : positions)
+            computeSurface(pos, surfaceSet);
+        surfaceSet.sort((a, b) -> Integer.compare(
+            distSq(a, centerX, centerY, centerZ),
+            distSq(b, centerX, centerY, centerZ)));
+        this.surfacePositions = List.copyOf(surfaceSet);
         this.minY = 0;
         this.maxY = pattern.height;
     }
 
+    private static int distSq(BlockPos p, int cx, int cy, int cz) {
+        int dx = p.getX() - cx, dy = p.getY() - cy, dz = p.getZ() - cz;
+        return dx*dx + dy*dy + dz*dz;
+    }
+
+    private void computeSurface(BlockPos pos, List<BlockPos> surfaceList) {
+        int x = pos.getX(), y = pos.getY(), z = pos.getZ();
+        int mask = 0;
+        if (getBlockState(new BlockPos(x, y-1, z)).isAir()) mask |= FACE_DN;
+        if (getBlockState(new BlockPos(x, y+1, z)).isAir()) mask |= FACE_UP;
+        if (getBlockState(new BlockPos(x, y, z-1)).isAir()) mask |= FACE_NZ;
+        if (getBlockState(new BlockPos(x, y, z+1)).isAir()) mask |= FACE_PZ;
+        if (getBlockState(new BlockPos(x-1, y, z)).isAir()) mask |= FACE_NX;
+        if (getBlockState(new BlockPos(x+1, y, z)).isAir()) mask |= FACE_PX;
+        if (mask != 0) {
+            surfaceList.add(pos);
+            exposedFaceMask.put(pos, mask);
+        }
+    }
+
+    public Set<BlockPos> getPositions() { return positions; }
+    public List<BlockPos> getSurfacePositions() { return surfacePositions; }
+    public Set<BlockPos> getControllerPositions() { return controllerPositions; }
+    public int getExposedFaceMask(BlockPos pos) { return exposedFaceMask.getOrDefault(pos, 0); }
+
     @Override
     public BlockState getBlockState(BlockPos pos) {
-        return blocks.getOrDefault(pos, Blocks.AIR.defaultBlockState());
+        BlockState st = pattern.getExpectedState(pos.getX(), pos.getY(), pos.getZ());
+        return st != null ? st : Blocks.AIR.defaultBlockState();
     }
 
     @Override
