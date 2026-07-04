@@ -154,8 +154,7 @@ public class MultiblockVisualizerScreen extends Screen {
 
     private float rotX = ROT_X_INIT, rotY = ROT_Y_INIT;
     protected float userZoom = ZOOM_INIT;
-    private float prevRotX = ROT_X_INIT, prevRotY = ROT_Y_INIT;
-    private boolean rotating = false;
+    private boolean mouseHeld = false;
 
     private int cellSize, gridX, gridY;
     private int listL, listR, listT, listB;
@@ -335,8 +334,8 @@ public class MultiblockVisualizerScreen extends Screen {
         float blockDiag = (float) Math.sqrt(pat.width*pat.width + pat.height*pat.height + pat.depth*pat.depth);
         float cameraDist = CAM_DIST_FACTOR * (float)(vpSize * Math.sqrt(2)) / (blockDiag + CAM_DIST_EPS) * userZoom * CAM_DIST_SCALE;
         float blockPx = cameraDist * BLOCK_PX_FACTOR;
-        // Rotation LOD — drop quality during rotation only, not zoom / 旋转LOD — 仅旋转降精度，缩放不受影响
-        rotating = (rotX != prevRotX || rotY != prevRotY);
+        // Rotation LOD — active while mouse held in render area / 旋转LOD — 左键按住期间持续生效
+        boolean rotating = mouseHeld;
         int rotationSkip = 1;
         if (rotating && cachedScene != null) {
             int nonAir = cachedScene.getPositions().size();
@@ -464,9 +463,6 @@ public class MultiblockVisualizerScreen extends Screen {
         RenderSystem.disableDepthTest();
         if (!immersive()) g.drawString(font, Component.translatable("eecore.visualizer.controller_label"), rL() + PADDING, rT() + PADDING, COL_WHITE);
         if (!immersive()) drawRenderBorder(g);
-
-        prevRotX = rotX;
-        prevRotY = rotY;
     }
 
     private static boolean onBtn(double mx, double my, int x, int y, int w) {
@@ -1074,6 +1070,7 @@ public class MultiblockVisualizerScreen extends Screen {
             rotX = Math.max(ROT_X_MIN, Math.min(ROT_X_MAX, rotX));
             if (Math.abs(mx - clickStartX) > 5 || Math.abs(my - clickStartY) > 5) {
                 clickActive = false;
+                mouseHeld = true;
             }
         }
         return mx >= rL() && mx <= rR();
@@ -1085,6 +1082,8 @@ public class MultiblockVisualizerScreen extends Screen {
             draggingPanel = false;
             return true;
         }
+
+        if (btn == 0) mouseHeld = false;
 
         if (btn == 0 && clickActive) {
             clickActive = false;

@@ -109,7 +109,7 @@ public class EECoreSceneWorld implements BlockAndTintGetter {
     public int getBrightness(LightLayer layer, BlockPos pos) { return 15; }
 
     @Override
-    public float getShade(Direction dir, boolean b) { return 0.6f; }
+    public float getShade(Direction dir, boolean b) { return 1.0f; }
 
     @Override
     public int getBlockTint(BlockPos pos, ColorResolver resolver) { return -1; }
