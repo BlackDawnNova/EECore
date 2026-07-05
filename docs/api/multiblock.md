@@ -7,8 +7,8 @@ EECore 的多方块框架：扫描 → 预览 → 标记 → 成形。
 ## 核心概念
 
 - **Pattern**：字符编码 3D 结构（多层网格 + 方块映射表）
-- **字符池**：A=空气，K=控制器，#=通配符，253 种可打印字符（0x21–0xFE）
-- **.ecs 格式**：EECore 私有二进制格式，gzip + CRC32，仅 EECore 可编解码
+- **字符池**：A=空气，K=控制器，#=通配符，自动扩展到 65000 字符（16-bit 模式）
+- **.ecs 格式**：EECore 私有二进制格式 v3，gzip + CRC32，仅 EECore 可编解码。palSize>256 时自动切换 16-bit 体素索引
 - **标记 (Tag)**：给字符打标签名（如 `"gregtech:input_hatch"`），具体含义由附属 mod 通过 `TagDefRegistry` 定义
 - **控制器**：实现 `IMultiBlockController` 的方块
 - **成形**：Shift+右键控制器 → 匹配 Pattern → 验证方块和 tag 数量
@@ -31,18 +31,20 @@ EECore 的多方块框架：扫描 → 预览 → 标记 → 成形。
 ## .ecs 文件格式
 
 ```
-[hdr] 魔数 "EECS" + 版本号(1/2) + 标志位(bit0=gzip)
+[hdr] 魔数 "EECS" + 版本号(3) + 标志位(bit0=deflate)
 [crc] CRC32（头+载荷）
 [payload]
   VarInt: width, height, depth, ctrlX/Y/Z
   VarInt: 调色板大小
     for each:
-      Byte: 字符
+      Byte/Char: 字符（palSize≤256: 1字节, palSize>256: 2字节）
       VarInt+UTF8: 方块ID
       VarInt: tag数量 + for each: VarInt+UTF8 tag名
-  Byte: bitsPerVoxel
-  VarInt: 体素数
-  Byte[]: 体素数据（调色板索引）
+  Byte: voxelMode (2=8-bit compressed, 3=16-bit compressed)
+  VarInt: 非空气体素数
+  for each:
+    VarInt: 线性索引
+    Byte/Short: 调色板索引（mode2: 1字节, mode3: 2字节）
 ```
 
 附属 mod 可直接用 `ecsformat` 包中的 `EcsRawCodec`（纯 JDK，无 MC 依赖）解析。
@@ -124,7 +126,8 @@ void stampOwner(UUID owner, String name);
 | 滚轮 | 缩放 |
 | 左键点击方块 | 浏览模式：显示替代方块；编辑模式：替换/标记 |
 | G | 重置视角 |
-| W/S | 切换结构（浏览模式）|
+| W/S | 切换结构（浏览模式）/ 切层（上下层）|
+| 右侧 All/↻ 按钮 | 切换分层预览 |
 | Alt+` | 切换编辑/浏览模式 |
 | Del | 删除（带确认） |
 | Ctrl+Z | 撤销 |
@@ -190,3 +193,44 @@ The .ecs file should be placed at:
 
 Right-click air with any controller block to open a 3D preview of the bound structure.
 The preview is read-only and reads from disk/network — zero memory footprint on the client.
+
+## Performance Optimizations (0.1.2+) / 性能优化
+
+- **Back-face culling**: Structures > 30,000 blocks skip faces facing away from camera.
+- **Rotation LOD**: Blocks are randomly dropped during drag-rotation for smooth FPS.
+- **Layer view**: W/S to view a single Y layer — no culling or LOD applied.
+
+## Skip Blocks (0.1.2+) / 扫描排除方块
+
+20 blocks that cannot exist independently or are unobtainable are automatically skipped during scanning:
+
+| Category 1: Needs support | Category 2: Creative-only |
+|---|---|
+| FIRE, SOUL_FIRE, NETHER_PORTAL, BUBBLE_COLUMN | COMMAND_BLOCK, REPEATING_COMMAND_BLOCK, CHAIN_COMMAND_BLOCK |
+| PISTON_HEAD, MOVING_PISTON, FROSTED_ICE | STRUCTURE_BLOCK, STRUCTURE_VOID, BARRIER, LIGHT, JIGSAW |
+| END_PORTAL, END_GATEWAY | SPAWNER, BUDDING_AMETHYST, REINFORCED_DEEPSLATE |
+
+Addon mods can register additional blocks:
+```java
+MultiblockScannerItem.skipBlock(MyBlocks.CUSTOM_TRANSIENT);
+```
+
+## Fluid Rendering (0.1.2+) / 流体渲染
+
+Water and lava source blocks are rendered as translucent colored cubes in the Visualizer.
+Flowing fluids are treated as air — only source blocks count as structure.
+
+Custom fluid colors for addon mods:
+```java
+MultiblockVisualizerScreen.FLUID_COLORS.put(
+    MyFluids.STEAM_SOURCE.get(),
+    new float[]{1.0f, 1.0f, 1.0f, 0.6f}  // rgba
+);
+```
+
+## Visualizer Shortcuts / 快捷键
+
+| 操作 | 效果 |
+|------|------|
+| W/S (分层模式) | 上下切换层 |
+| G | 重置视角+缩放+退出分层模式 |

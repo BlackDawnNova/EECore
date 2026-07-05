@@ -21,7 +21,7 @@ EECore defines the **Ω energy standard** (`1 Ω = 2 FE`) with 12 voltage tiers 
 - **FE compatibility**: full conversion (1 Ω = 2 FE) with BigInteger precision
 - **MachineSpec API**: one-line machine spec declaration for other mods
 - **NovaNet wireless network**: transmitter/receiver nodes, laser links, distance attenuation
-- **Multiblock structure system**: scanner tool, 3D visualizer, click-to-inspect, controller highlight
+- **Multiblock structure system**: scanner tool, 3D visualizer, back-face culling, fluid rendering, layer view, skip-blocks filter
 - **Animated text & items**: rainbow/blink/gradient tooltips for other mods
 - **Pluggable team system**: EECore built-in + FTB Teams bridge
 
