@@ -7,11 +7,11 @@ public class EcsRawData {
     public final int width, height, depth;
     public final int controllerX, controllerY, controllerZ;
     public final List<EcsPaletteEntry> palette;
-    public final byte[] voxelData;
+    public final short[] voxelData;
 
     public EcsRawData(int width, int height, int depth,
                       int controllerX, int controllerY, int controllerZ,
-                      List<EcsPaletteEntry> palette, byte[] voxelData) {
+                      List<EcsPaletteEntry> palette, short[] voxelData) {
         this.width = width;
         this.height = height;
         this.depth = depth;

@@ -6,7 +6,8 @@ package com.endlessepoch.ecsformat;
 public final class EcsFormat {
     public static final byte[] MAGIC = {0x45, 0x45, 0x43, 0x53}; // "EECS"
     public static final byte VERSION = 3;
-    public static final byte VOXEL_COMPRESSED = 2; // v3+: non-air only
+    public static final byte VOXEL_COMPRESSED = 2; // v3+: non-air only, 8-bit palette index
+    public static final byte VOXEL_16BIT_COMPRESSED = 3; // v3+: non-air only, 16-bit palette index
     public static final byte FLAG_COMPRESSED = 0x01;
     public static final byte VOXEL_8BIT = 0;
     public static final byte VOXEL_16BIT = 1;

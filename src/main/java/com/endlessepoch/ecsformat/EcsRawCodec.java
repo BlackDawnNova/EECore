@@ -79,8 +79,14 @@ public final class EcsRawCodec {
         writeVarInt(out, data.controllerY);
         writeVarInt(out, data.controllerZ);
         writeVarInt(out, data.palette.size());
+        // 16-bit mode when palette > 256 entries / 调色板 > 256 时自动切换 16-bit
+        boolean use16Bit = data.palette.size() > 256;
         for (EcsPaletteEntry e : data.palette) {
-            out.writeByte((byte) e.character());
+            if (use16Bit) {
+                out.writeChar(e.character());
+            } else {
+                out.writeByte((byte) e.character());
+            }
             byte[] idBytes = e.blockId().getBytes(StandardCharsets.UTF_8);
             writeVarInt(out, idBytes.length);
             out.write(idBytes);
@@ -95,14 +101,18 @@ public final class EcsRawCodec {
         int airIdx = EcsFormat.AIR_INDEX;
         int nonAir = 0;
         for (int i = 0; i < total && i < data.voxelData.length; i++)
-            if ((data.voxelData[i] & 0xFF) != airIdx) nonAir++;
-        out.writeByte(EcsFormat.VOXEL_COMPRESSED);
+            if ((data.voxelData[i] & 0xFFFF) != airIdx) nonAir++;
+        out.writeByte(use16Bit ? EcsFormat.VOXEL_16BIT_COMPRESSED : EcsFormat.VOXEL_COMPRESSED);
         writeVarInt(out, nonAir);
         for (int i = 0; i < total && i < data.voxelData.length; i++) {
-            int pi = data.voxelData[i] & 0xFF;
+            int pi = data.voxelData[i] & 0xFFFF;
             if (pi != airIdx) {
                 writeVarInt(out, i);
-                out.writeByte(pi);
+                if (use16Bit) {
+                    out.writeShort(pi);
+                } else {
+                    out.writeByte(pi);
+                }
             }
         }
         out.flush();
@@ -114,9 +124,11 @@ public final class EcsRawCodec {
         int w = readVarInt(in), h = readVarInt(in), d = readVarInt(in);
         int cx = readVarInt(in), cy = readVarInt(in), cz = readVarInt(in);
         int palSize = readVarInt(in);
+        // palSize > 256 → 16-bit character encoding / 调色板 > 256 判定字符编码宽度
+        boolean use16Bit = palSize > 256;
         List<EcsPaletteEntry> palette = new ArrayList<>();
         for (int i = 0; i < palSize; i++) {
-            char c = (char) (in.readByte() & 0xFF);
+            char c = use16Bit ? in.readChar() : (char) (in.readByte() & 0xFF);
             int idLen = readVarInt(in);
             byte[] idBytes = new byte[idLen];
             in.readFully(idBytes);
@@ -135,19 +147,23 @@ public final class EcsRawCodec {
         }
         int voxelMode = in.readByte() & 0xFF;
         int total = w * h * d;
-        byte[] voxelData = new byte[total];
-        for (int i = 0; i < total; i++) voxelData[i] = (byte) EcsFormat.AIR_INDEX;
-        if (voxelMode == EcsFormat.VOXEL_COMPRESSED) {
+        short[] voxelData = new short[total];
+        for (int i = 0; i < total; i++) voxelData[i] = (short) EcsFormat.AIR_INDEX;
+        if (voxelMode == EcsFormat.VOXEL_COMPRESSED || voxelMode == EcsFormat.VOXEL_16BIT_COMPRESSED) {
+            boolean voxel16Bit = (voxelMode == EcsFormat.VOXEL_16BIT_COMPRESSED);
             int nonAir = readVarInt(in);
             for (int i = 0; i < nonAir; i++) {
                 int idx = readVarInt(in);
-                int pi = in.readByte() & 0xFF;
-                if (idx >= 0 && idx < total) voxelData[idx] = (byte) pi;
+                int pi = voxel16Bit ? (in.readShort() & 0xFFFF) : (in.readByte() & 0xFF);
+                if (idx >= 0 && idx < total) voxelData[idx] = (short) pi;
             }
         } else {
+            // Legacy uncompressed 8-bit mode / 旧版未压缩 8-bit
             int totalVoxels = readVarInt(in);
             int readLen = Math.min(totalVoxels, total);
-            in.readFully(voxelData, 0, readLen);
+            byte[] raw = new byte[readLen];
+            in.readFully(raw, 0, readLen);
+            for (int i = 0; i < readLen; i++) voxelData[i] = (short) (raw[i] & 0xFF);
         }
         return new EcsRawData(w, h, d, cx, cy, cz, palette, voxelData);
     }

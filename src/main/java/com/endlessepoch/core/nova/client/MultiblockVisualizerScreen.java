@@ -77,6 +77,8 @@ public class MultiblockVisualizerScreen extends Screen {
     private static final float NEAR_PLANE      = 100f;
     private static final float FAR_PLANE       = 4000f;
 
+    private static final int   BF_CULL_THRESHOLD = 30_000; // Min block count for back-face culling / 背面剔除最小方块数阈值
+
     private static final float HILITE_LINE_WIDTH = 8f;
     private static final int   HILITE_BUFSZ      = 4608;
     private static final long  HILITE_FLASH_MS   = 300L;
@@ -334,21 +336,21 @@ public class MultiblockVisualizerScreen extends Screen {
         float blockDiag = (float) Math.sqrt(pat.width*pat.width + pat.height*pat.height + pat.depth*pat.depth);
         float cameraDist = CAM_DIST_FACTOR * (float)(vpSize * Math.sqrt(2)) / (blockDiag + CAM_DIST_EPS) * userZoom * CAM_DIST_SCALE;
         float blockPx = cameraDist * BLOCK_PX_FACTOR;
-        // Rotation LOD — active while mouse held in render area / 旋转LOD — 左键按住期间持续生效
-        boolean rotating = mouseHeld;
-        int rotationSkip = 1;
-        if (rotating && cachedScene != null) {
-            int nonAir = cachedScene.getPositions().size();
-            if (nonAir > 50_000) {
-                rotationSkip = Math.max(1, nonAir / 30_000);
-                rotationSkip = Math.min(rotationSkip, 32);
-            }
-        }
-
         ResourceLocation id = patterns.get(selectedIndex).getKey();
         if (cachedScene == null || !id.equals(cachedPatternId)) {
             cachedScene = new EECoreSceneWorld(pat);
             cachedPatternId = id;
+        }
+
+        // Optimization flags — full view only, not when viewing a single layer / 优化仅在整体视图生效，分层不受影响
+        int nonAirCount = cachedScene.getPositions().size();
+        boolean useOptimization = layerView < 0 && nonAirCount > BF_CULL_THRESHOLD;
+
+        // Rotation LOD — skip blocks during drag rotation / 旋转LOD — 拖拽旋转时抽稀渲染
+        int rotationSkip = 1;
+        if (useOptimization && mouseHeld) {
+            rotationSkip = Math.max(1, nonAirCount / 30_000);
+            rotationSkip = Math.min(rotationSkip, 32);
         }
 
         RenderSystem.enableDepthTest();
@@ -364,20 +366,24 @@ public class MultiblockVisualizerScreen extends Screen {
         model.translate(-pat.width*0.5f, -pat.height*0.5f, -pat.depth*0.5f);
         Matrix4f patternToScreen = new Matrix4f(model.last().pose());
 
-        // Back-face culling — compute camera direction in pattern space / 背面剔除 — 计算相机在结构空间的方向
-        float radX = (float) Math.toRadians(-rotX);
-        float radY = (float) Math.toRadians(rotY);
-        float cosX = (float) Math.cos(radX), sinX = (float) Math.sin(radX);
-        float dirX = -cosX * (float) Math.sin(radY);
-        float dirY = -sinX;
-        float dirZ = -cosX * (float) Math.cos(radY);
+        // Back-face culling / 背面剔除
         int visibleMask = 0;
-        if (dirX > 0.001f) visibleMask |= EECoreSceneWorld.FACE_PX;
-        if (dirX < -0.001f) visibleMask |= EECoreSceneWorld.FACE_NX;
-        if (dirY > 0.001f) visibleMask |= EECoreSceneWorld.FACE_UP;
-        if (dirY < -0.001f) visibleMask |= EECoreSceneWorld.FACE_DN;
-        if (dirZ > 0.001f) visibleMask |= EECoreSceneWorld.FACE_PZ;
-        if (dirZ < -0.001f) visibleMask |= EECoreSceneWorld.FACE_NZ;
+        if (useOptimization) {
+            // dirY/dirZ are negated vs scene→camera (model rotation convention), so Y/Z assignments are swapped
+            // dirY/dirZ 与 scene→camera 符号相反，故 FACE_UP↔FACE_DN、FACE_PZ↔FACE_NZ 已校正
+            float radX = (float) Math.toRadians(-rotX);
+            float radY = (float) Math.toRadians(rotY);
+            float cosX = (float) Math.cos(radX), sinX = (float) Math.sin(radX);
+            float dirX = -cosX * (float) Math.sin(radY);
+            float dirY = -sinX;
+            float dirZ = -cosX * (float) Math.cos(radY);
+            if (dirX > 0.001f)  visibleMask |= EECoreSceneWorld.FACE_PX;
+            if (dirX < -0.001f) visibleMask |= EECoreSceneWorld.FACE_NX;
+            if (dirY > 0.001f)  visibleMask |= EECoreSceneWorld.FACE_DN;
+            if (dirY < -0.001f) visibleMask |= EECoreSceneWorld.FACE_UP;
+            if (dirZ > 0.001f)  visibleMask |= EECoreSceneWorld.FACE_NZ;
+            if (dirZ < -0.001f) visibleMask |= EECoreSceneWorld.FACE_PZ;
+        }
 
         var renderer = Minecraft.getInstance().getBlockRenderer();
         var buf = Minecraft.getInstance().renderBuffers().bufferSource();
@@ -397,7 +403,7 @@ public class MultiblockVisualizerScreen extends Screen {
                     int x = pos.getX(), y = pos.getY(), z = pos.getZ();
                     if (layerView >= 0 && y != layerView) continue;
 
-                    if ((cachedScene.getExposedFaceMask(pos) & visibleMask) == 0) continue;
+                    if (useOptimization && (cachedScene.getExposedFaceMask(pos) & visibleMask) == 0) continue;
 
                     if (rotationSkip > 1) {
                         if (((x * 31 + y * 37 + z * 41) & 0xFF) % rotationSkip != 0) continue;
@@ -458,6 +464,8 @@ public class MultiblockVisualizerScreen extends Screen {
                     model.popPose();
                 }
         buf.endBatch(CTRL_MARKER);
+
+        renderFluidOverlay(model, buf);
 
         renderPickedBlockHighlight(model, buf);
         RenderSystem.disableDepthTest();
@@ -589,7 +597,6 @@ public class MultiblockVisualizerScreen extends Screen {
                 if (!isCtrl) {
                     int tagY = py + 94;
                     drawButton(g, buf, mat, (tagModeActive ? "§b" : "§7") + " 标记", x1, tagY, colW * 2 + gap, false);
-                        // Tag editing UI when active / 标记编辑界面
                     if (tagModeActive) {
                         char pickedChar = patterns.get(selectedIndex).getValue()
                                 .getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
@@ -601,7 +608,6 @@ public class MultiblockVisualizerScreen extends Screen {
                                 px + (PANEL_W - font.width(labelText)) / 2, tagUiY, 0xFFCCCCCC, false, mat, buf,
                                 Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
                         tagUiY += 14;
-                        // Show each tag pill / 显示每个标记
                         int indX = px + 8;
                         for (String tag : tags) {
                             String label = "✕ " + tag;
@@ -702,11 +708,50 @@ public class MultiblockVisualizerScreen extends Screen {
 
             font.drawInBatch(Component.literal("§8[取消]"), px + PANEL_W - 46, py + ph - 14, 0xFFAAAAAA, false,
                     pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-            font.drawInBatch(Component.literal("§8[取消]"), px + PANEL_W - 46, py + ph - 14, 0xFFAAAAAA, false,
-                    pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
         }
 
         buf.endBatch();
+    }
+
+    /**
+     * Render water/lava source blocks as translucent colored cubes.
+     * Uses direct Tesselator path to ensure correct depth testing.
+     * 直接走 Tesselator 确保深度测试正确。
+     */
+    private void renderFluidOverlay(PoseStack model, net.minecraft.client.renderer.MultiBufferSource.BufferSource buf) {
+        if (cachedScene == null) return;
+        // collect fluid positions first
+        var fluidPositions = new java.util.ArrayList<BlockPos>();
+        for (var pos : cachedScene.getSurfacePositions()) {
+            if (layerView >= 0 && pos.getY() != layerView) continue;
+            var st = cachedScene.getBlockState(pos);
+            var fluid = st.getFluidState();
+            if (!fluid.isEmpty() && fluid.isSource()) fluidPositions.add(pos);
+        }
+        if (fluidPositions.isEmpty()) return;
+        // Direct Tesselator with explicit shader / 直接 Tesselator + 显式 shader
+        var tess = com.mojang.blaze3d.vertex.Tesselator.getInstance();
+        var builder = tess.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        for (var pos : fluidPositions) {
+            BlockState st = cachedScene.getBlockState(pos);
+            var fluid = st.getFluidState();
+            boolean isLava = fluid.getType() == net.minecraft.world.level.material.Fluids.LAVA;
+            float r = isLava ? 1.0f : 0.2f;
+            float gb = isLava ? 0.45f : 0.45f;
+            float b = isLava ? 0.0f : 1.0f;
+            float a = isLava ? 0.7f : 0.5f;
+            model.pushPose();
+            model.translate(pos.getX(), pos.getY(), pos.getZ());
+            renderSolidBox(model.last(), builder,
+                    0.02, 0.02, 0.02, 0.98, 0.98, 0.98, r, gb, b, a);
+            model.popPose();
+        }
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.enableDepthTest();
+        com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
+        RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionColorShader);
+        com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(builder.buildOrThrow());
     }
 
     private void renderPickedBlockHighlight(PoseStack model, net.minecraft.client.renderer.MultiBufferSource.BufferSource buf) {
@@ -998,8 +1043,6 @@ public class MultiblockVisualizerScreen extends Screen {
                     }
                 }
             }
-            // Undo button / 撤销按钮
-            // Save button / 保存按钮
             int ph = panelH();
             if (onBtn(mx, my, px2 + 10, py2 + ph - 20, PANEL_W - 20) && selectedIndex >= 0) {
                 var pat = patterns.get(selectedIndex);

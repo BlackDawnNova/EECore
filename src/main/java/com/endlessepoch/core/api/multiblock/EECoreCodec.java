@@ -69,7 +69,7 @@ public final class EECoreCodec {
             palette.add(new EcsPaletteEntry(e.getKey(), e.getValue(), pattern.getTags(e.getKey())));
 
         int total = pattern.width * pattern.height * pattern.depth;
-        byte[] voxels = new byte[total];
+        short[] voxels = new short[total];
         String[] layers = pattern.getLayerData();
         int idx = 0;
         for (int y = 0; y < pattern.height; y++) {
@@ -79,7 +79,7 @@ public final class EECoreCodec {
                     char c = layer.charAt(z * pattern.width + x);
                     int pi = 0;
                     for (var pe : paletteMap.entrySet()) { if (pe.getKey() == c) break; pi++; }
-                    voxels[idx++] = (byte) pi;
+                    voxels[idx++] = (short) pi;
                 }
         }
 
@@ -112,11 +112,9 @@ public final class EECoreCodec {
 
         int w = raw.width, h = raw.height, d = raw.depth;
         List<EcsPaletteEntry> pal = raw.palette;
-        byte[] voxels = raw.voxelData;
+        short[] voxels = raw.voxelData;
 
-        // Guard against empty voxel data / 保护空体素数据
         if (voxels.length == 0) {
-            // Create empty layer data
             String[] emptyLayers = new String[h];
             StringBuilder airRow = new StringBuilder(w * d);
             for (int i = 0; i < w * d; i++) airRow.append(EcsFormat.CHAR_AIR);
@@ -139,7 +137,7 @@ public final class EECoreCodec {
             StringBuilder sb = new StringBuilder(w * d);
             for (int z = 0; z < d; z++)
                 for (int x = 0; x < w; x++) {
-                    int pi = voxels[vi++] & 0xFF;
+                    int pi = voxels[vi++] & 0xFFFF;
                     sb.append(pi < pal.size() ? pal.get(pi).character() : EcsFormat.CHAR_AIR);
                 }
             layerData[y] = sb.toString();

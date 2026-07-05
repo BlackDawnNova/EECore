@@ -3,7 +3,7 @@ package com.endlessepoch.core.nova.item;
 import com.endlessepoch.core.api.multiblock.MultiBlockPattern;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
 import com.endlessepoch.core.network.SyncPatternBinaryPacket;
-import com.endlessepoch.core.registry.Blocks;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -28,6 +28,7 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -36,31 +37,55 @@ import java.util.*;
 
 public class MultiblockScannerItem extends AnimatedItem {
 
-    // Character pool for scanned blocks — A=air, K=controller, #=wildcard are reserved / 扫描字符池：A=空气、K=控制器、#=通配符
-    private static final char[] CHAR_POOL = {
-        'B','C','D','E','F','G','H','I','J','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-        'b','c','d','e','f','g','h','i','j','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
-        '0','1','2','3','4','5','6','7','8','9',
-        '@','$','%','&','*','+','-','=','_','~','!','?','<','>','|',';',':',',','.','/',
-        '一','二','三','四','五','六','七','八','九','十',
-        '壹','贰','叁','肆','伍','陆','柒','捌','玖','拾',
-        '★','☆','♂','♀','©','®','™','€','¥','£',
-        'α','β','γ','δ','ε','ζ','η','θ','ι','κ','λ','μ','ν','ξ','π','ρ','σ','τ','υ','φ','χ','ψ','ω',
-        'Α','Β','Γ','Δ','Ε','Ζ','Η','Θ','Ι','Κ','Λ','Μ','Ν','Ξ','Ο','Π','Ρ','Σ','Τ','Υ','Φ','Χ','Ψ','Ω',
-        '←','→','↑','↓','↔','↕','↖','↗','↘','↙','⇐','⇒','⇑','⇓','⇔','⇕',
-        '⊕','⊖','⊗','⊘','⊙','⊚','⊛','⊜','⊝','∞','∝','∠','∟','∣',
-        '±','×','÷','≠','≤','≥','≡','≈','∼','∽',
-        '∃','∀','∂','∅','∆','∇','∈','∉','∋','∌','∏','∑','∓','∔',
-        '∫','∬','∭','∮','∯','∰','∱','∲','∳','■','□','▪','▫','▬','▭','▮','▯',
-        '▓','▒','░','█','▄','▌','▐','▀','○','●','◘','◙','◦','☼','☺','☻',
-        '♠','♣','♥','♦','♪','♫','◄','►','▲','▼',
-        '㏑','㏒','㏓','㏔','㏕','㏖','㎎','㎏','㎜','㎝','㎞','㎟','㎡','㎢','㎣','㎤',
-        '㏗','㏘','㏙','㏚','㏛','㏜','㏝','㏞','㏟','㎥','㎦','㎧','㎨','㎩','㎪','㎫',
-        'ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄋ','ㄌ','ㄍ','ㄎ','ㄏ',
-        'ㄐ','ㄑ','ㄒ','ㄓ','ㄔ','ㄕ','ㄖ','ㄗ','ㄘ','ㄙ'
-    };
+    // Character pool for scanned blocks — A=air, K=controller, #=wildcard are reserved
+    // 扫描字符池：优先 SAFE_CHAR_POOL（兼容 8-bit .ecs），再扩展 Unicode（16-bit 用）
+    private static final char[] CHAR_POOL = buildCharPool();
+
+    private static char[] buildCharPool() {
+        // Start with SAFE_CHAR_POOL for 8-bit .ecs compatibility / 优先单字节安全字符池
+        java.util.ArrayList<Character> list = new java.util.ArrayList<>();
+        for (char c : com.endlessepoch.ecsformat.EcsFormat.SAFE_CHAR_POOL) {
+            if (c != 'A' && c != 'K' && c != '#') list.add(c);
+        }
+        // Extend to full range for 16-bit mode / 扩展至全范围供 16-bit 使用
+        for (char c = 0x100; c <= 0xFFFE; c++) {
+            if (list.size() >= 65000) break;
+            // Skip surrogates and common whitespace/control chars / 跳过代理区和常见控制字符
+            if (Character.isSurrogate(c) || Character.isISOControl(c)) continue;
+            if (c == 'A' || c == 'K' || c == '#') continue;
+            list.add(c);
+        }
+        char[] pool = new char[list.size()];
+        for (int i = 0; i < list.size(); i++) pool[i] = list.get(i);
+        return pool;
+    }
     private int poolIdx = 0;
     private static final long MAX_VOLUME = 1_000_000;
+
+    /**
+     * Blocks excluded from scanning. Addon mods can register via {@link #skipBlock(Block)}.
+     * 扫描排除方块集。附属 mod 可通过 skipBlock() 注册。
+     */
+    public static final Set<Block> SKIP_BLOCKS = new java.util.LinkedHashSet<>();
+    static {
+        // Category 1: Cannot exist independently / 无法独立存在
+        SKIP_BLOCKS.addAll(Set.of(
+            Blocks.FIRE, Blocks.SOUL_FIRE, Blocks.NETHER_PORTAL, Blocks.BUBBLE_COLUMN,
+            Blocks.PISTON_HEAD, Blocks.MOVING_PISTON, Blocks.FROSTED_ICE,
+            Blocks.END_PORTAL, Blocks.END_GATEWAY
+        ));
+        // Category 2: Creative-only / 生存不可获取
+        SKIP_BLOCKS.addAll(Set.of(
+            Blocks.COMMAND_BLOCK, Blocks.REPEATING_COMMAND_BLOCK, Blocks.CHAIN_COMMAND_BLOCK,
+            Blocks.STRUCTURE_BLOCK, Blocks.STRUCTURE_VOID, Blocks.BARRIER, Blocks.LIGHT,
+            Blocks.JIGSAW, Blocks.SPAWNER, Blocks.BUDDING_AMETHYST, Blocks.REINFORCED_DEEPSLATE
+        ));
+    }
+
+    /** Register a block to be skipped during scanning. Call in mod init. / 附属 mod 调用此方法注册需跳过的方块 */
+    public static void skipBlock(Block block) {
+        SKIP_BLOCKS.add(block);
+    }
 
     public MultiblockScannerItem(Properties properties) {
         super(properties, new ItemTooltipAnimation(
@@ -199,11 +224,12 @@ public class MultiblockScannerItem extends AnimatedItem {
             for (int z = 0; z < sizeZ; z++) {
                 for (int x = 0; x < sizeX; x++) {
                     BlockPos wPos = new BlockPos(minX + x, minY + y, minZ + z);
-                    BlockState state = level.getBlockState(wPos);
+                    BlockState state = resolveFluidBlock(level, wPos);
                     Block block = state.getBlock();
 
-                    if (block == net.minecraft.world.level.block.Blocks.AIR
-                            || block instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock) {
+                    if (block == Blocks.AIR
+                            || block instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock
+                            || SKIP_BLOCKS.contains(block)) {
                         continue;
                     }
 
@@ -240,8 +266,8 @@ public class MultiblockScannerItem extends AnimatedItem {
         Map<Block, Character> blockToChar = new LinkedHashMap<>();
         Map<Character, BlockState> definitions = new LinkedHashMap<>();
         poolIdx = 0;
-        definitions.put('A', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
-        definitions.put('#', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+        definitions.put('A', Blocks.AIR.defaultBlockState());
+        definitions.put('#', Blocks.AIR.defaultBlockState());
 
         char[][][] raw = new char[sizeY][sizeZ][sizeX];
         BlockPos controllerPos = null;
@@ -251,11 +277,12 @@ public class MultiblockScannerItem extends AnimatedItem {
             for (int z = 0; z < sizeZ; z++) {
                 for (int x = 0; x < sizeX; x++) {
                     BlockPos wPos = new BlockPos(minX + x, minY + y, minZ + z);
-                    BlockState state = level.getBlockState(wPos);
+                    BlockState state = resolveFluidBlock(level, wPos);
                     Block block = state.getBlock();
 
-                    if (block == net.minecraft.world.level.block.Blocks.AIR
-                            || block instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock) {
+                    if (block == Blocks.AIR
+                            || block instanceof com.endlessepoch.core.nova.block.ScannerBoundaryBlock
+                            || SKIP_BLOCKS.contains(block)) {
                         raw[y][z][x] = 'A';
                         continue;
                     }
@@ -500,6 +527,19 @@ public class MultiblockScannerItem extends AnimatedItem {
             player.displayClientMessage(
                     Component.translatable("eecore.scanner.cleared").withStyle(ChatFormatting.GRAY), true);
         }
+    }
+
+    /**
+     * Flowing fluid is transient — treat as air. Only fluid source blocks count as structure.
+     * 流动液体不计入结构，仅流体源算作方块。
+     */
+    private static BlockState resolveFluidBlock(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        FluidState fluid = level.getFluidState(pos);
+        if (!fluid.isEmpty() && !fluid.isSource()) {
+            return net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        }
+        return state;
     }
 
     private CompoundTag getTag(ItemStack stack) {
