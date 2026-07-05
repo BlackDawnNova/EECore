@@ -13,6 +13,7 @@ import com.endlessepoch.core.network.SyncConsumerPacket;
 import com.endlessepoch.core.network.SyncGeneratorPacket;
 import com.endlessepoch.core.network.SyncPatternPacket;
 import com.endlessepoch.core.network.SyncPatternBinaryPacket;
+import com.endlessepoch.core.network.SyncValidationPacket;
 import com.endlessepoch.core.registry.BlockEntities;
 import com.endlessepoch.core.registry.Blocks;
 import com.endlessepoch.core.registry.Items;
@@ -95,6 +96,8 @@ public class EECore {
         modEventBus.addListener(this::registerPayloadHandlers);
         NeoForge.EVENT_BUS.addListener(EECoreCommands::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.multiblock.PatternStorage::onServerStarting);
+        // Ghost preview for validation failures / 成形失败幽灵预览
+        NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.WorldPreviewManager.get());
     }
 
     /**
@@ -207,6 +210,12 @@ public class EECore {
                 OpenMbVisPacket.TYPE,
                 OpenMbVisPacket.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> ClientPacketHandlers.openMbVis(payload))
+        );
+
+        registrar.playToClient(
+                SyncValidationPacket.TYPE,
+                SyncValidationPacket.STREAM_CODEC,
+                (payload, context) -> SyncValidationPacket.handle(payload, context)
         );
     }
 }
