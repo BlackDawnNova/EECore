@@ -77,6 +77,14 @@ public class MultiblockVisualizerScreen extends Screen {
     private static final float NEAR_PLANE      = 100f;
     private static final float FAR_PLANE       = 4000f;
 
+    /** Fluid color overrides for addon mods. Default: LAVA→orange, else→blue. / 自定义流体颜色注册 */
+    public static final java.util.Map<net.minecraft.world.level.material.Fluid, float[]> FLUID_COLORS
+            = new java.util.HashMap<>();
+    static {
+        FLUID_COLORS.put(net.minecraft.world.level.material.Fluids.LAVA, new float[]{1.0f, 0.45f, 0.0f, 0.7f});
+        FLUID_COLORS.put(net.minecraft.world.level.material.Fluids.WATER, new float[]{0.2f, 0.45f, 1.0f, 0.5f});
+    }
+
     private static final int   BF_CULL_THRESHOLD = 30_000; // Min block count for back-face culling / 背面剔除最小方块数阈值
 
     private static final float HILITE_LINE_WIDTH = 8f;
@@ -735,15 +743,12 @@ public class MultiblockVisualizerScreen extends Screen {
         for (var pos : fluidPositions) {
             BlockState st = cachedScene.getBlockState(pos);
             var fluid = st.getFluidState();
-            boolean isLava = fluid.getType() == net.minecraft.world.level.material.Fluids.LAVA;
-            float r = isLava ? 1.0f : 0.2f;
-            float gb = isLava ? 0.45f : 0.45f;
-            float b = isLava ? 0.0f : 1.0f;
-            float a = isLava ? 0.7f : 0.5f;
+            float[] rgba = FLUID_COLORS.getOrDefault(fluid.getType(), FLUID_COLORS.get(net.minecraft.world.level.material.Fluids.WATER));
+            float r = rgba[0], g = rgba[1], b = rgba[2], a = rgba[3];
             model.pushPose();
             model.translate(pos.getX(), pos.getY(), pos.getZ());
             renderSolidBox(model.last(), builder,
-                    0.02, 0.02, 0.02, 0.98, 0.98, 0.98, r, gb, b, a);
+                    0.02, 0.02, 0.02, 0.98, 0.98, 0.98, r, g, b, a);
             model.popPose();
         }
         RenderSystem.enableBlend();
