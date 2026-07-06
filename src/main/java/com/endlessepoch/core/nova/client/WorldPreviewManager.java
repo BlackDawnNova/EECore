@@ -118,9 +118,9 @@ public class WorldPreviewManager {
                     farDrawn++;
                 }
             }
-            // Far: merged chunk-AABBs / 远处按块合并
+            // Far: merged chunk-AABBs → one model block per chunk / 远处合并→每区块一个模型方块
             if (farDrawn > 0) {
-                var chunks = new java.util.HashMap<Long, AABB>();
+                var chunks = new java.util.HashMap<Long, BlockPos>();
                 for (var entry : missEntries) {
                     double distSq = entry.worldPos.distToCenterSqr(cam);
                     if (distSq <= LOD_NEAR_SQ || distSq > RENDER_RANGE_SQ) continue;
@@ -132,18 +132,17 @@ public class WorldPreviewManager {
                     int cy = entry.worldPos.getY() / LOD_CHUNK;
                     int cz = entry.worldPos.getZ() / LOD_CHUNK;
                     long key = ((long)cx << 42) | ((long)(cy & 0x1FFFFF) << 21) | (cz & 0x1FFFFF);
-                    chunks.merge(key,
-                            new AABB(entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ(),
-                                     entry.worldPos.getX() + 1, entry.worldPos.getY() + 1, entry.worldPos.getZ() + 1),
-                            (a, b) -> new AABB(
-                                    Math.min(a.minX, b.minX), Math.min(a.minY, b.minY), Math.min(a.minZ, b.minZ),
-                                    Math.max(a.maxX, b.maxX), Math.max(a.maxY, b.maxY), Math.max(a.maxZ, b.maxZ)));
+                    chunks.putIfAbsent(key, entry.worldPos);
                 }
-                var lodVc = buf.getBuffer(RenderType.lines());
-                for (var box : chunks.values()) {
-                    LevelRenderer.renderLineBox(pose, lodVc, box.inflate(0.02), 0.2f, 0.6f, 0.8f, 0.5f);
+                for (var pos : chunks.values()) {
+                    pose.pushPose();
+                    pose.translate(pos.getX(), pos.getY(), pos.getZ());
+                    blockRenderer.renderSingleBlock(
+                            net.minecraft.world.level.block.Blocks.WHITE_STAINED_GLASS.defaultBlockState(),
+                            pose, buf, 0xF000F0,
+                            net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+                    pose.popPose();
                 }
-                buf.endBatch(RenderType.lines());
             }
         }
 
