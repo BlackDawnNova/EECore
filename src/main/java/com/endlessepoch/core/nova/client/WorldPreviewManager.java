@@ -117,11 +117,9 @@ public class WorldPreviewManager {
                     farDrawn++;
                 }
             }
-            // Far: simplified AABB cubes in world space / 远处简化AABB世界坐标
+            // Far: wireframe cubes via BufferSource (reliable pipeline) / 远处线框正方体
             if (farDrawn > 0) {
-                var lodPs = new PoseStack();
-                var lodBuf = Tesselator.getInstance().begin(
-                        VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+                var lodVc = buf.getBuffer(RenderType.lines());
                 for (var entry : missEntries) {
                     double distSq = entry.worldPos.distToCenterSqr(cam);
                     if (distSq <= LOD_NEAR_SQ || distSq > RENDER_RANGE_SQ) continue;
@@ -129,12 +127,11 @@ public class WorldPreviewManager {
                             ? pattern.getExpectedState(entry.localPos.getX(), entry.localPos.getY(), entry.localPos.getZ())
                             : null;
                     if (state == null || state.isAir()) continue;
-                    float r = 0.2f, g = 0.6f, b = 0.8f, a = 0.5f;
-                    lodAABB(lodBuf, lodPs, entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ(), r, g, b, a);
+                    AABB box = new AABB(entry.worldPos.getX() + 0.02, entry.worldPos.getY() + 0.02, entry.worldPos.getZ() + 0.02,
+                            entry.worldPos.getX() + 0.98, entry.worldPos.getY() + 0.98, entry.worldPos.getZ() + 0.98);
+                    LevelRenderer.renderLineBox(pose, lodVc, box, 0.2f, 0.6f, 0.8f, 0.6f);
                 }
-                RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionColorShader);
-                var lodMd = lodBuf.buildOrThrow();
-                BufferUploader.drawWithShader(lodMd);
+                buf.endBatch(RenderType.lines());
             }
         }
 
