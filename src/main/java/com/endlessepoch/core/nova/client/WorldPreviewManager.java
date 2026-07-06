@@ -57,6 +57,16 @@ public class WorldPreviewManager {
 
     public void clearPreview() { patternId = null; missEntries.clear(); wrongEntries.clear(); active = false; }
 
+    /** Full cube or has adjacent missing block → merge / 完整方块或有相邻缺失→合并 */
+    private boolean shouldMerge(BlockPos pos, BlockState state, Set<BlockPos> worldSet) {
+        if (state.isCollisionShapeFullBlock(null, null)) return true;
+        if (worldSet.contains(pos.offset(1,0,0)) || worldSet.contains(pos.offset(-1,0,0))
+         || worldSet.contains(pos.offset(0,1,0)) || worldSet.contains(pos.offset(0,-1,0))
+         || worldSet.contains(pos.offset(0,0,1)) || worldSet.contains(pos.offset(0,0,-1)))
+            return true;
+        return false;
+    }
+
     @SubscribeEvent
     public void onRenderWorldLast(RenderLevelStageEvent event) {
         if (!active) return;
@@ -77,6 +87,10 @@ public class WorldPreviewManager {
             // Near: full block models / 近处 完整方块模型
             int nearDrawn = 0;
             // Far: split full-cube vs partial / 远处分流
+            // Build world position set for adjacency check / 世界坐标集合用于邻接判断
+            var worldSet = new HashSet<BlockPos>();
+            for (var entry : missEntries) worldSet.add(entry.worldPos);
+
             var fullChunks = new HashMap<Long, AABB>();
             var partials = new HashMap<GhostEntry, BlockState>();
 
@@ -95,7 +109,7 @@ public class WorldPreviewManager {
                             0xF000F0, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
                     pose.popPose();
                     nearDrawn++;
-                } else if (state.isCollisionShapeFullBlock(null, null)) {
+                } else if (shouldMerge(entry.worldPos, state, worldSet)) {
                     int cx = entry.worldPos.getX() / LOD_CHUNK;
                     int cy = entry.worldPos.getY() / LOD_CHUNK;
                     int cz = entry.worldPos.getZ() / LOD_CHUNK;
