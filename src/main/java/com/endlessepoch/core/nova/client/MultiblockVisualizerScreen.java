@@ -577,8 +577,9 @@ public class MultiblockVisualizerScreen extends Screen {
         RenderSystem.clearDepth(1.0);
         RenderSystem.clear(256, false);
 
-        drawDialogBox(g, px, py, PANEL_W, ph,
-                Component.literal((draggingPanel ? "↕" : "⊞") + " ").append(pickBlockState.getBlock().getName()));
+        String title = (draggingPanel ? "↕" : "⊞") + " " + pickBlockState.getBlock().getName().getString()
+                + " §7(" + pickResult.getX() + ", " + pickResult.getY() + ", " + pickResult.getZ() + ")";
+        drawDialogBox(g, px, py, PANEL_W, ph, Component.literal(title));
 
         var buf = mc.renderBuffers().bufferSource();
         var pose = g.pose().last().pose();
