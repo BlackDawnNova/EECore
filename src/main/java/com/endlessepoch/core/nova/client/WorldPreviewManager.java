@@ -22,7 +22,8 @@ public class WorldPreviewManager {
     private static final WorldPreviewManager INSTANCE = new WorldPreviewManager();
     public static WorldPreviewManager get() { return INSTANCE; }
 
-    private static final double RENDER_RANGE_SQ = 32.0 * 32.0; // Max render distance² / 最大渲染距离²
+    private static final double RENDER_RANGE_SQ = 64.0 * 64.0; // Max distance² / 最远距离²
+    private static final double LOD_NEAR_SQ = 16.0 * 16.0; // Full model < this, AABB beyond / 近距离全模型
 
     private record GhostEntry(BlockPos worldPos, BlockPos localPos) {}
 
@@ -51,6 +52,32 @@ public class WorldPreviewManager {
 
     public void clearPreview() { patternId = null; missEntries.clear(); wrongEntries.clear(); active = false; }
 
+    /** 2 triangles = 1 AABB face / 2三角=1个AABB面 */
+    private static void lodQuad(VertexConsumer vc, PoseStack.Pose pose,
+            float x1, float y1, float z1, float x2, float y2, float z2,
+            float x3, float y3, float z3, float x4, float y4, float z4,
+            float r, float g, float b, float a) {
+        vc.addVertex(pose, x1, y1, z1).setColor(r, g, b, a);
+        vc.addVertex(pose, x2, y2, z2).setColor(r, g, b, a);
+        vc.addVertex(pose, x3, y3, z3).setColor(r, g, b, a);
+        vc.addVertex(pose, x1, y1, z1).setColor(r, g, b, a);
+        vc.addVertex(pose, x3, y3, z3).setColor(r, g, b, a);
+        vc.addVertex(pose, x4, y4, z4).setColor(r, g, b, a);
+    }
+
+    /** Simplified AABB cube — 12 triangles, no texture / 简化AABB—12三角面无纹理 */
+    private static void lodAABB(VertexConsumer vc, PoseStack pose,
+            float bx, float by, float bz, float r, float g, float b, float a) {
+        var m = pose.last();
+        float s = 0.02f, e = 0.98f;
+        lodQuad(vc, m, bx+s,by+s,bz+s, bx+e,by+s,bz+e, bx+e,by+e,bz+e, bx+s,by+e,bz+e, r,g,b,a); // -Z
+        lodQuad(vc, m, bx+s,by+s,bz+e, bx+e,by+e,bz+e, bx+e,by+s,bz+e, bx+s,by+e,bz+e, r,g,b,a); // +Z
+        lodQuad(vc, m, bx+s,by+s,bz+s, bx+s,by+e,bz+e, bx+s,by+e,bz+s, bx+s,by+s,bz+e, r,g,b,a); // -X
+        lodQuad(vc, m, bx+e,by+s,bz+s, bx+e,by+s,bz+e, bx+e,by+e,bz+e, bx+e,by+e,bz+s, r,g,b,a); // +X
+        lodQuad(vc, m, bx+s,by+s,bz+s, bx+e,by+s,bz+s, bx+e,by+s,bz+e, bx+s,by+s,bz+e, r,g,b,a); // -Y
+        lodQuad(vc, m, bx+s,by+e,bz+s, bx+s,by+e,bz+e, bx+e,by+e,bz+e, bx+e,by+e,bz+s, r,g,b,a); // +Y
+    }
+
     @SubscribeEvent
     public void onRenderWorldLast(RenderLevelStageEvent event) {
         if (!active) return;
@@ -68,25 +95,49 @@ public class WorldPreviewManager {
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
 
-        int ghostDrawn = 0;
+        int nearDrawn = 0, farDrawn = 0;
         if (!missEntries.isEmpty() && pattern != null) {
+            // Near: full model via renderSingleBlock / 近处完整方块模型
             for (var entry : missEntries) {
-                // Frustum culling by distance / 距离裁剪
-                if (entry.worldPos.distToCenterSqr(cam) > RENDER_RANGE_SQ) continue;
+                double distSq = entry.worldPos.distToCenterSqr(cam);
+                if (distSq > RENDER_RANGE_SQ) continue;
                 BlockState state = entry.localPos != null
                         ? pattern.getExpectedState(entry.localPos.getX(), entry.localPos.getY(), entry.localPos.getZ())
                         : null;
                 if (state == null || state.isAir()) continue;
-                pose.pushPose();
-                pose.translate(entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ());
-                blockRenderer.renderSingleBlock(state, pose, buf,
-                        0xF000F0, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
-                pose.popPose();
-                ghostDrawn++;
+                if (distSq <= LOD_NEAR_SQ) {
+                    pose.pushPose();
+                    pose.translate(entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ());
+                    blockRenderer.renderSingleBlock(state, pose, buf,
+                            0xF000F0, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+                    pose.popPose();
+                    nearDrawn++;
+                } else {
+                    farDrawn++;
+                }
+            }
+            // Far: simplified AABB cubes in world space / 远处简化AABB世界坐标
+            if (farDrawn > 0) {
+                var lodPs = new PoseStack();
+                var lodBuf = Tesselator.getInstance().begin(
+                        VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+                for (var entry : missEntries) {
+                    double distSq = entry.worldPos.distToCenterSqr(cam);
+                    if (distSq <= LOD_NEAR_SQ || distSq > RENDER_RANGE_SQ) continue;
+                    BlockState state = entry.localPos != null
+                            ? pattern.getExpectedState(entry.localPos.getX(), entry.localPos.getY(), entry.localPos.getZ())
+                            : null;
+                    if (state == null || state.isAir()) continue;
+                    float r = 0.2f, g = 0.6f, b = 0.8f, a = 0.5f;
+                    lodAABB(lodBuf, lodPs, entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ(), r, g, b, a);
+                }
+                RenderSystem.setShader(net.minecraft.client.renderer.GameRenderer::getPositionColorShader);
+                var lodMd = lodBuf.buildOrThrow();
+                BufferUploader.drawWithShader(lodMd);
             }
         }
 
-        if (ghostDrawn > 0) {
+        if (nearDrawn > 0) {
             buf.endBatch(RenderType.solid());
             buf.endBatch(RenderType.cutoutMipped());
             buf.endBatch(RenderType.cutout());
