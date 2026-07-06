@@ -18,9 +18,10 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import java.util.*;
 
 /**
- * Smart LOD: full cubes → merged chunk wireframes, partial blocks → individual wireframes.
+ * Ghost preview with smart LOD. Near (<16 blocks): full block models.
+ * Far (16-48 blocks): full cubes merged into chunk wireframes, partial blocks individual wireframes.
  * <p>
- * 智能LOD——完整方块合并成区域线框，非完整方块（半砖/栅栏/末地烛等）单独线框保留辨识度。
+ * 幽灵预览+智能LOD。近处全模型，远处完整方块合并+部分方块单独线框。
  */
 public class WorldPreviewManager {
 
@@ -28,7 +29,8 @@ public class WorldPreviewManager {
     public static WorldPreviewManager get() { return INSTANCE; }
 
     private static final double RENDER_RANGE_SQ = 48.0 * 48.0;
-    private static final int LOD_CHUNK = 4; // Merge full blocks into 4³ chunks / 完整方块4格合并
+    private static final double NEAR_RANGE_SQ = 16.0 * 16.0;
+    private static final int LOD_CHUNK = 4;
 
     private record GhostEntry(BlockPos worldPos, BlockPos localPos) {}
 
@@ -63,6 +65,7 @@ public class WorldPreviewManager {
         var player = Minecraft.getInstance().player;
         var pattern = patternId != null && player != null
                 ? MultiBlockRegistry.get(player.getUUID(), patternId).orElse(null) : null;
+        var blockRenderer = Minecraft.getInstance().getBlockRenderer();
         var buf = Minecraft.getInstance().renderBuffers().bufferSource();
         var pose = event.getPoseStack();
         Vec3 cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
@@ -71,17 +74,28 @@ public class WorldPreviewManager {
         pose.translate(-cam.x, -cam.y, -cam.z);
 
         if (!missEntries.isEmpty() && pattern != null) {
-            // Split: full-cube (mergeable) vs partial (individual wireframe) / 完整方块vs部分方块
+            // Near: full block models / 近处 完整方块模型
+            int nearDrawn = 0;
+            // Far: split full-cube vs partial / 远处分流
             var fullChunks = new HashMap<Long, AABB>();
             var partials = new ArrayList<GhostEntry>();
 
             for (var entry : missEntries) {
-                if (entry.worldPos.distToCenterSqr(cam) > RENDER_RANGE_SQ) continue;
+                double distSq = entry.worldPos.distToCenterSqr(cam);
+                if (distSq > RENDER_RANGE_SQ) continue;
                 BlockState state = entry.localPos != null
                         ? pattern.getExpectedState(entry.localPos.getX(), entry.localPos.getY(), entry.localPos.getZ())
                         : null;
                 if (state == null || state.isAir()) continue;
-                if (state.isCollisionShapeFullBlock(null, null)) {
+
+                if (distSq <= NEAR_RANGE_SQ) {
+                    pose.pushPose();
+                    pose.translate(entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ());
+                    blockRenderer.renderSingleBlock(state, pose, buf,
+                            0xF000F0, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+                    pose.popPose();
+                    nearDrawn++;
+                } else if (state.isCollisionShapeFullBlock(null, null)) {
                     int cx = entry.worldPos.getX() / LOD_CHUNK;
                     int cy = entry.worldPos.getY() / LOD_CHUNK;
                     int cz = entry.worldPos.getZ() / LOD_CHUNK;
@@ -97,21 +111,22 @@ public class WorldPreviewManager {
                 }
             }
 
-            // Full cubes → merged chunk wireframes (blue) / 完整方块合并线框
-            if (!fullChunks.isEmpty()) {
-                var vc = buf.getBuffer(RenderType.lines());
-                for (var box : fullChunks.values())
-                    LevelRenderer.renderLineBox(pose, vc, box.inflate(0.01), 0.2f, 0.6f, 0.8f, 0.4f);
-                buf.endBatch(RenderType.lines());
+            if (nearDrawn > 0) {
+                buf.endBatch(RenderType.solid());
+                buf.endBatch(RenderType.cutoutMipped());
+                buf.endBatch(RenderType.cutout());
+                buf.endBatch(RenderType.translucent());
             }
 
-            // Partial blocks → individual wireframes (yellow) / 部分方块单独线框
-            if (!partials.isEmpty()) {
+            // Far: all wireframes in one color / 远处统一蓝色线框
+            if (!fullChunks.isEmpty() || !partials.isEmpty()) {
                 var vc = buf.getBuffer(RenderType.lines());
+                for (var box : fullChunks.values())
+                    LevelRenderer.renderLineBox(pose, vc, box.inflate(0.01), 0.2f, 0.6f, 0.8f, 0.3f);
                 for (var entry : partials) {
                     AABB box = new AABB(entry.worldPos.getX()+0.02, entry.worldPos.getY()+0.02, entry.worldPos.getZ()+0.02,
                             entry.worldPos.getX()+0.98, entry.worldPos.getY()+0.98, entry.worldPos.getZ()+0.98);
-                    LevelRenderer.renderLineBox(pose, vc, box, 0.8f, 0.8f, 0.2f, 0.5f);
+                    LevelRenderer.renderLineBox(pose, vc, box, 0.2f, 0.6f, 0.8f, 0.3f);
                 }
                 buf.endBatch(RenderType.lines());
             }
