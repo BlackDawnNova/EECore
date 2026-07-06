@@ -23,8 +23,9 @@ public class WorldPreviewManager {
     private static final WorldPreviewManager INSTANCE = new WorldPreviewManager();
     public static WorldPreviewManager get() { return INSTANCE; }
 
-    private static final double RENDER_RANGE_SQ = 64.0 * 64.0; // Max distance² / 最远距离²
-    private static final double LOD_NEAR_SQ = 16.0 * 16.0; // Full model < this, AABB beyond / 近距离全模型
+    private static final double RENDER_RANGE_SQ = 64.0 * 64.0;
+    private static final double LOD_NEAR_SQ = 16.0 * 16.0;
+    private static final int LOD_CHUNK = 4; // Merge far blocks into 4x4x4 chunks / 远处以4格立方体合并
 
     private record GhostEntry(BlockPos worldPos, BlockPos localPos) {}
 
@@ -117,9 +118,9 @@ public class WorldPreviewManager {
                     farDrawn++;
                 }
             }
-            // Far: wireframe cubes via BufferSource (reliable pipeline) / 远处线框正方体
+            // Far: merged chunk-AABBs / 远处按块合并
             if (farDrawn > 0) {
-                var lodVc = buf.getBuffer(RenderType.lines());
+                var chunks = new java.util.HashMap<Long, AABB>();
                 for (var entry : missEntries) {
                     double distSq = entry.worldPos.distToCenterSqr(cam);
                     if (distSq <= LOD_NEAR_SQ || distSq > RENDER_RANGE_SQ) continue;
@@ -127,9 +128,20 @@ public class WorldPreviewManager {
                             ? pattern.getExpectedState(entry.localPos.getX(), entry.localPos.getY(), entry.localPos.getZ())
                             : null;
                     if (state == null || state.isAir()) continue;
-                    AABB box = new AABB(entry.worldPos.getX() + 0.02, entry.worldPos.getY() + 0.02, entry.worldPos.getZ() + 0.02,
-                            entry.worldPos.getX() + 0.98, entry.worldPos.getY() + 0.98, entry.worldPos.getZ() + 0.98);
-                    LevelRenderer.renderLineBox(pose, lodVc, box, 0.2f, 0.6f, 0.8f, 0.6f);
+                    int cx = entry.worldPos.getX() / LOD_CHUNK;
+                    int cy = entry.worldPos.getY() / LOD_CHUNK;
+                    int cz = entry.worldPos.getZ() / LOD_CHUNK;
+                    long key = ((long)cx << 42) | ((long)(cy & 0x1FFFFF) << 21) | (cz & 0x1FFFFF);
+                    chunks.merge(key,
+                            new AABB(entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ(),
+                                     entry.worldPos.getX() + 1, entry.worldPos.getY() + 1, entry.worldPos.getZ() + 1),
+                            (a, b) -> new AABB(
+                                    Math.min(a.minX, b.minX), Math.min(a.minY, b.minY), Math.min(a.minZ, b.minZ),
+                                    Math.max(a.maxX, b.maxX), Math.max(a.maxY, b.maxY), Math.max(a.maxZ, b.maxZ)));
+                }
+                var lodVc = buf.getBuffer(RenderType.lines());
+                for (var box : chunks.values()) {
+                    LevelRenderer.renderLineBox(pose, lodVc, box.inflate(0.02), 0.2f, 0.6f, 0.8f, 0.5f);
                 }
                 buf.endBatch(RenderType.lines());
             }
