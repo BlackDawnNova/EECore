@@ -78,7 +78,7 @@ public class WorldPreviewManager {
             int nearDrawn = 0;
             // Far: split full-cube vs partial / 远处分流
             var fullChunks = new HashMap<Long, AABB>();
-            var partials = new ArrayList<GhostEntry>();
+            var partials = new HashMap<GhostEntry, BlockState>();
 
             for (var entry : missEntries) {
                 double distSq = entry.worldPos.distToCenterSqr(cam);
@@ -107,7 +107,7 @@ public class WorldPreviewManager {
                                     Math.min(a.minX, b.minX), Math.min(a.minY, b.minY), Math.min(a.minZ, b.minZ),
                                     Math.max(a.maxX, b.maxX), Math.max(a.maxY, b.maxY), Math.max(a.maxZ, b.maxZ)));
                 } else {
-                    partials.add(entry);
+                    partials.put(entry, state);
                 }
             }
 
@@ -123,10 +123,15 @@ public class WorldPreviewManager {
                 var vc = buf.getBuffer(RenderType.lines());
                 for (var box : fullChunks.values())
                     LevelRenderer.renderLineBox(pose, vc, box.inflate(0.01), 0.2f, 0.6f, 0.8f, 0.3f);
-                for (var entry : partials) {
-                    AABB box = new AABB(entry.worldPos.getX()+0.02, entry.worldPos.getY()+0.02, entry.worldPos.getZ()+0.02,
-                            entry.worldPos.getX()+0.98, entry.worldPos.getY()+0.98, entry.worldPos.getZ()+0.98);
-                    LevelRenderer.renderLineBox(pose, vc, box, 0.2f, 0.6f, 0.8f, 0.3f);
+                for (var e : partials.entrySet()) {
+                    var ge = e.getKey();
+                    var state = e.getValue();
+                    var shape = state.getShape(null, null);
+                    for (AABB box : shape.toAabbs()) {
+                        LevelRenderer.renderLineBox(pose, vc,
+                                box.move(ge.worldPos.getX(), ge.worldPos.getY(), ge.worldPos.getZ()).inflate(0.002),
+                                0.2f, 0.6f, 0.8f, 0.3f);
+                    }
                 }
                 buf.endBatch(RenderType.lines());
             }
