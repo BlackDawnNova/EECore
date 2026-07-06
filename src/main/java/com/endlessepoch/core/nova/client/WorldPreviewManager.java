@@ -23,9 +23,7 @@ public class WorldPreviewManager {
     private static final WorldPreviewManager INSTANCE = new WorldPreviewManager();
     public static WorldPreviewManager get() { return INSTANCE; }
 
-    private static final double RENDER_RANGE_SQ = 64.0 * 64.0;
-    private static final double LOD_NEAR_SQ = 16.0 * 16.0;
-    private static final int LOD_CHUNK = 4; // Merge far blocks into 4x4x4 chunks / 远处以4格立方体合并
+    private static final double RENDER_RANGE_SQ = 32.0 * 32.0;
 
     private record GhostEntry(BlockPos worldPos, BlockPos localPos) {}
 
@@ -97,56 +95,24 @@ public class WorldPreviewManager {
         pose.pushPose();
         pose.translate(-cam.x, -cam.y, -cam.z);
 
-        int nearDrawn = 0, farDrawn = 0;
+        int ghostDrawn = 0;
         if (!missEntries.isEmpty() && pattern != null) {
-            // Near: full model via renderSingleBlock / 近处完整方块模型
             for (var entry : missEntries) {
-                double distSq = entry.worldPos.distToCenterSqr(cam);
-                if (distSq > RENDER_RANGE_SQ) continue;
+                if (entry.worldPos.distToCenterSqr(cam) > RENDER_RANGE_SQ) continue;
                 BlockState state = entry.localPos != null
                         ? pattern.getExpectedState(entry.localPos.getX(), entry.localPos.getY(), entry.localPos.getZ())
                         : null;
                 if (state == null || state.isAir()) continue;
-                if (distSq <= LOD_NEAR_SQ) {
-                    pose.pushPose();
-                    pose.translate(entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ());
-                    blockRenderer.renderSingleBlock(state, pose, buf,
-                            0xF000F0, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
-                    pose.popPose();
-                    nearDrawn++;
-                } else {
-                    farDrawn++;
-                }
-            }
-            // Far: merged chunk-AABBs → one model block per chunk / 远处合并→每区块一个模型方块
-            if (farDrawn > 0) {
-                var chunks = new java.util.HashMap<Long, BlockPos>();
-                for (var entry : missEntries) {
-                    double distSq = entry.worldPos.distToCenterSqr(cam);
-                    if (distSq <= LOD_NEAR_SQ || distSq > RENDER_RANGE_SQ) continue;
-                    BlockState state = entry.localPos != null
-                            ? pattern.getExpectedState(entry.localPos.getX(), entry.localPos.getY(), entry.localPos.getZ())
-                            : null;
-                    if (state == null || state.isAir()) continue;
-                    int cx = entry.worldPos.getX() / LOD_CHUNK;
-                    int cy = entry.worldPos.getY() / LOD_CHUNK;
-                    int cz = entry.worldPos.getZ() / LOD_CHUNK;
-                    long key = ((long)cx << 42) | ((long)(cy & 0x1FFFFF) << 21) | (cz & 0x1FFFFF);
-                    chunks.putIfAbsent(key, entry.worldPos);
-                }
-                for (var pos : chunks.values()) {
-                    pose.pushPose();
-                    pose.translate(pos.getX(), pos.getY(), pos.getZ());
-                    blockRenderer.renderSingleBlock(
-                            net.minecraft.world.level.block.Blocks.WHITE_STAINED_GLASS.defaultBlockState(),
-                            pose, buf, 0xF000F0,
-                            net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
-                    pose.popPose();
-                }
+                pose.pushPose();
+                pose.translate(entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ());
+                blockRenderer.renderSingleBlock(state, pose, buf,
+                        0xF000F0, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+                pose.popPose();
+                ghostDrawn++;
             }
         }
 
-        if (nearDrawn > 0) {
+        if (ghostDrawn > 0) {
             buf.endBatch(RenderType.solid());
             buf.endBatch(RenderType.cutoutMipped());
             buf.endBatch(RenderType.cutout());
