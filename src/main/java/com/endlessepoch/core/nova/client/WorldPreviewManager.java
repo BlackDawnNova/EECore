@@ -51,9 +51,9 @@ public class WorldPreviewManager {
             missEntries.add(new GhostEntry(missW.get(i), i < missL.size() ? missL.get(i) : null));
         for (int i = 0; i < wrongW.size(); i++)
             wrongEntries.add(new GhostEntry(wrongW.get(i), i < wrongL.size() ? wrongL.get(i) : null));
-        // Compute range from total block count / 根据方块总数算渲染范围
+        // Larger structure → shorter range for FPS / 结构越大范围越小保帧数
         int total = pkt.width() * pkt.height() * pkt.depth();
-        double range = total > 200_000 ? 96 : total > 50_000 ? 64 : total > 5_000 ? 48 : 32;
+        double range = total > 200_000 ? 16 : total > 50_000 ? 32 : total > 5_000 ? 48 : 64;
         range = Math.max(MIN_RANGE, Math.min(MAX_RANGE, range));
         renderRangeSq = range * range;
         active = !missEntries.isEmpty() || !wrongEntries.isEmpty();
