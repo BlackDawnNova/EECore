@@ -28,13 +28,14 @@ public class WorldPreviewManager {
     private static final WorldPreviewManager INSTANCE = new WorldPreviewManager();
     public static WorldPreviewManager get() { return INSTANCE; }
 
-    private static final double RENDER_RANGE_SQ = 48.0 * 48.0;
     private static final double NEAR_RANGE_SQ = 16.0 * 16.0;
     private static final int LOD_CHUNK = 4;
+    private static final double MIN_RANGE = 32.0, MAX_RANGE = 128.0;
 
     private record GhostEntry(BlockPos worldPos, BlockPos localPos) {}
 
     private ResourceLocation patternId;
+    private double renderRangeSq = MIN_RANGE * MIN_RANGE;
     private final List<GhostEntry> missEntries = new ArrayList<>();
     private final List<GhostEntry> wrongEntries = new ArrayList<>();
     private boolean active;
@@ -50,8 +51,12 @@ public class WorldPreviewManager {
             missEntries.add(new GhostEntry(missW.get(i), i < missL.size() ? missL.get(i) : null));
         for (int i = 0; i < wrongW.size(); i++)
             wrongEntries.add(new GhostEntry(wrongW.get(i), i < wrongL.size() ? wrongL.get(i) : null));
+        // Compute range from structure size / 根据结构尺寸算渲染范围
+        double size = Math.max(pkt.width(), Math.max(pkt.height(), pkt.depth()));
+        double range = Math.max(MIN_RANGE, Math.min(MAX_RANGE, size * 1.5));
+        renderRangeSq = range * range;
         active = !missEntries.isEmpty() || !wrongEntries.isEmpty();
-        EECore.LOGGER.info("[EECore Preview] active={} missing={} wrong={}",
+        EECore.LOGGER.info("[EECore Preview] active={} missing={} wrong={} range={}",
                 active, missEntries.size(), wrongEntries.size());
     }
 
@@ -83,7 +88,7 @@ public class WorldPreviewManager {
 
             for (var entry : missEntries) {
                 double distSq = entry.worldPos.distToCenterSqr(cam);
-                if (distSq > RENDER_RANGE_SQ) continue;
+                if (distSq > renderRangeSq) continue;
                 BlockState state = entry.localPos != null
                         ? pattern.getExpectedState(entry.localPos.getX(), entry.localPos.getY(), entry.localPos.getZ())
                         : null;
@@ -142,7 +147,7 @@ public class WorldPreviewManager {
         if (!wrongEntries.isEmpty()) {
             var vc = buf.getBuffer(RenderType.lines());
             for (var entry : wrongEntries) {
-                if (entry.worldPos.distToCenterSqr(cam) > RENDER_RANGE_SQ) continue;
+                if (entry.worldPos.distToCenterSqr(cam) > renderRangeSq) continue;
                 BlockPos p = entry.worldPos;
                 AABB box = new AABB(p.getX()+0.002, p.getY()+0.002, p.getZ()+0.002,
                         p.getX()+0.998, p.getY()+0.998, p.getZ()+0.998);
