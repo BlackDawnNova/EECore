@@ -82,7 +82,7 @@ public class WorldPreviewManager {
     @SubscribeEvent
     public void onRenderWorldLast(RenderLevelStageEvent event) {
         if (!active) return;
-        if (System.currentTimeMillis() - previewStartMs > 5_000) { clearPreview(); return; }
+        // if (System.currentTimeMillis() - previewStartMs > 5_000) { clearPreview(); return; }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
 
         var player = Minecraft.getInstance().player;
