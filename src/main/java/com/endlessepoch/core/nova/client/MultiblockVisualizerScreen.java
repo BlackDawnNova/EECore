@@ -339,7 +339,7 @@ public class MultiblockVisualizerScreen extends Screen {
         int erL = rL(), erR = rR(), erT = rT(), erB = rB();
         int rwLoc = erR - erL, rhLoc = erB - erT;
         int vpSize = Math.min(rwLoc, rhLoc);
-        if (selectedIndex < 0) { drawRenderBorder(g); return; }
+        if (selectedIndex < 0 || patterns.isEmpty()) { drawRenderBorder(g); return; }
         MultiBlockPattern pat = patterns.get(selectedIndex).getValue();
         float blockDiag = (float) Math.sqrt(pat.width*pat.width + pat.height*pat.height + pat.depth*pat.depth);
         float cameraDist = CAM_DIST_FACTOR * (float)(vpSize * Math.sqrt(2)) / (blockDiag + CAM_DIST_EPS) * userZoom * CAM_DIST_SCALE;
