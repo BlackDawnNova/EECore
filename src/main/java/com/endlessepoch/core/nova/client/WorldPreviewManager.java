@@ -17,6 +17,12 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 import java.util.*;
 
+/**
+ * In-world ghost preview after multiblock validation failure.
+ * Renders missing blocks as translucent models, wrong blocks as red wireframes.
+ * <p>
+ * 多方块验证失败后世界中幽灵预览——缺失方块半透明模型，错误方块红色线框。
+ */
 public class WorldPreviewManager {
 
     private static final WorldPreviewManager INSTANCE = new WorldPreviewManager();
@@ -54,6 +60,7 @@ public class WorldPreviewManager {
     @SubscribeEvent
     public void onRenderWorldLast(RenderLevelStageEvent event) {
         if (!active) return;
+        // Auto-clear after 5s / 5秒后自动清除
         if (System.currentTimeMillis() - previewStartMs > 5_000) { clearPreview(); return; }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
 
