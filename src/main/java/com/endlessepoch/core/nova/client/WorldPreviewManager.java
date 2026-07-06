@@ -51,9 +51,10 @@ public class WorldPreviewManager {
             missEntries.add(new GhostEntry(missW.get(i), i < missL.size() ? missL.get(i) : null));
         for (int i = 0; i < wrongW.size(); i++)
             wrongEntries.add(new GhostEntry(wrongW.get(i), i < wrongL.size() ? wrongL.get(i) : null));
-        // Compute range from structure size / 根据结构尺寸算渲染范围
-        double size = Math.max(pkt.width(), Math.max(pkt.height(), pkt.depth()));
-        double range = Math.max(MIN_RANGE, Math.min(MAX_RANGE, size * 1.5));
+        // Compute range from total block count / 根据方块总数算渲染范围
+        int total = pkt.width() * pkt.height() * pkt.depth();
+        double range = total > 200_000 ? 96 : total > 50_000 ? 64 : total > 5_000 ? 48 : 32;
+        range = Math.max(MIN_RANGE, Math.min(MAX_RANGE, range));
         renderRangeSq = range * range;
         active = !missEntries.isEmpty() || !wrongEntries.isEmpty();
         EECore.LOGGER.info("[EECore Preview] active={} missing={} wrong={} range={}",
