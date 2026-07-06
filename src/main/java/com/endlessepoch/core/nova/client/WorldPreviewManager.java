@@ -3,6 +3,7 @@ package com.endlessepoch.core.nova.client;
 import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
 import com.endlessepoch.core.network.SyncValidationPacket;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
