@@ -1,1 +1,1 @@
-{"parent":"block/cube_all","textures":{"all":"eecore:block/output_hatch"}}
+{"parent":"eecore:block/ee_base_12_front_emissive","textures":{"particle":"eecore:block/casings/voltage/lv/side","all":"eecore:block/casings/voltage/lv/side","front":"eecore:block/output_hatch","overlay_emissive":"eecore:block/output_hatch"}}

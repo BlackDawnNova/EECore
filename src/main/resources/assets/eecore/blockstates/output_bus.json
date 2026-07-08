@@ -1,1 +1,1 @@
-{"variants":{"":{"model":"eecore:block/output_bus"}}}
+{"variants":{"facing=north":{"model":"eecore:block/output_bus","y":0},"facing=east":{"model":"eecore:block/output_bus","y":90},"facing=south":{"model":"eecore:block/output_bus","y":180},"facing=west":{"model":"eecore:block/output_bus","y":270}}}
