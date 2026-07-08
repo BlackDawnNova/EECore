@@ -15,7 +15,7 @@ public class Config {
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
-        builder.comment("EECore global config").push("general");
+        builder.comment("EECore global config / EECore 全局配置").push("general");
 
         STEP_LOSS_FACTOR = builder
                 .comment(

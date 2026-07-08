@@ -38,6 +38,7 @@ tier.getHexColor()      // color code for UI display
 // Find tier from value / 根据电压值查找等级
 VoltageTier.fromVoltage(OmegaValue.of(1000))  // returns MV
 VoltageTier.fromShortName("HV")               // returns HV
+VoltageTier.fromOrdinal(1)                    // returns LV (maps to casing tier)
 ```
 
 ---

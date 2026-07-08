@@ -31,64 +31,68 @@ import java.util.*;
  * <p>
  * Other mods extend this for Transmitter, Receiver, Hub, Relay screens.
  * Override abstract methods to provide custom data.
+ * <p>
+ * 所有 NovaNet 节点 GUI 的抽象屏幕基类。
+ * 提供标准化的布局，包含标题栏、统计行、能量条、速率条、
+ * 快速操作按钮区、连接节点列表和底部动作按钮。
+ * 其他模组可继承此类实现 Transmitter、Receiver、Hub、Relay 屏幕，
+ * 覆写抽象方法以提供自定义数据。
  *
- * @param <T> the container menu type
+ * @param <T> 容器菜单类型 / the container menu type
  */
 @OnlyIn(Dist.CLIENT)
 public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends AbstractContainerScreen<T> {
 
-    // ============================================================
-    //  布局常量 / Layout constants
-    // ============================================================
+    // Layout constants / 布局常量
 
-    /** Standard screen dimensions. */
+    /** Standard screen dimensions. / 标准屏幕尺寸。 */
     protected static final int PANEL_W = 220;
     protected static final int PANEL_H = 200;
 
-    /** Content area margins (inside the panel border). */
+    /** Content area margins (inside the panel border). / 内容区域边距（面板边框内侧）。 */
     protected static final int MARGIN_X = 10;
     protected static final int MARGIN_Y = 18;
 
-    /** Header area. */
+    /** Header area. / 标题区域。 */
     protected static final int HEADER_Y = MARGIN_Y;
     protected static final int HEADER_H = 16;
 
-    /** Stats row (below header). */
+    /** Stats row (below header). / 统计行（标题栏下方）。 */
     protected static final int STATS_Y = HEADER_Y + HEADER_H + 4;
     protected static final int STATS_H = 14;
 
-    /** Energy bar. */
+    /** Energy bar. / 能量条。 */
     protected static final int BAR_H = 12;
     protected static final int BAR_W = 190;
     protected static final int BUFFER_Y = STATS_Y + STATS_H + 6;
 
-    /** Rate bars. */
+    /** Rate bars. / 速率条。 */
     protected static final int INPUT_RATE_Y = BUFFER_Y + BAR_H + 4;
     protected static final int OUTPUT_RATE_Y = INPUT_RATE_Y + BAR_H + 2;
 
-    /** Quick action buttons. */
+    /** Quick action buttons. / 快速操作按钮。 */
     protected static final int QUICK_BTN_Y = OUTPUT_RATE_Y + BAR_H + 8;
     protected static final int QUICK_BTN_W = 62;
     protected static final int QUICK_BTN_H = 16;
     protected static final int QUICK_BTN_GAP = 4;
 
-    /** Node list panel. */
+    /** Node list panel. / 节点列表面板。 */
     protected static final int NODE_LIST_Y = QUICK_BTN_Y + QUICK_BTN_H + 8;
     protected static final int NODE_LIST_H = 56;
     protected static final int NODE_LIST_ITEM_H = 12;
 
-    /** Footer. */
+    /** Footer. / 底部栏。 */
     protected static final int FOOTER_Y = PANEL_H - MARGIN_Y - 16;
 
-    // ============================================================
+
     //  样式 / Style
-    // ============================================================
+
 
     protected NovaNodeStyle ui = NovaNodeStyle.defaultStyle();
 
-    // ============================================================
+
     //  构造 / Construction
-    // ============================================================
+
 
     public NovaNodeScreen(T menu, Inventory inv, Component title) {
         super(menu, inv, title);
@@ -98,35 +102,35 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         this.titleLabelY = -1000;
     }
 
-    // ============================================================
-    //  子类必须实现的抽象方法 / Abstract methods for subclasses
-    // ============================================================
 
-    /** The NovaNet node this screen represents. */
+    //  子类必须实现的抽象方法 / Abstract methods for subclasses
+
+
+    /** The NovaNet node this screen represents. / 此屏幕所代表的 NovaNet 节点。 */
     protected abstract INovaNode getNode();
 
-    /** Get the current buffer energy (Ω value). */
+    /** Get the current buffer energy (Ω value). / 获取当前缓冲能量（Ω 值）。 */
     protected abstract long getBufferEnergy();
 
-    /** Get the max buffer capacity (Ω value). */
+    /** Get the max buffer capacity (Ω value). / 获取最大缓冲容量（Ω 值）。 */
     protected abstract long getBufferCapacity();
 
-    /** Get the input rate (Ω/t). */
+    /** Get the input rate (Ω/t). / 获取输入速率（Ω/t）。 */
     protected abstract long getInputRate();
 
-    /** Get the output rate (Ω/t). */
+    /** Get the output rate (Ω/t). / 获取输出速率（Ω/t）。 */
     protected abstract long getOutputRate();
 
-    /** Get the connection count and max. */
+    /** Get the connection count and max. / 获取连接数量与上限。 */
     protected abstract int getConnectionCount();
     protected abstract int getMaxConnections();
 
-    /** Get the list of connected nodes for the scrollable panel. */
+    /** Get the list of connected nodes for the scrollable panel. / 获取滚动面板的连接节点列表。 */
     protected abstract List<NodeListEntry> getConnectedNodes();
 
-    // ============================================================
+
     //  渲染主循环 / Render loop
-    // ============================================================
+
 
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
@@ -137,13 +141,13 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
 
     @Override
     protected void renderBg(GuiGraphics g, float pt, int mx, int my) {
-        // Panel background
+        // Panel background / 面板背景
         g.fill(leftPos, topPos, leftPos + PANEL_W, topPos + PANEL_H, ui.bgColor());
 
-        // Border
+        // Border / 边框
         renderBorder(g);
 
-        // Content areas
+        // Content areas / 内容区域
         renderHeader(g);
         renderStatsRow(g);
         renderEnergyBar(g);
@@ -153,9 +157,9 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         renderFooter(g);
     }
 
-    // ============================================================
+
     //  各区域渲染 / Render sections
-    // ============================================================
+
 
     protected void renderBorder(GuiGraphics g) {
         int x = leftPos, y = topPos;
@@ -163,11 +167,11 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         g.fill(x, y + PANEL_H - 1, x + PANEL_W, y + PANEL_H, ui.borderColor());
         g.fill(x, y, x + 1, y + PANEL_H, ui.borderColor());
         g.fill(x + PANEL_W - 1, y, x + PANEL_W, y + PANEL_H, ui.borderColor());
-        // Glow
+        // Glow / 发光效果
         g.fill(x + 1, y + 1, x + PANEL_W - 1, y + 2, ui.glowColor());
     }
 
-    /** Header: icon + "[Transmitter] (LV)" */
+    /** Header: icon + "[Transmitter] (LV)". / 标题：图标 + "[Transmitter] (LV)"。 */
     protected void renderHeader(GuiGraphics g) {
         int x = leftPos + MARGIN_X;
         int y = topPos + HEADER_Y;
@@ -184,7 +188,7 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         g.drawString(font, line, x, y + 12, ui.borderColor(), false);
     }
 
-    /** Stats row: "Range: 12 blocks"  "Connected: 3/16" */
+    /** Stats row: "Range: 12 blocks"  "Connected: 3/16". / 统计行：范围与连接数。 */
     protected void renderStatsRow(GuiGraphics g) {
         int x = leftPos + MARGIN_X;
         int y = topPos + STATS_Y;
@@ -206,7 +210,7 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         g.drawString(font, right, leftPos + PANEL_W - MARGIN_X - rw, y, ui.statsColor(), false);
     }
 
-    /** Energy buffer progress bar. */
+    /** Energy buffer progress bar. / 能量缓冲进度条。 */
     protected void renderEnergyBar(GuiGraphics g) {
         int x = leftPos + MARGIN_X;
         int y = topPos + BUFFER_Y;
@@ -214,28 +218,28 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         long cap = getBufferCapacity();
         double fill = cap > 0 ? (double) stored / cap : 0;
 
-        // Background
+        // Background / 背景
         g.fill(x, y, x + BAR_W, y + BAR_H, ui.barBgColor());
-        // Fill
+        // Fill / 填充
         int fillW = (int)(BAR_W * fill);
         if (fillW > 0) {
             int barColor = fill > 0.8 ? ui.barFullColor() : ui.barNormalColor();
             g.fill(x, y, x + fillW, y + BAR_H, barColor);
         }
-        // Label
+        // Label / 标签
         Component label = Component.translatable("eecore.nova.gui.buffer",
                 fmt(stored), fmt(cap));
         int lw = font.width(label);
         g.drawString(font, label, x + (BAR_W - lw) / 2, y + 2, ui.barTextColor(), false);
     }
 
-    /** Input/output rate bars. */
+    /** Input/output rate bars. / 输入/输出速率条。 */
     protected void renderRateBars(GuiGraphics g) {
         int x = leftPos + MARGIN_X;
         long maxRate = Math.max(getInputRate(), getOutputRate());
         if (maxRate == 0) maxRate = 1;
 
-        // Input rate
+        // Input rate / 输入速率
         int iy = topPos + INPUT_RATE_Y;
         double inFill = (double) getInputRate() / maxRate;
         int inW = (int)(BAR_W * inFill);
@@ -245,7 +249,7 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
                 fmt(getInputRate()));
         g.drawString(font, inLabel, x + 2, iy + 2, ui.barTextColor(), false);
 
-        // Output rate
+        // Output rate / 输出速率
         int oy = topPos + OUTPUT_RATE_Y;
         double outFill = (double) getOutputRate() / maxRate;
         int outW = (int)(BAR_W * outFill);
@@ -259,24 +263,26 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
     /**
      * Quick action buttons row.
      * Subclasses override to provide custom buttons.
+     * <p>
+     * 快速操作按钮行。子类可覆写以提供自定义按钮。
      */
     protected void renderQuickButtons(GuiGraphics g) {
         int x = leftPos + MARGIN_X;
         int y = topPos + QUICK_BTN_Y;
-        // Subclasses can draw their own buttons here
+        // Subclasses can draw their own buttons here / 子类在此绘制自定义按钮
     }
 
-    /** Connected nodes scrollable list. */
+    /** Connected nodes scrollable list. / 连接节点可滚动列表。 */
     protected void renderNodeList(GuiGraphics g) {
         int x = leftPos + MARGIN_X;
         int y = topPos + NODE_LIST_Y;
         List<NodeListEntry> nodes = getConnectedNodes();
 
-        // Section label
+        // Section label / 区域标签
         g.drawString(font, Component.translatable("eecore.nova.gui.connected_nodes"),
                 x, y - 10, ui.headerColor(), false);
 
-        // Render each entry (max visible = NODE_LIST_H / NODE_LIST_ITEM_H)
+        // Render each entry (max visible = NODE_LIST_H / NODE_LIST_ITEM_H) / 渲染每项（最大可见数）
         int maxVisible = NODE_LIST_H / NODE_LIST_ITEM_H;
         for (int i = 0; i < Math.min(nodes.size(), maxVisible); i++) {
             NodeListEntry entry = nodes.get(i);
@@ -285,7 +291,7 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         }
     }
 
-    /** Single entry in the connected node list. */
+    /** Single entry in the connected node list. / 连接节点列表中的单一条目。 */
     protected void renderNodeListEntry(GuiGraphics g, int x, int y, NodeListEntry entry) {
         String line = "• " + entry.name + " (" + entry.tier.getShortName() + ")"
                 + " - " + entry.distance + " blocks"
@@ -293,16 +299,16 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         g.drawString(font, line, x, y, ui.statsColor(), false);
     }
 
-    /** Footer with action buttons. */
+    /** Footer with action buttons. / 带有操作按钮的底部栏。 */
     protected void renderFooter(GuiGraphics g) {
         int x = leftPos + MARGIN_X;
         int y = topPos + FOOTER_Y;
-        // Subclasses override
+        // Subclasses override / 子类覆写
     }
 
-    // ============================================================
+
     //  工具方法 / Utilities
-    // ============================================================
+
 
     protected Component getNodeIcon(NodeType type) {
         return switch (type) {
@@ -313,9 +319,9 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         };
     }
 
-    // ============================================================
+
     //  数据记录 / Data records
-    // ============================================================
+
 
     private static String fmt(long v) {
         if (v < 1000) return v + "Ω";
@@ -325,7 +331,7 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         return String.format("%.1f%s", d, u[idx]);
     }
 
-    /** Entry for the connected node list panel. */
+    /** Entry for the connected node list panel. / 连接节点列表面板的数据条目。 */
     public record NodeListEntry(
             String name,
             VoltageTier tier,

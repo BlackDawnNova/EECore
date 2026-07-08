@@ -7,6 +7,9 @@ import java.util.UUID;
 /**
  * Fired on NeoForge EVENT_BUS when a team changes.
  * Other mods listen for energy rebalancing, permission updates, etc.
+ * <p>
+ * 当队伍发生变化时在 NeoForge EVENT_BUS 上触发。
+ * 其他模组监听此事件以进行能量重新平衡、权限更新等。
  */
 public class TeamChangeEvent extends Event {
 

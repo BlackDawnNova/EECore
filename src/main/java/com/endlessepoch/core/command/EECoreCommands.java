@@ -44,7 +44,7 @@ public final class EECoreCommands {
     }
 
     private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal(EECore.MOD_ID)
+        var root = Commands.literal(EECore.MOD_ID)
                 .then(Commands.literal("reload")
                         .requires(source -> source.hasPermission(4))
                         .executes(ctx -> reloadStructures(ctx.getSource())))
@@ -67,7 +67,9 @@ public final class EECoreCommands {
                         .requires(source -> source.hasPermission(4))
                         .then(Commands.argument("filename", StringArgumentType.word())
                                 .executes(ctx -> importStructure(ctx.getSource(),
-                                        StringArgumentType.getString(ctx, "filename"))))));
+                                        StringArgumentType.getString(ctx, "filename")))));
+        CommandAutoBuild.register(root);
+        dispatcher.register(root);
     }
 
     private static int reloadStructures(CommandSourceStack source) {
@@ -115,7 +117,7 @@ public final class EECoreCommands {
         }
 
         final String fmt = format;
-        source.sendSuccess(() -> Component.literal("§aExported " + id + " as ." + fmt + " to config/eecore/structures/"), true);
+        source.sendSuccess(() -> Component.literal("§aExported " + id + " as ." + fmt + " to config/eecore/scanned/"), true);
         return 1;
     }
 
@@ -151,8 +153,8 @@ public final class EECoreCommands {
                     if (name.endsWith(".ecs")) {
                         var pattern = com.endlessepoch.core.api.multiblock.EECoreCodec.read(file);
                         var rel = root.relativize(file);
-                        var ns = rel.getName(0).toString();
-                        var path = rel.getName(1).toString()
+                        var ns = rel.getName(0).toString().toLowerCase();
+                        var path = rel.getName(1).toString().toLowerCase()
                                 .replace(".ecs", "").replace('_', '/');
                         var id = ResourceLocation.fromNamespaceAndPath(ns, path);
                         MultiBlockRegistry.registerLocal(player.getUUID(), id, pattern);

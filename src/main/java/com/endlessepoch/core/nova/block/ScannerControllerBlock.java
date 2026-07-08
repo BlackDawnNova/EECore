@@ -2,6 +2,7 @@ package com.endlessepoch.core.nova.block;
 
 import com.endlessepoch.core.api.multiblock.MultiBlockFormHandler;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
+import com.endlessepoch.core.registry.BlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -9,11 +10,14 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -61,6 +65,38 @@ public class ScannerControllerBlock extends Block implements EntityBlock {
         return new ScannerControllerBlockEntity(pos, state);
     }
 
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+        if (!state.is(newState.getBlock())) {
+            BlockEntity be = level.getBlockEntity(pos);
+            if (be instanceof ScannerControllerBlockEntity sc) {
+                var pkt = new com.endlessepoch.core.network.SyncValidationPacket(
+                        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("eecore", "clear"),
+                        new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0);
+                if (sc.getLastPreviewPlayer() != null) {
+                    var player = level.getPlayerByUUID(sc.getLastPreviewPlayer());
+                    if (player instanceof net.minecraft.server.level.ServerPlayer sp)
+                        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, pkt);
+                }
+            }
+        }
+        super.onRemove(state, level, pos, newState, moved);
+    }
+
+    /**
+     * Client-side ticker — enables BlockEntityRenderer animation for the celestial halo effect.
+     * 客户端 ticker——驱动日月星辰 BER 动画。
+     */
+    @Nullable
+    @Override
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
+                                                                   BlockEntityType<T> type) {
+        if (level.isClientSide() && type == BlockEntities.SCANNER_CONTROLLER.get()) {
+            return (l, p, s, e) -> ((ScannerControllerBlockEntity) e).clientTick();
+        }
+        return null;
+    }
+
     /**
      * On sneak-click: attempt to form any registered multiblock pattern at this controller.
      * Server-side only; client returns SUCCESS to prevent off-hand activation.
@@ -75,6 +111,7 @@ public class ScannerControllerBlock extends Block implements EntityBlock {
 
         BlockEntity be = level.getBlockEntity(pos);
         if (!(be instanceof ScannerControllerBlockEntity sc)) return InteractionResult.PASS;
+        sc.setLastPreviewPlayer(player.getUUID());
 
         var patterns = MultiBlockRegistry.getAll(player.getUUID());
         if (patterns.isEmpty()) {

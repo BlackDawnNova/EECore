@@ -16,12 +16,16 @@ import java.util.UUID;
 /**
  * Laser link card binding logic (NeoForge 1.21.1 Data Components API).
  * <p>
+ * 激光链接卡绑定逻辑（NeoForge 1.21.1 Data Components API）。
+ * <p>
  * Uses CustomData data component for persisting binding state on the item.
+ * 使用 CustomData 数据组件在物品上持久化绑定状态。
  * Binding flow (like AE2 P2P Memory Card):
+ * 绑定流程（类似 AE2 P2P 内存卡）：
  * <ol>
- *   <li>Shift+right-click a node → binds it</li>
- *   <li>Shift+right-click second node of opposite type → creates link</li>
- *   <li>Shift+right-click air → clears binding</li>
+ *   <li>Shift+right-click a node → binds it / 潜行+右键节点 → 绑定</li>
+ *   <li>Shift+right-click second node of opposite type → creates link / 潜行+右键异类节点 → 创建链接</li>
+ *   <li>Shift+right-click air → clears binding / 潜行+右键空气 → 清除绑定</li>
  * </ol>
  */
 public final class LaserLinkCard {

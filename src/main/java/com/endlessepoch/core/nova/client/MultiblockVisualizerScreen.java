@@ -159,8 +159,10 @@ public class MultiblockVisualizerScreen extends Screen {
                     .createCompositeState(false)
     );
 
-     List<Map.Entry<ResourceLocation, MultiBlockPattern>> patterns;
+    List<Map.Entry<ResourceLocation, MultiBlockPattern>> patterns;
     protected int selectedIndex;
+    private final List<ResourceLocation> modIds = new ArrayList<>(); // registered machine IDs / 已注册机器ID
+    private final List<ResourceLocation> localIds = new ArrayList<>(); // scanned pattern IDs / 缓存结构ID
 
     private float rotX = ROT_X_INIT, rotY = ROT_Y_INIT;
     protected float userZoom = ZOOM_INIT;
@@ -197,7 +199,7 @@ public class MultiblockVisualizerScreen extends Screen {
     private java.util.List<net.minecraft.world.level.block.Block> searchResults = java.util.List.of();
     private int searchIdx = -1;
     private int searchScroll = 0;
-    // Layer view (-1=all)
+    // Layer view (-1=all) / 分层视图（-1=全部）
     protected int layerView = -1;
 
     // Undo stack / 撤销栈 — push reverse operation per replace
@@ -228,7 +230,19 @@ public class MultiblockVisualizerScreen extends Screen {
 
     public MultiblockVisualizerScreen(ResourceLocation selectedPatternId) {
         super(Component.translatable("eecore.visualizer.title"));
-        this.patterns = new ArrayList<>(MultiBlockRegistry.getAll().entrySet());
+        var all = MultiBlockRegistry.getAll();
+        // Categorize: MOD first (registered machines), then LOCAL (scanned) / 已注册机器在前，缓存结构在后
+        for (var e : all.entrySet()) {
+            if (MultiBlockRegistry.get(e.getKey()).isPresent()) {
+                modIds.add(e.getKey());
+            } else {
+                localIds.add(e.getKey());
+            }
+        }
+        // Build unified list: registered first, then scanned / 统一列表
+        this.patterns = new ArrayList<>();
+        for (var id : modIds) patterns.add(Map.entry(id, all.get(id)));
+        for (var id : localIds) patterns.add(Map.entry(id, all.get(id)));
         this.selectedIndex = findPatternIndex(selectedPatternId);
     }
 
@@ -327,8 +341,10 @@ public class MultiblockVisualizerScreen extends Screen {
         for (int i = listScrollOffset; i < end; i++) {
             int c = i == selectedIndex ? COL_ACCENT : COL_DIM;
             String name = patterns.get(i).getKey().getPath();
+            // Category prefix / 分类前缀
+            String prefix = modIds.contains(patterns.get(i).getKey()) ? "[Machine] " : "[Scanned] ";
             if (name.length() > LINE_HEIGHT) name = name.substring(0, LINE_HEIGHT - 1) + ".";
-            g.drawString(font, name, x, y + 10 + (i - listScrollOffset) * LINE_HEIGHT, c);
+            g.drawString(font, prefix + name, x, y + 10 + (i - listScrollOffset) * LINE_HEIGHT, c);
         }
         g.disableScissor();
         if (listScrollOffset > 0) g.drawString(font, "▲", listR - 8, listT + 2, COL_SCROLL_ARW);
@@ -454,7 +470,7 @@ public class MultiblockVisualizerScreen extends Screen {
 
         buf.endBatch();
 
-        // Controller marker / 控制器标记 — pulsing translucent envelope (red/blue)
+        // Controller marker / 控制器标记 — pulsing red/blue
         boolean kPulse = (System.currentTimeMillis() / K_PULSE_MS) % 2 == 0;
         float kR = kPulse ? 1.0f : 0.25f;
         float kB = kPulse ? 0.25f : 1.0f;
@@ -462,13 +478,11 @@ public class MultiblockVisualizerScreen extends Screen {
         for (var cPos : cachedScene.getControllerPositions()) {
                     int x = cPos.getX(), y = cPos.getY(), z = cPos.getZ();
                     if (layerView >= 0 && layerView != y) continue;
-                    var st2 = cachedScene.getBlockState(cPos);
-                    if (!com.endlessepoch.core.api.multiblock.MultiBlockRegistry.getControllerBlocks().contains(st2.getBlock())) continue;
                     model.pushPose();
                     model.translate(x, y, z);
                     renderSolidBox(model.last(), kVc,
-                            0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
-                            kR, 0.1f, kB, 0.35f);
+                            -0.1, -0.1, -0.1, 1.1, 1.1, 1.1,
+                            kR, 0.1f, kB, 0.45f);
                     model.popPose();
                 }
         buf.endBatch(CTRL_MARKER);
@@ -650,9 +664,17 @@ public class MultiblockVisualizerScreen extends Screen {
                 // Browse mode — show pattern definition blocks / 浏览模式 — 显示结构中的可用方块
                 buf.endBatch();
                 var pat = selectedIndex >= 0 ? patterns.get(selectedIndex).getValue() : null;
-                var defBlocks = pickResult != null && pat != null
-                        ? pat.getAlternatives(pat.getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ()))
-                        : new java.util.LinkedHashSet<net.minecraft.world.level.block.state.BlockState>();
+                java.util.Set<net.minecraft.world.level.block.state.BlockState> defBlocks
+                        = new java.util.LinkedHashSet<>();
+                if (pickResult != null && pat != null) {
+                    char c = pat.getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
+                    if (c == com.endlessepoch.ecsformat.EcsFormat.CHAR_CONTROLLER) {
+                        for (var cb : com.endlessepoch.core.api.multiblock.MultiBlockRegistry.getControllerBlocks())
+                            defBlocks.add(cb.defaultBlockState());
+                    } else {
+                        defBlocks = pat.getAlternatives(c);
+                    }
+                }
 
                 font.drawInBatch(Component.literal("§7可替换方块"), px + 8, py + 28, 0xCCCCCCCC, false,
                         pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
@@ -729,7 +751,7 @@ public class MultiblockVisualizerScreen extends Screen {
      */
     private void renderFluidOverlay(PoseStack model, net.minecraft.client.renderer.MultiBufferSource.BufferSource buf) {
         if (cachedScene == null) return;
-        // collect fluid positions first
+        // Collect fluid positions first / 先收集流体位置
         var fluidPositions = new java.util.ArrayList<BlockPos>();
         for (var pos : cachedScene.getSurfacePositions()) {
             if (layerView >= 0 && pos.getY() != layerView) continue;
@@ -970,14 +992,13 @@ public class MultiblockVisualizerScreen extends Screen {
                     var id = patterns.get(confirmTargetIdx).getKey();
                     var pat = patterns.get(confirmTargetIdx).getValue();
                     if (confirmIsSave) {
-                        String name = saveFileName.trim().isEmpty() ? id.getPath() : saveFileName.trim().replaceAll("[^a-zA-Z0-9_/-]", "_");
+                        String name = saveFileName.trim().isEmpty() ? id.getPath() : saveFileName.trim().replaceAll("[^a-zA-Z0-9_/-]", "_").toLowerCase();
                         var saveId = ResourceLocation.fromNamespaceAndPath(id.getNamespace(), name);
                         com.endlessepoch.core.api.multiblock.PatternStorage.save(saveId, pat);
                         Minecraft.getInstance().player.displayClientMessage(
                                 Component.literal("§a结构已保存: " + name), true);
                     } else {
                         MultiBlockRegistry.removeLocal(Minecraft.getInstance().player.getUUID(), id);
-                        MultiBlockRegistry.removeMod(id);
                         com.endlessepoch.core.api.multiblock.PatternStorage.delete(id);
                         patterns.remove(confirmTargetIdx);
                         selectedIndex = Math.min(selectedIndex, patterns.size() - 1);

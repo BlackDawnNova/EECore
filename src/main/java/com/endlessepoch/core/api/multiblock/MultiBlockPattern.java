@@ -17,7 +17,7 @@ public final class MultiBlockPattern {
     private final java.util.List<BlockPos> nonAirPositions;
     private final java.util.List<BlockPos> nonAirControllers;
 
-    /** @param layers [layer][row] = char string */
+    /** @param layers [layer][row] = char string / 层数据 [层][行] = 字符 */
     public MultiBlockPattern(int width, int height, int depth,
                              int controllerX, int controllerY, int controllerZ,
                              String[][] layers, Map<Character, BlockState> definitions,

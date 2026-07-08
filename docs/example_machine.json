@@ -1,0 +1,6 @@
+{
+  "name_en": "Super Reactor",
+  "name_zh": "超级反应堆",
+  "model": "eecore:block/scanner_controller",
+  "tier": 3
+}

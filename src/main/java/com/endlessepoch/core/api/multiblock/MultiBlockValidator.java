@@ -1,8 +1,10 @@
 package com.endlessepoch.core.api.multiblock;
 
+import com.endlessepoch.ecsformat.EcsFormat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -37,7 +39,13 @@ public final class MultiBlockValidator {
                     BlockPos worldPos = transform(origin, x, y, z, w, d, facing);
                     BlockState actual = level.getBlockState(worldPos);
 
-                    if (!actual.getBlock().equals(required.getBlock())) {
+                    // K position: any registered controller block is valid / K位：任意注册控制器都合法
+                    if (expected == EcsFormat.CHAR_CONTROLLER) {
+                        boolean isCtrl = false;
+                        for (Block cb : MultiBlockRegistry.getControllerBlocks())
+                            if (actual.getBlock() == cb) { isCtrl = true; break; }
+                        if (!isCtrl) return false;
+                    } else if (!actual.getBlock().equals(required.getBlock())) {
                         Set<BlockState> alts = pattern.getAlternatives(expected);
                         boolean matched = false;
                         for (BlockState alt : alts)

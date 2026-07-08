@@ -25,14 +25,18 @@ public final class EmissiveHelper {
     /**
      * Register a block model for emissive cutoutMipped rendering.
      *
-     * @param blockModelId      the block model resource path (e.g. "addon:block/my_machine")
-     * @param emissiveTextureId the emissive texture resource path (e.g. "addon:block/my_machine_e")
+     * @param blockModelId      the block model resource path (e.g. "addon:block/my_machine") / 方块模型资源路径（如 "addon:block/my_machine"）
+     * @param emissiveTextureId the emissive texture resource path (e.g. "addon:block/my_machine_e") / 发光纹理资源路径（如 "addon:block/my_machine_e"）
      */
     public static void registerEmissiveModel(ResourceLocation blockModelId, ResourceLocation emissiveTextureId) {
         REGISTRY.put(blockModelId.toString(), emissiveTextureId.toString());
     }
 
     /**
+     * Convenience overload accepting string paths.
+     * <p>
+     * 便捷重载，接受字符串路径。
+     *
      * @see #registerEmissiveModel(ResourceLocation, ResourceLocation)
      */
     public static void registerEmissiveModel(String blockModelPath, String emissiveTexturePath) {

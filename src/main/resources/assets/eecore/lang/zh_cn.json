@@ -1,5 +1,7 @@
 {
-  "itemGroup.eecore": "无尽纪元核心",
+  "itemGroup.eecore.machines": "EECore 机器",
+  "itemGroup.eecore.blocks": "EECore 方块",
+  "itemGroup.eecore.items": "EECore 物品",
   "block.eecore.creative_generator": "创造发电机",
   "block.eecore.creative_consumer": "创造耗电机",
 
@@ -52,6 +54,7 @@
   "eecore.item.author": "由EE-Core添加",
   "block.eecore.test_transmitter": "测试发送端",
   "block.eecore.scanner_controller": "扫描控制器",
+  "block.eecore.creative_test_controller": "EECore创造测试机控制器",
   "block.eecore.scanner_boundary": "扫描辅助块",
   "item.eecore.multiblock_scanner": "多方块结构扫描仪",
   "tooltip.eecore.multiblock_scanner.title": "✦ 多方块结构扫描仪 ✦",
@@ -74,7 +77,8 @@
   "eecore.scanner.area_too_large": "§c扫描区域总体积过大（%s＞%s）！请缩小范围。",
   "eecore.scanner.multiple_controllers": "检测到多个控制器！只能有一个。",
   "eecore.scanner.multiple_controllers_highlight": "§c⚠ 发现 %s 个控制器！已高亮显示——请清空所有控制器后重新放置。",
-  "eecore.scanner.cleared": "已清除标记。",
+  "eecore.scanner.cleared_b": "已撤销标记: B",
+  "eecore.scanner.cleared_all": "已全部清空",
   "eecore.scanner.no_permission": "§c你没有权限使用扫描器！（需要OP权限）",
   "eecore.scanner.boundary_required": "§c请标记在扫描辅助块上！",
   "eecore.scanner.pos1": "角1: %s, %s, %s",
@@ -91,5 +95,18 @@
   "eecore.visualizer.pick_hint": "§7点击其他方块或等待 %s 秒",
   "eecore.preview.title": "EE-Core 多方块结构可视化界面",
   "eecore.preview.hint": "滚轮缩放 | 拖拽旋转 | 点击查看 | W/S切层 | G复位 | Esc退出",
-  "eecore.visualizer.confirm_delete": "§e确认删除此结构?"
+  "eecore.visualizer.confirm_delete": "§e确认删除此结构?",
+
+  "block.eecore.elv_machine_casing": "青铜机器外壳",
+  "block.eecore.lv_machine_casing": "低压机器外壳",
+  "block.eecore.mv_machine_casing": "中压机器外壳",
+  "block.eecore.hv_machine_casing": "高压机器外壳",
+  "block.eecore.ehv_machine_casing": "超高压机器外壳",
+  "block.eecore.uhv_machine_casing": "特高压机器外壳",
+  "block.eecore.phv_machine_casing": "行星高压机器外壳",
+  "block.eecore.xhv_machine_casing": "极限高压机器外壳",
+  "block.eecore.plv_machine_casing": "等离子约束机器外壳",
+  "block.eecore.sv_machine_casing": "施温格级机器外壳",
+  "block.eecore.bv_machine_casing": "真空衰变级机器外壳",
+  "block.eecore.qv_machine_casing": "普朗克机器外壳"
 }

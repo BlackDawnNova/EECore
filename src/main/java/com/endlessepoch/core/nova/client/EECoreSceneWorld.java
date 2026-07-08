@@ -21,6 +21,10 @@ import java.util.*;
  * Virtual world holding a multiblock pattern for 3D preview rendering.
  * Implements BlockAndTintGetter for vanilla block renderer queries.
  * Stores pre-computed surface block info (exposed face bitmask) for fast back-face culling.
+ * <p>
+ * 持有多方块结构模式的虚拟世界，用于 3D 预览渲染。
+ * 实现 BlockAndTintGetter 以支持原版方块渲染器查询。
+ * 存储预计算的表面方块信息（暴露面掩码位）以实现快速背面剔除。
  */
 @OnlyIn(Dist.CLIENT)
 public class EECoreSceneWorld implements BlockAndTintGetter {

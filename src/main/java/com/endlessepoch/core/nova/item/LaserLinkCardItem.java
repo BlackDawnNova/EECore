@@ -14,6 +14,8 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 /**
  * Laser link card — shift+right-click nodes to bind, shift+right-click air to clear.
+ * <p>
+ * 激光链接卡 —— 潜行+右键节点以绑定，潜行+右键空气以清除。
  */
 public class LaserLinkCardItem extends Item {
 

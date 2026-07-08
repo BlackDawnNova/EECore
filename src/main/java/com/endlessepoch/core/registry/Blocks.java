@@ -4,6 +4,7 @@ import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.block.creative.CreativeConsumerBlock;
 import com.endlessepoch.core.block.creative.CreativeGeneratorBlock;
 import com.endlessepoch.core.nova.block.ScannerBoundaryBlock;
+import com.endlessepoch.core.nova.block.MachineControllerBlock;
 import com.endlessepoch.core.nova.block.ScannerControllerBlock;
 import com.endlessepoch.core.nova.block.TransmitterTestBlock;
 import net.minecraft.core.registries.Registries;
@@ -62,6 +63,15 @@ public class Blocks {
             )
     );
 
+    public static final Supplier<Block> MACHINE_CONTROLLER = BLOCKS.register(
+            "machine_controller",
+            () -> new MachineControllerBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_BLACK)
+                    .strength(2.0f)
+                    .noOcclusion()
+            )
+    );
+
     public static final Supplier<Block> SCANNER_BOUNDARY = BLOCKS.register(
             "scanner_boundary",
             () -> new ScannerBoundaryBlock(BlockBehaviour.Properties.of()
@@ -73,5 +83,29 @@ public class Blocks {
                     .noLootTable()
             )
     );
+
+    // Voltage-tier machine casings / 电压等级机器外壳
+
+    public static final Supplier<Block> ELV_MACHINE_CASING = registerCasing("elv", MapColor.COLOR_GRAY);
+    public static final Supplier<Block> LV_MACHINE_CASING  = registerCasing("lv",  MapColor.COLOR_GREEN);
+    public static final Supplier<Block> MV_MACHINE_CASING  = registerCasing("mv",  MapColor.COLOR_BLUE);
+    public static final Supplier<Block> HV_MACHINE_CASING  = registerCasing("hv",  MapColor.COLOR_ORANGE);
+    public static final Supplier<Block> EHV_MACHINE_CASING = registerCasing("ehv", MapColor.COLOR_PURPLE);
+    public static final Supplier<Block> UHV_MACHINE_CASING = registerCasing("uhv", MapColor.COLOR_RED);
+    public static final Supplier<Block> PHV_MACHINE_CASING = registerCasing("phv", MapColor.COLOR_CYAN);
+    public static final Supplier<Block> XHV_MACHINE_CASING = registerCasing("xhv", MapColor.COLOR_YELLOW);
+    public static final Supplier<Block> PLV_MACHINE_CASING = registerCasing("plv", MapColor.COLOR_PINK);
+    public static final Supplier<Block> SV_MACHINE_CASING  = registerCasing("sv",  MapColor.SNOW);
+    public static final Supplier<Block> BV_MACHINE_CASING  = registerCasing("bv",  MapColor.COLOR_BLACK);
+    public static final Supplier<Block> QV_MACHINE_CASING  = registerCasing("qv",  MapColor.GOLD);
+
+    private static Supplier<Block> registerCasing(String tier, MapColor color) {
+        return BLOCKS.register(tier + "_machine_casing",
+                () -> new Block(BlockBehaviour.Properties.of()
+                        .mapColor(color)
+                        .strength(2.0f)
+                        .requiresCorrectToolForDrops()
+                ));
+    }
 
 }

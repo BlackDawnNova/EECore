@@ -34,25 +34,24 @@ import java.util.List;
  */
 public class EnergyPacket {
     /**
-     * 电压降级能量损耗因子。
-     * 0.8 表示每降一级保留 80%（损耗 20%）。
+     * Voltage step-down energy loss factor.
+     * 0.8 = retain 80% per step (20% loss).
+     * Priority: Config > setter > default 0.8.
+     * Addon mods can call setStepLoss() to change global behavior.
      * <p>
-     * 可通过 {@link #setStepLoss(double)} 配置，优先级：Config &gt; setter &gt; 默认 0.8。
-     * 其他 Mod 可在构造时调用 setStepLoss() 更改全局行为。
+     * 电压降级能量损耗因子。0.8=每降一级保留80%（损耗20%）。优先级：Config > setter > 默认0.8。
      */
     private static double lossPerStep = 0.8;
 
     /**
-     * 设置全局降级损耗因子。
-     * @param loss 保留比例 (0.0-1.0)，默认 0.8
+     * Set global step-down loss factor. / 设置全局降级损耗因子。
+     * @param loss retention ratio (0.0-1.0), default 0.8 / 保留比例
      */
     public static void setStepLoss(double loss) {
         lossPerStep = Math.max(0.0, Math.min(1.0, loss));
     }
 
-    /**
-     * 获取当前全局降级损耗因子。
-     */
+    /** Get global step-down loss factor. / 获取全局降级损耗因子。 */
     public static double getStepLoss() {
         return lossPerStep;
     }
@@ -122,7 +121,7 @@ public class EnergyPacket {
         } else if (lossPerStep == 0.0) {
             currentEnergy = OmegaValue.zero();
         } else {
-            // 有理数精度：将 lossPerStep 转为分子/分母（分母固定 100）
+            // Rational precision: convert lossPerStep to numerator/denominator (denominator fixed 100) / 有理数精度
             BigInteger numerator = BigInteger.valueOf(Math.round(lossPerStep * 100));
             BigInteger denominator = BigInteger.valueOf(100);
             for (int i = 0; i < steps; i++) {
@@ -172,7 +171,7 @@ public class EnergyPacket {
     }
 
     /**
-     * @deprecated 大数值会溢出。使用 {@link #getFEBigInteger()}.
+     * @deprecated Large values overflow. Use {@link #getFEBigInteger()} instead. / 大数值会溢出，用 getFEBigInteger()。
      */
     @Deprecated
     public long getFE() {
@@ -180,7 +179,7 @@ public class EnergyPacket {
     }
 
     /**
-     * @deprecated 大数值会溢出。使用 {@link #getFEPerTickBigInteger()}.
+     * @deprecated Large values overflow. Use {@link #getFEPerTickBigInteger()}. / 大数值会溢出。
      */
     @Deprecated
     public long getFEPerTick() {
@@ -188,7 +187,7 @@ public class EnergyPacket {
     }
 
     /**
-     * @deprecated 大数值会溢出。使用 {@link #getFEPerSecondBigInteger()}.
+     * @deprecated Large values overflow. Use {@link #getFEPerSecondBigInteger()}. / 大数值会溢出。
      */
     @Deprecated
     public long getFEPerSecond() {

@@ -7,6 +7,11 @@ import java.util.*;
  * <p>
  * {@code owner} is the team creator with full control (kick, disband, transfer).
  * {@code allies} are trusted teams that can share energy networks.
+ * <p>
+ * 不可变的队伍数据快照。
+ * <p>
+ * {@code owner} 是拥有完全控制权（踢出、解散、转让）的队伍创建者。
+ * {@code allies} 是可以共享能量网络的可信任队伍。
  */
 public record TeamData(
         UUID teamId,

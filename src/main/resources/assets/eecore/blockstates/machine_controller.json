@@ -1,0 +1,163 @@
+{
+  "variants": {
+    "facing=north,model=0": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=0":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=0": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=0":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=1": { "model": "eecore:block/ee_base_12", "y": 0 },
+    "facing=east,model=1":  { "model": "eecore:block/ee_base_12", "y": 90 },
+    "facing=south,model=1": { "model": "eecore:block/ee_base_12", "y": 180 },
+    "facing=west,model=1":  { "model": "eecore:block/ee_base_12", "y": 270 },
+
+    "facing=north,model=2": { "model": "eecore:block/ee_base_16", "y": 0 },
+    "facing=east,model=2":  { "model": "eecore:block/ee_base_16", "y": 90 },
+    "facing=south,model=2": { "model": "eecore:block/ee_base_16", "y": 180 },
+    "facing=west,model=2":  { "model": "eecore:block/ee_base_16", "y": 270 },
+
+    "facing=north,model=3": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=3":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=3": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=3":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=4": { "model": "eecore:block/machines/creative_test/controller", "y": 0 },
+    "facing=east,model=4":  { "model": "eecore:block/machines/creative_test/controller", "y": 90 },
+    "facing=south,model=4": { "model": "eecore:block/machines/creative_test/controller", "y": 180 },
+    "facing=west,model=4":  { "model": "eecore:block/machines/creative_test/controller", "y": 270 },
+
+    "facing=north,model=5": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=5":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=5": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=5":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=6": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=6":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=6": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=6":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=7": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=7":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=7": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=7":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=8": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=8":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=8": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=8":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=9": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=9":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=9": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=9":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=10": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=10":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=10": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=10":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=11": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=11":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=11": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=11":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=12": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=12":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=12": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=12":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=13": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=13":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=13": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=13":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=14": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=14":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=14": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=14":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=15": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=15":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=15": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=15":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=16": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=16":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=16": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=16":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=17": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=17":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=17": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=17":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=18": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=18":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=18": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=18":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=19": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=19":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=19": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=19":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=20": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=20":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=20": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=20":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=21": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=21":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=21": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=21":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=22": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=22":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=22": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=22":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=23": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=23":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=23": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=23":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=24": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=24":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=24": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=24":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=25": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=25":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=25": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=25":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=26": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=26":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=26": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=26":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=27": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=27":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=27": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=27":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=28": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=28":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=28": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=28":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=29": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=29":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=29": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=29":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=30": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=30":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=30": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=30":  { "model": "eecore:block/machine_controller", "y": 270 },
+
+    "facing=north,model=31": { "model": "eecore:block/machine_controller", "y": 0 },
+    "facing=east,model=31":  { "model": "eecore:block/machine_controller", "y": 90 },
+    "facing=south,model=31": { "model": "eecore:block/machine_controller", "y": 180 },
+    "facing=west,model=31":  { "model": "eecore:block/machine_controller", "y": 270 }
+  }
+}

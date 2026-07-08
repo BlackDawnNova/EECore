@@ -118,7 +118,7 @@ public class CreativeConsumerScreen extends CreativeMachineScreen<CreativeConsum
             VoltageTier current = be.getManualTier();
             VoltageTier prev = current.prev();
             if (prev != current && prev != VoltageTier.ELV) {
-                getMenu().setManualTier(prev); // local prediction
+                getMenu().setManualTier(prev); // local prediction / 本地预测
                 clickButton(50);
             }
         }
@@ -131,7 +131,7 @@ public class CreativeConsumerScreen extends CreativeMachineScreen<CreativeConsum
             VoltageTier current = be.getManualTier();
             VoltageTier next = current.next();
             if (next != current) {
-                getMenu().setManualTier(next); // local prediction
+                getMenu().setManualTier(next); // local prediction / 本地预测
                 clickButton(51);
             }
         }

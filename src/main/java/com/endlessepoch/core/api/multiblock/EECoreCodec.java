@@ -150,6 +150,11 @@ public final class EECoreCodec {
 
         MultiBlockPattern pattern = new MultiBlockPattern(w, h, d,
                 raw.controllerX, raw.controllerY, raw.controllerZ, layers2d, definitions);
+        // Auto-add all registered controller blocks as alternatives for 'K' / K位自动匹配任意控制器
+        if (definitions.containsKey(EcsFormat.CHAR_CONTROLLER)) {
+            for (Block cb : MultiBlockRegistry.getControllerBlocks())
+                if (cb != null) pattern.addAlternatives(EcsFormat.CHAR_CONTROLLER, cb.defaultBlockState());
+        }
         for (var e : charTags.entrySet()) {
             pattern.setTags(e.getKey(), e.getValue());
             for (String tag : e.getValue()) {

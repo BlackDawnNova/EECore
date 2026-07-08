@@ -35,6 +35,11 @@ import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.*;
 
+/**
+ * Multi-block scanner item — scan, mark, and register multi-block patterns.
+ * <p>
+ * 多方块扫描仪物品 —— 扫描、标记和注册多方块结构。
+ */
 public class MultiblockScannerItem extends AnimatedItem {
 
     // Character pool for scanned blocks — A=air, K=controller, #=wildcard are reserved
@@ -137,7 +142,7 @@ public class MultiblockScannerItem extends AnimatedItem {
             return InteractionResultHolder.fail(stack);
         }
         if (player.isShiftKeyDown()) {
-            if (!level.isClientSide()) clearSelections(stack, player);
+            if (!level.isClientSide()) clearSelections(stack, player, false);
             return InteractionResultHolder.success(stack);
         }
         if (level.isClientSide()) {
@@ -498,7 +503,7 @@ public class MultiblockScannerItem extends AnimatedItem {
 
         PacketDistributor.sendToPlayer(player, SyncPatternBinaryPacket.fromPattern(id, pattern));
 
-        clearSelections(stack, player);
+        clearSelections(stack, player, true);
         player.displayClientMessage(
                 Component.translatable("eecore.scanner.done", name,
                         sizeX, sizeY, sizeZ, definitions.size()).withStyle(ChatFormatting.GREEN), true);
@@ -515,17 +520,29 @@ public class MultiblockScannerItem extends AnimatedItem {
         };
     }
 
-    private void clearSelections(ItemStack stack, Player player) {
+    private void clearSelections(ItemStack stack, Player player, boolean fullClear) {
         CompoundTag tag = getTag(stack);
-        boolean had = tag.contains("pos1") || tag.contains("pos2") || tag.contains("controllers");
-        tag.remove("pos1");
-        tag.remove("pos2");
         tag.remove("controllers");
         tag.remove("scan_failed");
-        saveTag(stack, tag);
-        if (had && !player.level().isClientSide()) {
-            player.displayClientMessage(
-                    Component.translatable("eecore.scanner.cleared").withStyle(ChatFormatting.GRAY), true);
+        if (fullClear) {
+            tag.remove("pos1");
+            tag.remove("pos2");
+            saveTag(stack, tag);
+            return;
+        }
+        // Two-step undo: first clears pos2, second clears pos1 / 两步撤销：先清B点，再清A点
+        if (tag.contains("pos2")) {
+            tag.remove("pos2");
+            saveTag(stack, tag);
+            if (!player.level().isClientSide())
+                player.displayClientMessage(
+                        Component.translatable("eecore.scanner.cleared_b").withStyle(ChatFormatting.GRAY), true);
+        } else if (tag.contains("pos1")) {
+            tag.remove("pos1");
+            saveTag(stack, tag);
+            if (!player.level().isClientSide())
+                player.displayClientMessage(
+                        Component.translatable("eecore.scanner.cleared_all").withStyle(ChatFormatting.GRAY), true);
         }
     }
 

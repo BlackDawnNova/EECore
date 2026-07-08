@@ -1,0 +1,9 @@
+{
+  "parent": "eecore:block/ee_base_12_front_emissive",
+  "textures": {
+    "particle": "eecore:block/machine_controller",
+    "all": "eecore:block/machine_controller",
+    "front": "eecore:block/machine_controller_front",
+    "overlay_emissive": "eecore:block/machine_controller_front_e"
+  }
+}

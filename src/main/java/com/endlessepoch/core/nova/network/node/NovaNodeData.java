@@ -8,6 +8,8 @@ import java.util.UUID;
 
 /**
  * Immutable data record for a NovaNet node.
+ * <p>
+ * NovaNet 节点的不可变数据记录。
  */
 public record NovaNodeData(
         UUID nodeId,

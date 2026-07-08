@@ -12,6 +12,10 @@ import net.neoforged.neoforge.client.event.ModelEvent;
 import java.util.Map;
 
 @EventBusSubscriber(modid = EECore.MOD_ID, value = Dist.CLIENT)
+/**
+ * Replaces block models with GlowBakedModel wrappers during model baking.
+ * 在模型烘焙阶段将方块模型替换为 GlowBakedModel 包装。
+ */
 public final class GlowModelRegistration {
 
     private GlowModelRegistration() {}

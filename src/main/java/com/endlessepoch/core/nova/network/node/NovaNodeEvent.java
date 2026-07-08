@@ -5,6 +5,8 @@ import net.neoforged.bus.api.Event;
 
 /**
  * Fired on NeoForge EVENT_BUS when a node is registered or unregistered.
+ * <p>
+ * 节点注册或注销时在 NeoForge EVENT_BUS 上触发的事件。
  */
 public class NovaNodeEvent extends Event {
 

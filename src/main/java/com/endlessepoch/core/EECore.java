@@ -26,6 +26,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -33,6 +34,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -59,21 +61,55 @@ public class EECore {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MOD_ID);
 
-    public static final Supplier<CreativeModeTab> EECORE_TAB = CREATIVE_TABS.register(
-            "eecore_tab",
+    public static final Supplier<CreativeModeTab> MACHINES_TAB = CREATIVE_TABS.register(
+            "eecore_machines",
             () -> CreativeModeTab.builder()
-                    .title(Component.translatable("itemGroup.eecore"))
-                    .icon(() -> Items.CREATIVE_GENERATOR_ITEM.get().getDefaultInstance())
+                    .title(Component.translatable("itemGroup.eecore.machines"))
+                    .icon(() -> Items.LV_MACHINE_CASING.get().getDefaultInstance())
                     .withTabsBefore(CreativeModeTabs.SPAWN_EGGS)
                     .displayItems((params, output) -> {
+                        // Machines populated via BuildCreativeModeTabContentsEvent
+                    })
+                    .build()
+    );
+
+    public static final Supplier<CreativeModeTab> BLOCKS_TAB = CREATIVE_TABS.register(
+            "eecore_blocks",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.eecore.blocks"))
+                    .icon(() -> Items.ELV_MACHINE_CASING.get().getDefaultInstance())
+                    .withTabsBefore(CreativeModeTabs.SPAWN_EGGS)
+                    .displayItems((params, output) -> {
+                        output.accept(Items.ELV_MACHINE_CASING.get());
+                        output.accept(Items.LV_MACHINE_CASING.get());
+                        output.accept(Items.MV_MACHINE_CASING.get());
+                        output.accept(Items.HV_MACHINE_CASING.get());
+                        output.accept(Items.EHV_MACHINE_CASING.get());
+                        output.accept(Items.UHV_MACHINE_CASING.get());
+                        output.accept(Items.PHV_MACHINE_CASING.get());
+                        output.accept(Items.XHV_MACHINE_CASING.get());
+                        output.accept(Items.PLV_MACHINE_CASING.get());
+                        output.accept(Items.SV_MACHINE_CASING.get());
+                        output.accept(Items.BV_MACHINE_CASING.get());
+                        output.accept(Items.QV_MACHINE_CASING.get());
                         output.accept(Items.CREATIVE_GENERATOR_ITEM.get());
                         output.accept(Items.CREATIVE_CONSUMER_ITEM.get());
                         output.accept(Items.TEST_TRANSMITTER_ITEM.get());
-                        output.accept(Items.LASER_LINK_CARD.get());
                         output.accept(Items.SCANNER_CONTROLLER_ITEM.get());
                         output.accept(Items.SCANNER_BOUNDARY_ITEM.get());
+                    })
+                    .build()
+    );
 
+    public static final Supplier<CreativeModeTab> ITEMS_TAB = CREATIVE_TABS.register(
+            "eecore_items",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.eecore.items"))
+                    .icon(() -> Items.MULTIBLOCK_SCANNER.get().getDefaultInstance())
+                    .withTabsBefore(CreativeModeTabs.SPAWN_EGGS)
+                    .displayItems((params, output) -> {
                         output.accept(Items.MULTIBLOCK_SCANNER.get());
+                        output.accept(Items.LASER_LINK_CARD.get());
                     })
                     .build()
     );
@@ -83,6 +119,10 @@ public class EECore {
         EmissiveHelper.registerEmissiveModel(
                 "eecore:scanner_controller",
                 "eecore:block/scanner_controller_front_e"
+        );
+        EmissiveHelper.registerEmissiveModel(
+                "eecore:machine_controller",
+                "eecore:block/machines/example/overlay_front_e"
         );
 
         Blocks.BLOCKS.register(modEventBus);
@@ -94,10 +134,30 @@ public class EECore {
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::registerCapabilities);
         modEventBus.addListener(this::registerPayloadHandlers);
+        modEventBus.addListener(EECore::onBuildCreativeTab);
+
+        // Machines: register before DeferredRegister freezes / 机器须在注册冻结前完成
+        EECoreMachines.registerAll();
+        com.endlessepoch.core.api.multiblock.MachineRegistry.autoRegisterAll();
         NeoForge.EVENT_BUS.addListener(EECoreCommands::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.multiblock.PatternStorage::onServerStarting);
         // Ghost preview for validation failures / 成形失败幽灵预览
         NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.WorldPreviewManager.get());
+        // Celestial halo effect for formed controllers / 日月星辰特效
+        NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.CelestialRenderer.class);
+    }
+
+    /**
+     * Populate the MACHINES_TAB with dynamically registered machine items.
+     * <p>
+     * 将动态注册的机器物品添加到机器创造标签页。
+     */
+    public static void onBuildCreativeTab(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTab() == MACHINES_TAB.get()) {
+            for (var sup : Items.MACHINE_ITEMS) {
+                event.accept(sup.get());
+            }
+        }
     }
 
     /**
@@ -110,6 +170,9 @@ public class EECore {
         NovaNodeRegistration.init(reg);
 
         MultiBlockRegistry.registerControllerBlock(com.endlessepoch.core.registry.Blocks.SCANNER_CONTROLLER.get());
+        MultiBlockRegistry.registerControllerBlock(com.endlessepoch.core.registry.Blocks.MACHINE_CONTROLLER.get());
+
+        // Machine registration is done in constructor / 机器注册在构造函数完成
 
         LOGGER.info(MOD_NAME + " initialized");
         LOGGER.info("Omega system: 12 tiers ELV~QV, 1Ω = 2FE");

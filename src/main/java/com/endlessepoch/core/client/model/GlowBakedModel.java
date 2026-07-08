@@ -16,6 +16,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
+/**
+ * Wraps a baked model to force emissive render type (cutoutMipped) for glow effects.
+ * 包装已烘焙模型，强制使用发光渲染通道（cutoutMipped）以实现发光效果。
+ */
 public class GlowBakedModel implements IDynamicBakedModel {
 
     private final BakedModel base;

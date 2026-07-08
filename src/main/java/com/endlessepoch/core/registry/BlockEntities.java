@@ -3,6 +3,7 @@ package com.endlessepoch.core.registry;
 import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.blockentity.creative.CreativeConsumerBlockEntity;
 import com.endlessepoch.core.blockentity.creative.CreativeGeneratorBlockEntity;
+import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
 import com.endlessepoch.core.nova.block.ScannerControllerBlockEntity;
 import com.endlessepoch.core.nova.network.transmitter.TransmitterBlockEntity;
 import net.minecraft.core.registries.Registries;
@@ -31,6 +32,12 @@ public class BlockEntities {
             BLOCK_ENTITIES.register("scanner_controller",
                     () -> BlockEntityType.Builder.of(ScannerControllerBlockEntity::new,
                             Blocks.SCANNER_CONTROLLER.get()).build(null)
+            );
+
+    public static final Supplier<BlockEntityType<MachineControllerBlockEntity>> MACHINE_CONTROLLER =
+            BLOCK_ENTITIES.register("machine_controller",
+                    () -> BlockEntityType.Builder.of(MachineControllerBlockEntity::new,
+                            Blocks.MACHINE_CONTROLLER.get()).build(null)
             );
 
     public static final Supplier<BlockEntityType<TransmitterBlockEntity>> TEST_TRANSMITTER =

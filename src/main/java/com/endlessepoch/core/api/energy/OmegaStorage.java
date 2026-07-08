@@ -16,6 +16,8 @@ import java.util.Objects;
  * <p>
  * Provides per-tier energy tracking, NBT persistence, automatic voltage step-down,
  * and {@link EnergyTransferEvent} firing on every receive/extract.
+ * <p>
+ * 完整实现 IOmegaEnergyStorage，提供分层能量追踪、NBT 持久化、自动降压，收发时触发事件。
  *
  * <pre>{@code
  * // Via MachineSpec builder:

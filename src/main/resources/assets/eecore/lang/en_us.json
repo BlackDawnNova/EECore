@@ -1,5 +1,7 @@
 {
-  "itemGroup.eecore": "Endless Epoch Core",
+  "itemGroup.eecore.machines": "EECore Machines",
+  "itemGroup.eecore.blocks": "EECore Blocks",
+  "itemGroup.eecore.items": "EECore Items",
   "block.eecore.creative_generator": "Creative Generator",
   "block.eecore.creative_consumer": "Creative Consumer",
 
@@ -52,6 +54,7 @@
   "eecore.item.author": "by EE-Core",
   "block.eecore.test_transmitter": "Test Transmitter",
   "block.eecore.scanner_controller": "Scanner Controller",
+  "block.eecore.creative_test_controller": "EECore Creative Test Machine Controller",
   "block.eecore.scanner_boundary": "Scanner Boundary Block",
   "item.eecore.multiblock_scanner": "Multiblock Structure Scanner",
   "tooltip.eecore.multiblock_scanner.title": "✦ Structure Scanner ✦",
@@ -74,7 +77,8 @@
   "eecore.scanner.area_too_large": "§cScan area too large (%s＞%s)! Shrink the selection.",
   "eecore.scanner.multiple_controllers": "Multiple controllers found! Only one allowed.",
   "eecore.scanner.multiple_controllers_highlight": "§c⚠ %s controllers found! Highlighted in world — clear all controllers and re-place them.",
-  "eecore.scanner.cleared": "Selections cleared.",
+  "eecore.scanner.cleared_b": "Undone mark B",
+  "eecore.scanner.cleared_all": "All marks cleared",
   "eecore.scanner.no_permission": "§cYou don't have permission to use the scanner! (OP required)",
   "eecore.scanner.boundary_required": "§cMark on a Scanner Boundary Block!",
   "eecore.scanner.pos1": "Corner 1: %s, %s, %s",
@@ -91,5 +95,18 @@
   "eecore.visualizer.pick_hint": "§7Click another block or wait %s s",
   "eecore.preview.title": "EE-Core Structure Preview",
   "eecore.preview.hint": "Scroll/Drag/Click | W/S=layer | G=reset | Esc=back",
-  "eecore.visualizer.confirm_delete": "§eDelete this structure?"
+  "eecore.visualizer.confirm_delete": "§eDelete this structure?",
+
+  "block.eecore.elv_machine_casing": "Bronze Machine Casing",
+  "block.eecore.lv_machine_casing": "LV Machine Casing",
+  "block.eecore.mv_machine_casing": "MV Machine Casing",
+  "block.eecore.hv_machine_casing": "HV Machine Casing",
+  "block.eecore.ehv_machine_casing": "EHV Machine Casing",
+  "block.eecore.uhv_machine_casing": "UHV Machine Casing",
+  "block.eecore.phv_machine_casing": "PHV Machine Casing",
+  "block.eecore.xhv_machine_casing": "XHV Machine Casing",
+  "block.eecore.plv_machine_casing": "PLV Machine Casing",
+  "block.eecore.sv_machine_casing": "SV Machine Casing",
+  "block.eecore.bv_machine_casing": "BV Machine Casing",
+  "block.eecore.qv_machine_casing": "QV Machine Casing"
 }

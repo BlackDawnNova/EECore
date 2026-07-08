@@ -5,6 +5,10 @@ import com.endlessepoch.core.api.energy.OmegaValue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+/**
+ * Voltage tier definitions from ELV (steam) through QV (Planck).
+ * 电压等级定义，从 ELV（蒸汽级）到 QV（普朗克级）。
+ */
 public enum VoltageTier {
 
     ELV(0, "超低压/蒸汽级"),
@@ -184,10 +188,8 @@ public enum VoltageTier {
     }
 
     public static void printAllTiers() {
-        System.out.println("=".repeat(100));
         System.out.printf("%-8s %-14s %-35s %-20s %-20s%n",
                 "等级", "中文", "电压范围（Ω）", "标识电压", "每tick功率(1A)");
-        System.out.println("-".repeat(100));
         for (VoltageTier tier : values()) {
             String power = tier.getPowerPerTick(1).toString() + " Ω/t";
             System.out.printf("%-8s %-14s %-35s %-20s %-20s%n",
@@ -197,7 +199,6 @@ public enum VoltageTier {
                     tier.minVoltage != null ? tier.minVoltage.toString() : "null",
                     power);
         }
-        System.out.println("=".repeat(100));
         System.out.println("QV 级下限 = " + QV_MIN + " Ω（1 ZΩ），上限 = " + HARD_LIMIT + " Ω（硬上限）");
         System.out.println("每级倍率 = 10^(21/11) ≈ " + Math.pow(10, 21.0 / 11.0));
         System.out.println("常用电流档位: 1A, 2A, 4A, 8A, 16A");

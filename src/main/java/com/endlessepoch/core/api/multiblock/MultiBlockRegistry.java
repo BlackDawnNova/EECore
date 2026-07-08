@@ -5,6 +5,10 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Registry for controllers, patterns, and per-player local multiblock definitions.
+ * 多方块控制器、模式及玩家本地注册表。
+ */
 public final class MultiBlockRegistry {
 
     private static final Set<net.minecraft.world.level.block.Block> CONTROLLER_BLOCKS = new LinkedHashSet<>();
@@ -55,7 +59,7 @@ public final class MultiBlockRegistry {
         Map<ResourceLocation, MultiBlockPattern> all = new LinkedHashMap<>();
         Map<ResourceLocation, MultiBlockPattern> playerPatterns = LOCAL_PATTERNS.get(playerId);
         if (playerPatterns != null) all.putAll(playerPatterns);
-        all.putAll(MOD_PATTERNS);
+        // MOD patterns are for MachineController, not scanner / MOD 只给机器控制器
         return Collections.unmodifiableMap(all);
     }
 

@@ -13,9 +13,14 @@ import org.joml.Matrix4f;
 /**
  * Renders laser beams between connected transmitter/receiver pairs.
  * <p>
+ * 在已连接的发射器/接收器对之间渲染激光束。
+ * <p>
  * Beam color = transmitter voltage tier color.
+ * 光束颜色 = 发射器电压等级颜色。
  * Beam thickness = current power flow.
+ * 光束粗细 = 当前功率流动。
  * Beam pulses when energy is actively flowing.
+ * 能量主动流动时光束脉冲。
  */
 @OnlyIn(Dist.CLIENT)
 public final class LaserRenderer {
@@ -24,6 +29,7 @@ public final class LaserRenderer {
 
     /**
      * Render all active lasers. Hook into {@code RenderLevelLastEvent}.
+     * 渲染所有活跃激光。挂钩到 {@code RenderLevelLastEvent}。
      */
     public static void renderAll(PoseStack poseStack, Vec3 cameraPos) {
         if (!LaserRenderConfig.isEnabled()) return;

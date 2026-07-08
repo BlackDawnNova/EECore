@@ -110,7 +110,7 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
         for (int i = 0; i < 3 && i < cyberButtons.size(); i++) {
             cyberButtons.get(i).visible = !showSettings;
         }
-        // Gear button always visible
+        // Gear button always visible / 齿轮按钮始终可见
         if (cyberButtons.size() > 3) cyberButtons.get(3).visible = true;
 
         tierDownBtn.visible = showSettings && canShowArrows();
@@ -324,7 +324,7 @@ public abstract class CreativeMachineScreen<T extends AbstractContainerMenu> ext
                 int idx = (headIdx - i + chars.length) % chars.length;
                 float t = (float) i / lines;
                 int color = fadeColor(0xFF004400, 0xFF00CC00, t);
-                if (i == 0) color = 0xFF88FF88; // head bright white-green
+                if (i == 0) color = 0xFF88FF88; // head bright white-green / 头部亮白绿色
                 g.drawString(font, String.valueOf(chars[idx]), x, (int)(oy + cy), color, false);
             }
         }

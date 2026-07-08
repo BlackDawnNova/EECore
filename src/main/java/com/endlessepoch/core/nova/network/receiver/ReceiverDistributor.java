@@ -10,6 +10,8 @@ import net.minecraft.world.level.Level;
 
 /**
  * Distributes energy from a receiver's buffer to nearby machines.
+ * <p>
+ * 将接收器缓冲区中的能量分发到附近的机器。
  */
 public final class ReceiverDistributor {
 
@@ -17,6 +19,7 @@ public final class ReceiverDistributor {
 
     /**
      * Push energy from the buffer to nearby machines implementing IOmegaEnergyStorage.
+     * 将缓冲区中的能量推送到附近实现了 IOmegaEnergyStorage 的机器。
      */
     public static void distribute(Level level, BlockPos center, int range,
                                    VoltageTier tier, TransmitterEnergyBuffer buffer) {
