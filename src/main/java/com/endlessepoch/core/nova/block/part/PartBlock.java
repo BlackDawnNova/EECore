@@ -76,8 +76,7 @@ public class PartBlock extends Block implements EntityBlock {
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock()) && !level.isClientSide()) {
             BlockEntity be = level.getBlockEntity(pos);
-            if (be instanceof PartBlockEntity part && part.getControllerPos() != null
-                    && part.getMachineId() != null) {
+            if (be instanceof com.endlessepoch.core.api.multiblock.IPart part && part.isFormed()) {
                 BlockPos ctrl = part.getControllerPos();
                 BlockEntity ctrlBe = level.getBlockEntity(ctrl);
                 if (ctrlBe instanceof com.endlessepoch.core.nova.block.MachineControllerBlockEntity mc

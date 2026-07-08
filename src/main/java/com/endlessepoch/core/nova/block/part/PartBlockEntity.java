@@ -1,7 +1,7 @@
 package com.endlessepoch.core.nova.block.part;
 
-import com.endlessepoch.core.EECore;
-import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
+import com.endlessepoch.core.api.multiblock.IPart;
+import com.endlessepoch.core.api.multiblock.PartAbility;
 import com.endlessepoch.core.api.multiblock.PartType;
 import com.endlessepoch.core.registry.BlockEntities;
 import net.minecraft.core.BlockPos;
@@ -9,45 +9,60 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import org.jetbrains.annotations.Nullable;
-
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.Set;
 
 /**
- * Base BE for all multiblock parts. Stores machineId + controller position.
- * 所有多方块部件的基类 BE，存 machineId + 控制器位置。
+ * Base BE for multiblock parts. Implements IPart — addon mods extend this or use directly.
+ * 多方块部件基类 BE，实现 IPart——附属 mod 可继承或直接使用。
  */
-public class PartBlockEntity extends BlockEntity {
+public class PartBlockEntity extends BlockEntity implements IPart {
 
     private ResourceLocation machineId;
     private BlockPos controllerPos;
-    private PartType partType;
+    private final PartType partType;
+    private final Set<PartAbility> abilities = new java.util.LinkedHashSet<>();
 
     public PartBlockEntity(BlockPos pos, BlockState state, PartType type) {
         super(BlockEntities.PART.get(), pos, state);
         this.partType = type;
+        // Default abilities based on type / 按类型设置默认能力
+        switch (type.getId().getPath()) {
+            case "input_bus"     -> abilities.add(PartAbility.ITEM_INPUT);
+            case "output_bus"    -> abilities.add(PartAbility.ITEM_OUTPUT);
+            case "input_hatch"   -> { abilities.add(PartAbility.FLUID_INPUT); abilities.add(PartAbility.ENERGY_INPUT); }
+            case "output_hatch"  -> { abilities.add(PartAbility.FLUID_OUTPUT); abilities.add(PartAbility.ENERGY_OUTPUT); }
+            case "input_assembly"  -> { abilities.add(PartAbility.ITEM_INPUT); abilities.add(PartAbility.FLUID_INPUT); }
+            case "output_assembly" -> { abilities.add(PartAbility.ITEM_OUTPUT); abilities.add(PartAbility.FLUID_OUTPUT); }
+        }
     }
 
-    public PartType getPartType() { return partType; }
-    public ResourceLocation getMachineId() { return machineId; }
-    public BlockPos getControllerPos() { return controllerPos; }
+    // ===== IPart =====
 
-    /** Called by the controller when the multiblock forms. / 控制器成形时调用。 */
-    public void bindToController(ResourceLocation machineId, BlockPos ctrlPos) {
+    @Override public Set<PartAbility> getAbilities() { return abilities; }
+
+    @Override
+    public void onFormed(ResourceLocation machineId, BlockPos controllerPos) {
         this.machineId = machineId;
-        this.controllerPos = ctrlPos;
+        this.controllerPos = controllerPos;
         setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
     }
 
-    /** Clear binding — called when multiblock breaks. / 清除绑定——多方块破碎时调用。 */
-    public void unbind() {
+    @Override
+    public void onBroken() {
         this.machineId = null;
         this.controllerPos = null;
         setChanged();
     }
+
+    @Override public ResourceLocation getMachineId() { return machineId; }
+    @Override public BlockPos getControllerPos() { return controllerPos; }
+    @Override public boolean isFormed() { return machineId != null; }
+
+    // ===== Utility / 工具方法 =====
 
     public Direction getFacing() {
         if (getBlockState().hasProperty(PartBlock.FACING))
@@ -60,7 +75,7 @@ public class PartBlockEntity extends BlockEntity {
         super.saveAdditional(tag, provider);
         if (machineId != null) tag.putString("machineId", machineId.toString());
         if (controllerPos != null) tag.putLong("ctrlPos", controllerPos.asLong());
-        tag.putString("partType", partType.name());
+        tag.putString("partType", partType.getId().toString());
     }
 
     @Override
@@ -70,7 +85,5 @@ public class PartBlockEntity extends BlockEntity {
             machineId = ResourceLocation.tryParse(tag.getString("machineId"));
         if (tag.contains("ctrlPos"))
             controllerPos = BlockPos.of(tag.getLong("ctrlPos"));
-        if (tag.contains("partType"))
-            partType = PartType.valueOf(tag.getString("partType"));
     }
 }

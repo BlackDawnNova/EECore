@@ -1,7 +1,6 @@
 package com.endlessepoch.core.api.multiblock;
 
 import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
-import com.endlessepoch.core.nova.block.part.PartBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
@@ -48,8 +47,8 @@ public class MultiBlockFormHandler {
                             default    -> pos.offset(rx, ry, rz);
                         };
                         BlockEntity be = level.getBlockEntity(wp);
-                        if (be instanceof PartBlockEntity part && machineId != null)
-                            part.bindToController(machineId, pos);
+                        if (be instanceof com.endlessepoch.core.api.multiblock.IPart part && machineId != null)
+                            part.onFormed(machineId, pos);
                     }
             if (level instanceof net.minecraft.server.level.ServerLevel sl)
                 MultiBlockBreakDetector.stamp(sl, pattern, pos, facing);
