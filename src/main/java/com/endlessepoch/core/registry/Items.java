@@ -77,9 +77,14 @@ public class Items {
     public static final Supplier<BlockItem> OUTPUT_ASSEMBLY = registerPartItem("output_assembly", 1);
 
     /**
-     * Register a part item with voltage-tier casing model. / 注册部件物品，使用电压外壳模型。
+     * Register a part item with voltage-tier casing + optional custom overlay.
+     * 注册部件物品，电压外壳体 + 可选自定义覆面贴图。
      */
     private static Supplier<BlockItem> registerPartItem(String id, int tier) {
+        return registerPartItem(id, tier, "eecore:block/" + id);
+    }
+
+    public static Supplier<BlockItem> registerPartItem(String id, int tier, String overlayTexture) {
         var sup = ITEMS.register(id,
                 () -> new BlockItem(
                         java.util.Objects.requireNonNull(getPartBlock(id), "Part block not found: " + id),
@@ -87,15 +92,14 @@ public class Items {
 
         String casingName = com.endlessepoch.core.api.tier.VoltageTier.fromOrdinal(tier).name().toLowerCase();
         String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
-        String overlayTex = "eecore:block/" + id; // overlay at textures/block/<id>.png
 
         // Block model / 方块模型
         String blockModel = "{\"parent\":\"eecore:block/ee_base_12_front_emissive\"," +
                 "\"textures\":{" +
                 "\"particle\":\"" + casingTex + "\"," +
                 "\"all\":\"" + casingTex + "\"," +
-                "\"front\":\"" + overlayTex + "\"," +
-                "\"overlay_emissive\":\"" + overlayTex + "\"}}";
+                "\"front\":\"" + overlayTexture + "\"," +
+                "\"overlay_emissive\":\"" + overlayTexture + "\"}}";
         writeJson("models/block", id, blockModel);
 
         // Blockstate / 方块状态
@@ -111,7 +115,7 @@ public class Items {
                 "\"textures\":{" +
                 "\"particle\":\"" + casingTex + "\"," +
                 "\"all\":\"" + casingTex + "\"," +
-                "\"front\":\"" + overlayTex + "\"}," +
+                "\"front\":\"" + overlayTexture + "\"}," +
                 "\"elements\":[" +
                 "{\"from\":[0,0,0.04],\"to\":[16,16,16]," +
                 "\"faces\":{" +
