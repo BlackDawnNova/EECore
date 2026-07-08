@@ -81,7 +81,7 @@ public class Items {
      * 注册部件物品，电压外壳体 + 可选自定义覆面贴图。
      */
     private static Supplier<BlockItem> registerPartItem(String id, int tier) {
-        return registerPartItem(id, tier, "eecore:block/" + id);
+        return registerPartItem(id, tier, "eecore:block/parts/" + id);
     }
 
     public static Supplier<BlockItem> registerPartItem(String id, int tier, String overlayTexture) {
