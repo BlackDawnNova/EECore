@@ -36,6 +36,7 @@ public class PartBlockEntity extends BlockEntity implements IPart {
             case "output_hatch"  -> { abilities.add(PartAbility.FLUID_OUTPUT); abilities.add(PartAbility.ENERGY_OUTPUT); }
             case "input_assembly"  -> { abilities.add(PartAbility.ITEM_INPUT); abilities.add(PartAbility.FLUID_INPUT); }
             case "output_assembly" -> { abilities.add(PartAbility.ITEM_OUTPUT); abilities.add(PartAbility.FLUID_OUTPUT); }
+            case "casing" -> abilities.add(PartAbility.STRUCTURAL);
         }
     }
 

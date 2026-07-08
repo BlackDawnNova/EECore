@@ -55,6 +55,12 @@ public class BlockEntities {
                                     return new PartBlockEntity(pos, state, pb.getPartType());
                                 return new PartBlockEntity(pos, state, com.endlessepoch.core.api.multiblock.PartType.INPUT_BUS);
                             },
+                            Blocks.ELV_MACHINE_CASING.get(), Blocks.LV_MACHINE_CASING.get(),
+                            Blocks.MV_MACHINE_CASING.get(), Blocks.HV_MACHINE_CASING.get(),
+                            Blocks.EHV_MACHINE_CASING.get(), Blocks.UHV_MACHINE_CASING.get(),
+                            Blocks.PHV_MACHINE_CASING.get(), Blocks.XHV_MACHINE_CASING.get(),
+                            Blocks.PLV_MACHINE_CASING.get(), Blocks.SV_MACHINE_CASING.get(),
+                            Blocks.BV_MACHINE_CASING.get(), Blocks.QV_MACHINE_CASING.get(),
                             Blocks.INPUT_BUS.get(), Blocks.OUTPUT_BUS.get(),
                             Blocks.INPUT_HATCH.get(), Blocks.OUTPUT_HATCH.get(),
                             Blocks.INPUT_ASSEMBLY.get(), Blocks.OUTPUT_ASSEMBLY.get()

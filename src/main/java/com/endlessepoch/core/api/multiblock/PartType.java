@@ -18,6 +18,7 @@ public final class PartType {
     public static final PartType OUTPUT_HATCH = register("output_hatch", "eecore.part.output_hatch");
     public static final PartType INPUT_ASSEMBLY  = register("input_assembly",  "eecore.part.input_assembly");
     public static final PartType OUTPUT_ASSEMBLY = register("output_assembly", "eecore.part.output_assembly");
+    public static final PartType CASING = register("casing", "eecore.part.casing");
 
     private final ResourceLocation id;
     private final String translationKey;

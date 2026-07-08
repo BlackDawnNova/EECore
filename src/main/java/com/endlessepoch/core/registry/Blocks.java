@@ -8,6 +8,7 @@ import com.endlessepoch.core.nova.block.ScannerBoundaryBlock;
 import com.endlessepoch.core.nova.block.MachineControllerBlock;
 import com.endlessepoch.core.nova.block.ScannerControllerBlock;
 import com.endlessepoch.core.nova.block.TransmitterTestBlock;
+import com.endlessepoch.core.nova.block.part.CasingBlock;
 import com.endlessepoch.core.nova.block.part.PartBlock;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.Block;
@@ -103,11 +104,11 @@ public class Blocks {
 
     private static Supplier<Block> registerCasing(String tier, MapColor color) {
         return BLOCKS.register(tier + "_machine_casing",
-                () -> new Block(BlockBehaviour.Properties.of()
+                () -> new CasingBlock(BlockBehaviour.Properties.of()
                         .mapColor(color)
                         .strength(2.0f)
-                        .requiresCorrectToolForDrops()
-                ));
+                        .requiresCorrectToolForDrops(),
+                        PartType.CASING));
     }
 
     // ===== Multiblock parts / 多方块部件 =====
