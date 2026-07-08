@@ -49,12 +49,8 @@ public class BlockEntities {
 
     public static final Supplier<BlockEntityType<PartBlockEntity>> PART =
             BLOCK_ENTITIES.register("part",
-                    () -> BlockEntityType.Builder.of((pos, state) -> {
-                                var block = state.getBlock();
-                                if (block instanceof com.endlessepoch.core.nova.block.part.PartBlock pb)
-                                    return new PartBlockEntity(pos, state, pb.getPartType());
-                                return new PartBlockEntity(pos, state, com.endlessepoch.core.api.multiblock.PartType.INPUT_BUS);
-                            },
+                    () -> {
+                        var bb = new net.minecraft.world.level.block.Block[]{
                             Blocks.ELV_MACHINE_CASING.get(), Blocks.LV_MACHINE_CASING.get(),
                             Blocks.MV_MACHINE_CASING.get(), Blocks.HV_MACHINE_CASING.get(),
                             Blocks.EHV_MACHINE_CASING.get(), Blocks.UHV_MACHINE_CASING.get(),
@@ -64,6 +60,16 @@ public class BlockEntities {
                             Blocks.INPUT_BUS.get(), Blocks.OUTPUT_BUS.get(),
                             Blocks.INPUT_HATCH.get(), Blocks.OUTPUT_HATCH.get(),
                             Blocks.INPUT_ASSEMBLY.get(), Blocks.OUTPUT_ASSEMBLY.get()
-                    ).build(null)
+                        };
+                        return BlockEntityType.Builder.of((pos, state) -> {
+                                    var block = state.getBlock();
+                                    var pt = block instanceof com.endlessepoch.core.nova.block.part.PartBlock pb
+                                            ? pb.getPartType()
+                                            : block instanceof com.endlessepoch.core.nova.block.part.CasingBlock cb
+                                                    ? cb.getPartType()
+                                                    : com.endlessepoch.core.api.multiblock.PartType.CASING;
+                                    return new PartBlockEntity(pos, state, pt);
+                                }, bb).build(null);
+                    }
             );
 }
