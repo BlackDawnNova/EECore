@@ -65,7 +65,10 @@ public class PartBlock extends Block implements EntityBlock {
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new PartBlockEntity(pos, state, partType);
+        return switch (partType.getId().getPath()) {
+            case "input_bus", "output_bus" -> new InputBusBlockEntity(pos, state);
+            default -> new PartBlockEntity(pos, state, partType);
+        };
     }
 
     /**

@@ -209,6 +209,18 @@ public class EECore {
                 BlockEntities.TEST_TRANSMITTER.get(),
                 (be, side) -> be
         );
+
+        // Item handler for input/output buses / 物品能力（输入/输出总线）
+        event.registerBlock(
+                net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK,
+                (level, pos, state, be, side) -> {
+                    if (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity ib)
+                        return ib.getInventory();
+                    return null;
+                },
+                com.endlessepoch.core.registry.Blocks.INPUT_BUS.get(),
+                com.endlessepoch.core.registry.Blocks.OUTPUT_BUS.get()
+        );
     }
 
     /**
