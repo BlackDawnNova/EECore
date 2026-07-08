@@ -69,18 +69,77 @@ public class Items {
             );
 
     // Multiblock parts / 多方块部件
-    public static final Supplier<BlockItem> INPUT_BUS = ITEMS.register("input_bus",
-            () -> new BlockItem(Blocks.INPUT_BUS.get(), new Item.Properties().stacksTo(64)));
-    public static final Supplier<BlockItem> OUTPUT_BUS = ITEMS.register("output_bus",
-            () -> new BlockItem(Blocks.OUTPUT_BUS.get(), new Item.Properties().stacksTo(64)));
-    public static final Supplier<BlockItem> INPUT_HATCH = ITEMS.register("input_hatch",
-            () -> new BlockItem(Blocks.INPUT_HATCH.get(), new Item.Properties().stacksTo(64)));
-    public static final Supplier<BlockItem> OUTPUT_HATCH = ITEMS.register("output_hatch",
-            () -> new BlockItem(Blocks.OUTPUT_HATCH.get(), new Item.Properties().stacksTo(64)));
-    public static final Supplier<BlockItem> INPUT_ASSEMBLY = ITEMS.register("input_assembly",
-            () -> new BlockItem(Blocks.INPUT_ASSEMBLY.get(), new Item.Properties().stacksTo(64)));
-    public static final Supplier<BlockItem> OUTPUT_ASSEMBLY = ITEMS.register("output_assembly",
-            () -> new BlockItem(Blocks.OUTPUT_ASSEMBLY.get(), new Item.Properties().stacksTo(64)));
+    public static final Supplier<BlockItem> INPUT_BUS = registerPartItem("input_bus", 1);
+    public static final Supplier<BlockItem> OUTPUT_BUS = registerPartItem("output_bus", 1);
+    public static final Supplier<BlockItem> INPUT_HATCH = registerPartItem("input_hatch", 1);
+    public static final Supplier<BlockItem> OUTPUT_HATCH = registerPartItem("output_hatch", 1);
+    public static final Supplier<BlockItem> INPUT_ASSEMBLY = registerPartItem("input_assembly", 1);
+    public static final Supplier<BlockItem> OUTPUT_ASSEMBLY = registerPartItem("output_assembly", 1);
+
+    /**
+     * Register a part item with voltage-tier casing model. / 注册部件物品，使用电压外壳模型。
+     */
+    private static Supplier<BlockItem> registerPartItem(String id, int tier) {
+        var sup = ITEMS.register(id,
+                () -> new BlockItem(
+                        java.util.Objects.requireNonNull(getPartBlock(id), "Part block not found: " + id),
+                        new Item.Properties().stacksTo(64)));
+
+        String casingName = com.endlessepoch.core.api.tier.VoltageTier.fromOrdinal(tier).name().toLowerCase();
+        String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
+        String overlayTex = "eecore:block/" + id; // overlay at textures/block/<id>.png
+
+        // Block model / 方块模型
+        String blockModel = "{\"parent\":\"eecore:block/ee_base_12_front_emissive\"," +
+                "\"textures\":{" +
+                "\"particle\":\"" + casingTex + "\"," +
+                "\"all\":\"" + casingTex + "\"," +
+                "\"front\":\"" + overlayTex + "\"," +
+                "\"overlay_emissive\":\"" + overlayTex + "\"}}";
+        writeJson("models/block", id, blockModel);
+
+        // Blockstate / 方块状态
+        String bs = "{\"variants\":{" +
+                "\"facing=north\":{\"model\":\"eecore:block/" + id + "\",\"y\":0}," +
+                "\"facing=east\":{\"model\":\"eecore:block/" + id + "\",\"y\":90}," +
+                "\"facing=south\":{\"model\":\"eecore:block/" + id + "\",\"y\":180}," +
+                "\"facing=west\":{\"model\":\"eecore:block/" + id + "\",\"y\":270}}}";
+        writeJson("blockstates", id, bs);
+
+        // Item model / 物品模型
+        String itemModel = "{\"parent\":\"block/block\"," +
+                "\"textures\":{" +
+                "\"particle\":\"" + casingTex + "\"," +
+                "\"all\":\"" + casingTex + "\"," +
+                "\"front\":\"" + overlayTex + "\"}," +
+                "\"elements\":[" +
+                "{\"from\":[0,0,0.04],\"to\":[16,16,16]," +
+                "\"faces\":{" +
+                "\"down\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
+                "\"up\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
+                "\"north\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
+                "\"south\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
+                "\"west\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
+                "\"east\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}}}," +
+                "{\"from\":[2,2,0],\"to\":[14,14,0.02]," +
+                "\"faces\":{" +
+                "\"north\":{\"uv\":[2,2,14,14],\"texture\":\"#front\"}}}]}";
+        writeJson("models/item", id, itemModel);
+
+        return sup;
+    }
+
+    private static Block getPartBlock(String id) {
+        return switch (id) {
+            case "input_bus" -> Blocks.INPUT_BUS.get();
+            case "output_bus" -> Blocks.OUTPUT_BUS.get();
+            case "input_hatch" -> Blocks.INPUT_HATCH.get();
+            case "output_hatch" -> Blocks.OUTPUT_HATCH.get();
+            case "input_assembly" -> Blocks.INPUT_ASSEMBLY.get();
+            case "output_assembly" -> Blocks.OUTPUT_ASSEMBLY.get();
+            default -> null;
+        };
+    }
 
     public static final Supplier<BlockItem> MACHINE_CONTROLLER_ITEM =
             ITEMS.register("machine_controller",
