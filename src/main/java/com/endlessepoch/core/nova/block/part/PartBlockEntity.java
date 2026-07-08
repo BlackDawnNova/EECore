@@ -66,8 +66,9 @@ public class PartBlockEntity extends BlockEntity implements IPart {
     // ===== Utility / 工具方法 =====
 
     public Direction getFacing() {
-        if (getBlockState().hasProperty(PartBlock.FACING))
-            return getBlockState().getValue(PartBlock.FACING);
+        var state = getBlockState();
+        if (state.hasProperty(PartBlock.FACING))
+            return state.getValue(PartBlock.FACING);
         return Direction.NORTH;
     }
 

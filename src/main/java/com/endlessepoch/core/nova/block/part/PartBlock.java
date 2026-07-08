@@ -32,33 +32,43 @@ public class PartBlock extends Block implements EntityBlock {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     private final PartType partType;
+    private final boolean hasFacing;
 
-    public PartBlock(Properties properties, PartType type) {
+    public PartBlock(Properties properties, PartType type) { this(properties, type, true); }
+
+    protected PartBlock(Properties properties, PartType type, boolean hasFacing) {
         super(properties);
         this.partType = type;
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        this.hasFacing = hasFacing;
+        if (hasFacing)
+            registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        else
+            registerDefaultState(stateDefinition.any());
     }
 
     public PartType getPartType() { return partType; }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        if (hasFacing) builder.add(FACING);
     }
 
     @Nullable
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        if (!hasFacing) return defaultBlockState();
         return defaultBlockState().setValue(FACING, ctx.getHorizontalDirection().getOpposite());
     }
 
     @Override
     public BlockState rotate(BlockState state, Rotation rot) {
+        if (!hasFacing) return state;
         return state.setValue(FACING, rot.rotate(state.getValue(FACING)));
     }
 
     @Override
     public BlockState mirror(BlockState state, Mirror mirror) {
+        if (!hasFacing) return state;
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
