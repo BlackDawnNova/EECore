@@ -93,6 +93,9 @@ public class MachineControllerBlock extends Block implements EntityBlock {
         if (level.isClientSide() && type == BlockEntities.MACHINE_CONTROLLER.get()) {
             return (l, p, s, e) -> ((MachineControllerBlockEntity) e).clientTick();
         }
+        if (!level.isClientSide() && type == BlockEntities.MACHINE_CONTROLLER.get()) {
+            return (l, p, s, e) -> ((MachineControllerBlockEntity) e).serverTick();
+        }
         return null;
     }
 
@@ -100,13 +103,15 @@ public class MachineControllerBlock extends Block implements EntityBlock {
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
             BlockEntity be = level.getBlockEntity(pos);
-            if (be instanceof MachineControllerBlockEntity mc && mc.getMachineId() != null
-                    && mc.getOwnerUUID() != null) {
+            if (be instanceof MachineControllerBlockEntity mc && mc.getMachineId() != null) {
+                com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector.clear(pos);
+                if (mc.getOwnerUUID() != null) {
                 var emptyPkt = new com.endlessepoch.core.network.SyncValidationPacket(mc.getMachineId(),
                         new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0);
                 var player = level.getPlayerByUUID(mc.getOwnerUUID());
                 if (player instanceof net.minecraft.server.level.ServerPlayer sp)
                     net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, emptyPkt);
+                }
             }
         }
         super.onRemove(state, level, pos, newState, moved);

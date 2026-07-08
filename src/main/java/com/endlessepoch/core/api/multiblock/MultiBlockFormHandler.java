@@ -26,12 +26,15 @@ public class MultiBlockFormHandler {
                 controller.stampOwner(player.getUUID(), player.getName().getString());
             }
             controller.onMultiblockFormed();
+            // Stamp all structure blocks for break detection / 标记结构内全部方块
+            if (level instanceof net.minecraft.server.level.ServerLevel sl)
+                MultiBlockBreakDetector.stamp(sl, pattern, pos, facing);
         }
         return true;
     }
 
     public static void notifyBreak(IMultiBlockController controller, BlockPos pos, Level level) {
-        // Caller already called onMultiblockBroken — just fire event / 仅触发事件
+        MultiBlockBreakDetector.clear(pos);
         if (level != null && !level.isClientSide()) {
             NeoForge.EVENT_BUS.post(new MultiBlockBreakEvent(controller, pos, level));
         }

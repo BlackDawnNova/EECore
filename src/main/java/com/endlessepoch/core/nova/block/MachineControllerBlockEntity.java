@@ -64,11 +64,28 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return Direction.NORTH;
     }
 
-    /**
-     * Client-side tick — drives BlockEntityRenderer animation timing.
-     * 客户端刻——驱动 BER 动画计时。
-     */
+    private int breakCheckTick;
+
+    /** Client-side tick — drives BlockEntityRenderer animation timing. / 客户端刻。 */
     public void clientTick() {}
+
+    /**
+     * Lightweight periodic break validation — checks formed integrity every 100 ticks (5s).
+     * 轻量定期破坏检测——每 100 tick (5秒) 验证一次成形完整性。
+     */
+    public void serverTick() {
+        if (!formed || level == null || machineId == null || level.isClientSide()) return;
+        if (++breakCheckTick < 100) return;
+        breakCheckTick = 0;
+
+        var pattern = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.get(machineId);
+        if (pattern.isEmpty()) return;
+        if (!com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(
+                level, pattern.get(), worldPosition, getFacing())) {
+            onMultiblockBroken();
+            com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.notifyBreak(this, worldPosition, level);
+        }
+    }
 
     @Nullable
     @Override
