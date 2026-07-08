@@ -1,13 +1,10 @@
 package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
-import com.endlessepoch.core.nova.block.part.PartBlock;
-import com.endlessepoch.core.nova.block.part.PartBlockItem;
 import com.endlessepoch.core.nova.item.LaserLinkCardItem;
 import com.endlessepoch.core.nova.block.ScannerBoundaryBlock;
 import com.endlessepoch.core.nova.block.MachineControllerItem;
 import com.endlessepoch.core.nova.item.MultiblockScannerItem;
-import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
@@ -73,17 +70,17 @@ public class Items {
 
     // Multiblock parts / 多方块部件
     public static final Supplier<BlockItem> INPUT_BUS = ITEMS.register("input_bus",
-            () -> new PartBlockItem((PartBlock)Blocks.INPUT_BUS.get(), new Item.Properties().stacksTo(64)));
+            () -> new BlockItem(Blocks.INPUT_BUS.get(), new Item.Properties().stacksTo(64)));
     public static final Supplier<BlockItem> OUTPUT_BUS = ITEMS.register("output_bus",
-            () -> new PartBlockItem((PartBlock)Blocks.OUTPUT_BUS.get(), new Item.Properties().stacksTo(64)));
+            () -> new BlockItem(Blocks.OUTPUT_BUS.get(), new Item.Properties().stacksTo(64)));
     public static final Supplier<BlockItem> INPUT_HATCH = ITEMS.register("input_hatch",
-            () -> new PartBlockItem((PartBlock)Blocks.INPUT_HATCH.get(), new Item.Properties().stacksTo(64)));
+            () -> new BlockItem(Blocks.INPUT_HATCH.get(), new Item.Properties().stacksTo(64)));
     public static final Supplier<BlockItem> OUTPUT_HATCH = ITEMS.register("output_hatch",
-            () -> new PartBlockItem((PartBlock)Blocks.OUTPUT_HATCH.get(), new Item.Properties().stacksTo(64)));
+            () -> new BlockItem(Blocks.OUTPUT_HATCH.get(), new Item.Properties().stacksTo(64)));
     public static final Supplier<BlockItem> INPUT_ASSEMBLY = ITEMS.register("input_assembly",
-            () -> new PartBlockItem((PartBlock)Blocks.INPUT_ASSEMBLY.get(), new Item.Properties().stacksTo(64)));
+            () -> new BlockItem(Blocks.INPUT_ASSEMBLY.get(), new Item.Properties().stacksTo(64)));
     public static final Supplier<BlockItem> OUTPUT_ASSEMBLY = ITEMS.register("output_assembly",
-            () -> new PartBlockItem((PartBlock)Blocks.OUTPUT_ASSEMBLY.get(), new Item.Properties().stacksTo(64)));
+            () -> new BlockItem(Blocks.OUTPUT_ASSEMBLY.get(), new Item.Properties().stacksTo(64)));
 
     public static final Supplier<BlockItem> MACHINE_CONTROLLER_ITEM =
             ITEMS.register("machine_controller",
