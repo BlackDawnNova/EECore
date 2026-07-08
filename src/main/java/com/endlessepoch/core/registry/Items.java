@@ -77,18 +77,22 @@ public class Items {
     public static final Supplier<BlockItem> OUTPUT_ASSEMBLY = registerPartItem("output_assembly", 1);
 
     /**
-     * Register a part item with voltage-tier casing + optional custom overlay.
-     * 注册部件物品，电压外壳体 + 可选自定义覆面贴图。
+     * Register a part item with voltage-tier casing + custom overlay. / 注册部件物品（附属 mod 用）。
+     * @param blockSupplier the part block supplier / 部件方块供应器
+     * @param id            registry name / 注册名
+     * @param tier          voltage tier (0=ELV..11=QV) / 电压等级
+     * @param overlayTex    overlay texture path (e.g. "mymod:block/parts/hatch/overlay_front") / 覆面贴图路径
      */
+    /** EECore internal: auto-resolves block from id. / 内部便捷方法。 */
     private static Supplier<BlockItem> registerPartItem(String id, int tier) {
-        return registerPartItem(id, tier, "eecore:block/parts/" + id + "/overlay_front");
+        return registerPartItem(
+                () -> java.util.Objects.requireNonNull(getPartBlock(id), "Part block not found: " + id),
+                id, tier, "eecore:block/parts/" + id + "/overlay_front");
     }
 
-    public static Supplier<BlockItem> registerPartItem(String id, int tier, String overlayTexture) {
+    public static Supplier<BlockItem> registerPartItem(Supplier<Block> blockSupplier, String id, int tier, String overlayTex) {
         var sup = ITEMS.register(id,
-                () -> new BlockItem(
-                        java.util.Objects.requireNonNull(getPartBlock(id), "Part block not found: " + id),
-                        new Item.Properties().stacksTo(64)));
+                () -> new BlockItem(blockSupplier.get(), new Item.Properties().stacksTo(64)));
 
         String casingName = com.endlessepoch.core.api.tier.VoltageTier.fromOrdinal(tier).name().toLowerCase();
         String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
@@ -98,8 +102,8 @@ public class Items {
                 "\"textures\":{" +
                 "\"particle\":\"" + casingTex + "\"," +
                 "\"all\":\"" + casingTex + "\"," +
-                "\"front\":\"" + overlayTexture + "\"," +
-                "\"overlay_emissive\":\"" + overlayTexture + "_e\"}}";
+                "\"front\":\"" + overlayTex + "\"," +
+                "\"overlay_emissive\":\"" + overlayTex + "_e\"}}";
         writeJson("models/block", id, blockModel);
 
         // Blockstate / 方块状态
@@ -115,7 +119,7 @@ public class Items {
                 "\"textures\":{" +
                 "\"particle\":\"" + casingTex + "\"," +
                 "\"all\":\"" + casingTex + "\"," +
-                "\"front\":\"" + overlayTexture + "\"}," +
+                "\"front\":\"" + overlayTex + "\"}," +
                 "\"elements\":[" +
                 "{\"from\":[0,0,0.04],\"to\":[16,16,16]," +
                 "\"faces\":{" +
