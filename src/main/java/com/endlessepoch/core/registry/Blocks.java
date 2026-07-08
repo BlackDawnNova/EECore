@@ -1,12 +1,14 @@
 package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
+import com.endlessepoch.core.api.multiblock.PartType;
 import com.endlessepoch.core.block.creative.CreativeConsumerBlock;
 import com.endlessepoch.core.block.creative.CreativeGeneratorBlock;
 import com.endlessepoch.core.nova.block.ScannerBoundaryBlock;
 import com.endlessepoch.core.nova.block.MachineControllerBlock;
 import com.endlessepoch.core.nova.block.ScannerControllerBlock;
 import com.endlessepoch.core.nova.block.TransmitterTestBlock;
+import com.endlessepoch.core.nova.block.part.PartBlock;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -107,5 +109,20 @@ public class Blocks {
                         .requiresCorrectToolForDrops()
                 ));
     }
+
+    // ===== Multiblock parts / 多方块部件 =====
+
+    public static final Supplier<Block> INPUT_BUS = BLOCKS.register("input_bus",
+            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.INPUT_BUS));
+    public static final Supplier<Block> OUTPUT_BUS = BLOCKS.register("output_bus",
+            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.OUTPUT_BUS));
+    public static final Supplier<Block> INPUT_HATCH = BLOCKS.register("input_hatch",
+            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.INPUT_HATCH));
+    public static final Supplier<Block> OUTPUT_HATCH = BLOCKS.register("output_hatch",
+            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.OUTPUT_HATCH));
+    public static final Supplier<Block> INPUT_ASSEMBLY = BLOCKS.register("input_assembly",
+            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.INPUT_ASSEMBLY));
+    public static final Supplier<Block> OUTPUT_ASSEMBLY = BLOCKS.register("output_assembly",
+            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.OUTPUT_ASSEMBLY));
 
 }

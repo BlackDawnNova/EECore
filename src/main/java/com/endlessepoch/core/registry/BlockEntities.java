@@ -5,6 +5,7 @@ import com.endlessepoch.core.blockentity.creative.CreativeConsumerBlockEntity;
 import com.endlessepoch.core.blockentity.creative.CreativeGeneratorBlockEntity;
 import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
 import com.endlessepoch.core.nova.block.ScannerControllerBlockEntity;
+import com.endlessepoch.core.nova.block.part.PartBlockEntity;
 import com.endlessepoch.core.nova.network.transmitter.TransmitterBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -44,5 +45,19 @@ public class BlockEntities {
             BLOCK_ENTITIES.register("test_transmitter",
                     () -> BlockEntityType.Builder.of(TransmitterBlockEntity::new,
                             Blocks.TEST_TRANSMITTER.get()).build(null)
+            );
+
+    public static final Supplier<BlockEntityType<PartBlockEntity>> PART =
+            BLOCK_ENTITIES.register("part",
+                    () -> BlockEntityType.Builder.of((pos, state) -> {
+                                var block = state.getBlock();
+                                if (block instanceof com.endlessepoch.core.nova.block.part.PartBlock pb)
+                                    return new PartBlockEntity(pos, state, pb.getPartType());
+                                return new PartBlockEntity(pos, state, com.endlessepoch.core.api.multiblock.PartType.INPUT_BUS);
+                            },
+                            Blocks.INPUT_BUS.get(), Blocks.OUTPUT_BUS.get(),
+                            Blocks.INPUT_HATCH.get(), Blocks.OUTPUT_HATCH.get(),
+                            Blocks.INPUT_ASSEMBLY.get(), Blocks.OUTPUT_ASSEMBLY.get()
+                    ).build(null)
             );
 }

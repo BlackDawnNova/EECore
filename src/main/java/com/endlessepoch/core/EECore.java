@@ -97,6 +97,13 @@ public class EECore {
                         output.accept(Items.TEST_TRANSMITTER_ITEM.get());
                         output.accept(Items.SCANNER_CONTROLLER_ITEM.get());
                         output.accept(Items.SCANNER_BOUNDARY_ITEM.get());
+                        // Multiblock parts / 多方块部件
+                        output.accept(Items.INPUT_BUS.get());
+                        output.accept(Items.OUTPUT_BUS.get());
+                        output.accept(Items.INPUT_HATCH.get());
+                        output.accept(Items.OUTPUT_HATCH.get());
+                        output.accept(Items.INPUT_ASSEMBLY.get());
+                        output.accept(Items.OUTPUT_ASSEMBLY.get());
                     })
                     .build()
     );

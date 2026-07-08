@@ -108,5 +108,11 @@
   "block.eecore.plv_machine_casing": "PLV Machine Casing",
   "block.eecore.sv_machine_casing": "SV Machine Casing",
   "block.eecore.bv_machine_casing": "BV Machine Casing",
-  "block.eecore.qv_machine_casing": "QV Machine Casing"
+  "block.eecore.qv_machine_casing": "QV Machine Casing",
+  "block.eecore.input_bus": "Input Bus",
+  "block.eecore.output_bus": "Output Bus",
+  "block.eecore.input_hatch": "Input Hatch",
+  "block.eecore.output_hatch": "Output Hatch",
+  "block.eecore.input_assembly": "Input Assembly",
+  "block.eecore.output_assembly": "Output Assembly"
 }

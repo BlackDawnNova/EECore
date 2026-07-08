@@ -68,6 +68,20 @@ public class Items {
                     () -> new MultiblockScannerItem(new Item.Properties().stacksTo(1))
             );
 
+    // Multiblock parts / 多方块部件
+    public static final Supplier<BlockItem> INPUT_BUS = ITEMS.register("input_bus",
+            () -> new BlockItem(Blocks.INPUT_BUS.get(), new Item.Properties().stacksTo(64)));
+    public static final Supplier<BlockItem> OUTPUT_BUS = ITEMS.register("output_bus",
+            () -> new BlockItem(Blocks.OUTPUT_BUS.get(), new Item.Properties().stacksTo(64)));
+    public static final Supplier<BlockItem> INPUT_HATCH = ITEMS.register("input_hatch",
+            () -> new BlockItem(Blocks.INPUT_HATCH.get(), new Item.Properties().stacksTo(64)));
+    public static final Supplier<BlockItem> OUTPUT_HATCH = ITEMS.register("output_hatch",
+            () -> new BlockItem(Blocks.OUTPUT_HATCH.get(), new Item.Properties().stacksTo(64)));
+    public static final Supplier<BlockItem> INPUT_ASSEMBLY = ITEMS.register("input_assembly",
+            () -> new BlockItem(Blocks.INPUT_ASSEMBLY.get(), new Item.Properties().stacksTo(64)));
+    public static final Supplier<BlockItem> OUTPUT_ASSEMBLY = ITEMS.register("output_assembly",
+            () -> new BlockItem(Blocks.OUTPUT_ASSEMBLY.get(), new Item.Properties().stacksTo(64)));
+
     public static final Supplier<BlockItem> MACHINE_CONTROLLER_ITEM =
             ITEMS.register("machine_controller",
                     () -> new BlockItem(Blocks.MACHINE_CONTROLLER.get(),

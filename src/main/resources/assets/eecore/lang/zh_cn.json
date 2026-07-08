@@ -108,5 +108,11 @@
   "block.eecore.plv_machine_casing": "等离子约束机器外壳",
   "block.eecore.sv_machine_casing": "施温格级机器外壳",
   "block.eecore.bv_machine_casing": "真空衰变级机器外壳",
-  "block.eecore.qv_machine_casing": "普朗克机器外壳"
+  "block.eecore.qv_machine_casing": "普朗克机器外壳",
+  "block.eecore.input_bus": "输入总线",
+  "block.eecore.output_bus": "输出总线",
+  "block.eecore.input_hatch": "输入仓",
+  "block.eecore.output_hatch": "输出仓",
+  "block.eecore.input_assembly": "输入总成",
+  "block.eecore.output_assembly": "输出总成"
 }

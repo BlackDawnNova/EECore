@@ -1,7 +1,10 @@
 package com.endlessepoch.core.api.multiblock;
 
+import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
+import com.endlessepoch.core.nova.block.part.PartBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -15,7 +18,6 @@ public class MultiBlockFormHandler {
         Level level = controllerBE.getLevel();
         BlockPos pos = controllerBE.getBlockPos();
 
-        // Always validate — don't trust cached formed flag / 始终验证，不信任缓存的 formed 标记
         if (!MultiBlockValidator.validate(level, pattern, pos, facing)) {
             if (controller.isFormed()) controller.onMultiblockBroken();
             return false;
@@ -26,7 +28,29 @@ public class MultiBlockFormHandler {
                 controller.stampOwner(player.getUUID(), player.getName().getString());
             }
             controller.onMultiblockFormed();
-            // Stamp all structure blocks for break detection / 标记结构内全部方块
+
+            // Get machineId for part binding / 获取 machineId
+            ResourceLocation machineId = null;
+            if (controllerBE instanceof MachineControllerBlockEntity mcbe)
+                machineId = mcbe.getMachineId();
+
+            // Bind part blocks to controller & stamp positions / 绑定部件 + 标记位置
+            for (int y = 0; y < pattern.height; y++)
+                for (int z = 0; z < pattern.depth; z++)
+                    for (int x = 0; x < pattern.width; x++) {
+                        if (pattern.getChar(x, y, z) == 'A' || pattern.getChar(x, y, z) == ' ') continue;
+                        int rx = x - pattern.controllerX, ry = y - pattern.controllerY, rz = z - pattern.controllerZ;
+                        BlockPos wp = switch (facing) {
+                            case NORTH -> pos.offset(rx, ry, rz);
+                            case SOUTH -> pos.offset(-rx, ry, -rz);
+                            case EAST  -> pos.offset(-rz, ry, rx);
+                            case WEST  -> pos.offset(rz, ry, -rx);
+                            default    -> pos.offset(rx, ry, rz);
+                        };
+                        BlockEntity be = level.getBlockEntity(wp);
+                        if (be instanceof PartBlockEntity part && machineId != null)
+                            part.bindToController(machineId, pos);
+                    }
             if (level instanceof net.minecraft.server.level.ServerLevel sl)
                 MultiBlockBreakDetector.stamp(sl, pattern, pos, facing);
         }
