@@ -115,6 +115,15 @@ dependencies {
         compileOnly files("libs/gtceu-1.21.1-7.0.1.jar")
     }
 
+    def ae2Jar = fileTree("libs").matching { include "*appliedenergistics2*" }
+    if (!ae2Jar.empty) { compileOnly ae2Jar; runtimeOnly ae2Jar }
+
+    def guideMeJar = fileTree("libs").matching { include "*guideme*" }
+    if (!guideMeJar.empty) { compileOnly guideMeJar; runtimeOnly guideMeJar }
+
+    def jadeJar = fileTree("libs").matching { include "*Jade*" }
+    if (!jadeJar.empty) { compileOnly jadeJar; runtimeOnly jadeJar }
+
     // JEI — for multiblock structure preview
     compileOnly "mezz.jei:jei-1.21.1-common-api:19.27.0.343"
     compileOnly "mezz.jei:jei-1.21.1-neoforge-api:19.27.0.343"

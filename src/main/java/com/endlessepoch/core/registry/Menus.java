@@ -1,6 +1,8 @@
 package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
+import com.endlessepoch.core.menu.BusMenu;
+import com.endlessepoch.core.menu.MachineMenu;
 import com.endlessepoch.core.menu.creative.CreativeConsumerMenu;
 import com.endlessepoch.core.menu.creative.CreativeGeneratorMenu;
 import net.minecraft.core.registries.Registries;
@@ -22,5 +24,15 @@ public class Menus {
     public static final Supplier<MenuType<CreativeConsumerMenu>> CREATIVE_CONSUMER =
             MENUS.register("creative_consumer",
                     () -> IMenuTypeExtension.create(CreativeConsumerMenu::new)
+            );
+
+    public static final Supplier<MenuType<BusMenu>> BUS =
+            MENUS.register("bus",
+                    () -> IMenuTypeExtension.create(BusMenu::new)
+            );
+
+    public static final Supplier<MenuType<MachineMenu>> MACHINE =
+            MENUS.register("machine",
+                    () -> IMenuTypeExtension.create(MachineMenu::new)
             );
 }

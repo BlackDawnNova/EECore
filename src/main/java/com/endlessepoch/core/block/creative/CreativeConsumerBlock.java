@@ -19,7 +19,11 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootParams;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public class CreativeConsumerBlock extends BaseEntityBlock {
     public static final MapCodec<CreativeConsumerBlock> CODEC = simpleCodec(CreativeConsumerBlock::new);
@@ -75,5 +79,10 @@ public class CreativeConsumerBlock extends BaseEntityBlock {
                 if (l.isClientSide()) { e.clientTick(); } else { e.serverTick(); }
             }
         };
+    }
+
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
+        return List.of(new ItemStack(this.asItem()));
     }
 }

@@ -2,11 +2,15 @@ package com.endlessepoch.core.nova.block.part;
 
 import com.endlessepoch.core.api.multiblock.PartType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.loot.LootParams;
+
+import java.util.List;
 
 /**
  * Voltage-tier casing block — a structural part with no facing.
@@ -22,6 +26,11 @@ public class CasingBlock extends Block implements EntityBlock {
     }
 
     public PartType getPartType() { return partType; }
+
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
+        return List.of(new ItemStack(this.asItem()));
+    }
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {

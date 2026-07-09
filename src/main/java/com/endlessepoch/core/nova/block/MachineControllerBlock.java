@@ -25,6 +25,8 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootParams;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -63,6 +65,27 @@ public class MachineControllerBlock extends Block implements EntityBlock {
     /** Get all allocated model indices. / 获取所有已分配的模型索引。 */
     public static Map<String, Integer> getModelIndices() {
         return Collections.unmodifiableMap(MODEL_INDEX);
+    }
+
+    /**
+     * Mining speed scales with machine tier from MachineRegistry.
+     * 挖掘速度随机器等级自动调整。
+     */
+    @Override
+    public float getDestroyProgress(BlockState state, Player player,
+                                     net.minecraft.world.level.BlockGetter level, BlockPos pos) {
+        float base = super.getDestroyProgress(state, player, level, pos);
+        if (base <= 0) return base;
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be instanceof MachineControllerBlockEntity mc && mc.getMachineId() != null) {
+            var def = com.endlessepoch.core.api.multiblock.MachineRegistry.get(mc.getMachineId());
+            if (def.isPresent()) {
+                int tier = def.get().getTier();
+                float h = 3.0f + tier * 3.0f;
+                return base * (3.0f / h);
+            }
+        }
+        return base;
     }
 
     @Nullable
@@ -120,7 +143,23 @@ public class MachineControllerBlock extends Block implements EntityBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
                                                 Player player, BlockHitResult hit) {
-        if (!player.isShiftKeyDown()) return InteractionResult.PASS;
+        if (!player.isShiftKeyDown()) {
+            // Normal click: open machine GUI / 普通点击：打开机器界面
+            if (!level.isClientSide()) {
+                BlockEntity be = level.getBlockEntity(pos);
+                if (be instanceof MachineControllerBlockEntity mc) {
+                    var def = com.endlessepoch.core.api.multiblock.MachineRegistry.get(mc.getMachineId());
+                    String en = def.map(com.endlessepoch.core.api.multiblock.MachineDefinition::getNameEn).orElse("Machine");
+                    String zh = def.map(com.endlessepoch.core.api.multiblock.MachineDefinition::getNameZh).orElse("机器");
+                    player.openMenu(mc, buf -> {
+                        buf.writeBlockPos(pos);
+                        buf.writeUtf(en);
+                        buf.writeUtf(zh);
+                    });
+                }
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide());
+        }
         if (level.isClientSide()) return InteractionResult.SUCCESS;
 
         BlockEntity be = level.getBlockEntity(pos);
@@ -163,7 +202,7 @@ public class MachineControllerBlock extends Block implements EntityBlock {
             for (int z = 0; z < d; z++)
                 for (int x = 0; x < w; x++) {
                     char c = pat.getChar(x, y, z);
-                    if (c == 'A' || c == ' ') continue;
+                    if (c == 'A' || c == ' ' || c == com.endlessepoch.ecsformat.EcsFormat.CHAR_CONTROLLER) continue;
                     int rx = x - pat.controllerX, ry = y - pat.controllerY, rz = z - pat.controllerZ;
                     BlockPos worldPos = switch (facing) {
                         case NORTH -> controllerPos.offset(rx, ry, rz);
@@ -179,7 +218,10 @@ public class MachineControllerBlock extends Block implements EntityBlock {
                         mWorld.add(worldPos.getX()); mWorld.add(worldPos.getY()); mWorld.add(worldPos.getZ());
                     } else if (expected != null && expected.getBlock() != worldState.getBlock()) {
                         var alts = pat.getAlternatives(c);
-                        if (!alts.contains(worldState)) {
+                        boolean altMatch = false;
+                        for (var alt : alts)
+                            if (alt.getBlock() == worldState.getBlock()) { altMatch = true; break; }
+                        if (!altMatch) {
                             wLocal.add(x); wLocal.add(y); wLocal.add(z);
                             wWorld.add(worldPos.getX()); wWorld.add(worldPos.getY()); wWorld.add(worldPos.getZ());
                         }
@@ -196,5 +238,10 @@ public class MachineControllerBlock extends Block implements EntityBlock {
         int[] arr = new int[len];
         for (int i = 0; i < len; i++) arr[i] = list.get(i);
         return arr;
+    }
+
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
+        return List.of(new ItemStack(this.asItem()));
     }
 }

@@ -1,1 +1,1 @@
-{"parent":"eecore:block/ee_base_12_front_emissive","textures":{"particle":"eecore:block/casings/voltage/lv/side","all":"eecore:block/casings/voltage/lv/side","front":"eecore:block/output_assembly","overlay_emissive":"eecore:block/output_assembly"}}
+{"parent":"eecore:block/ee_base_12","textures":{"particle":"eecore:block/casings/voltage/lv/side","all":"eecore:block/casings/voltage/lv/side","front":"eecore:block/parts/output_assembly/overlay_front"}}

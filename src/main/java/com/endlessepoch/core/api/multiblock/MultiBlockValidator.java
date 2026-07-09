@@ -54,8 +54,13 @@ public final class MultiBlockValidator {
                     }
 
                     for (String tag : pattern.getTags(expected)) {
-                        int mc = TagDefRegistry.getMaxCount(tag);
-                        if (mc > 0) { tagCounts.merge(tag, 1, Integer::sum); tagLimits.put(tag, mc); }
+                        int mc = pattern.getBlockLimit(tag, actual.getBlock());
+                        if (mc <= 0) mc = TagDefRegistry.getMaxCount(tag);
+                        if (mc > 0) {
+                            String key = tag + "|" + actual.getBlock().hashCode();
+                            tagCounts.merge(key, 1, Integer::sum);
+                            tagLimits.put(key, mc);
+                        }
                     }
                 }
         for (var e : tagCounts.entrySet()) {

@@ -46,6 +46,10 @@ OmegaValue energy = storage.getEnergyStored(VoltageTier.LV);
 MultiblockLoader.load(ResourceLocation.parse("mymod:my_machine"))
     .name("My Machine", "我的机器")
     .tier(1)  // LV casing
+    .where("busTag", ModBlocks.INPUT_BUS.get())
+        .or(ModBlocks.OUTPUT_BUS.get())
+    .limit("busTag", ModBlocks.INPUT_BUS.get(), 2)
+    .limit("busTag", ModBlocks.OUTPUT_BUS.get(), 1)
     .register(ResourceLocation.parse("mymod:my_machine"));
 ```
 

@@ -14,6 +14,8 @@ public final class MultiBlockPattern {
     private final Map<Character, BlockState> definitions;
     private final Map<Character, Set<BlockState>> alternatives = new LinkedHashMap<>();
     private final Map<Character, List<String>> tags = new LinkedHashMap<>();
+    // Per-pattern per-block limits / 每个 pattern 独立的方块上限
+    private final Map<String, Map<Block, Integer>> blockLimits = new LinkedHashMap<>();
     private final java.util.List<BlockPos> nonAirPositions;
     private final java.util.List<BlockPos> nonAirControllers;
 
@@ -136,6 +138,15 @@ public final class MultiBlockPattern {
                 for (Block b : TagDefRegistry.getBlocks(tag))
                     addAlternatives(c, b.defaultBlockState());
         }
+    }
+
+    /** Per-block limit for a tag. -1 = unlimited. / 某方块在标签中的上限。 */
+    public void setBlockLimit(String tag, Block block, int max) {
+        blockLimits.computeIfAbsent(tag, k -> new LinkedHashMap<>()).put(block, max);
+    }
+    public int getBlockLimit(String tag, Block block) {
+        var m = blockLimits.get(tag);
+        return m != null ? m.getOrDefault(block, 0) : 0;
     }
 
     public Map<Character, BlockState> getDefinitions() { return definitions; }

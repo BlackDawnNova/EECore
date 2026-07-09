@@ -8,6 +8,7 @@ import com.endlessepoch.core.nova.block.ScannerControllerBlockEntity;
 import com.endlessepoch.core.nova.block.part.PartBlockEntity;
 import com.endlessepoch.core.nova.network.transmitter.TransmitterBlockEntity;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -63,12 +64,9 @@ public class BlockEntities {
                         };
                         return BlockEntityType.Builder.of((pos, state) -> {
                                     var block = state.getBlock();
-                                    var pt = block instanceof com.endlessepoch.core.nova.block.part.PartBlock pb
-                                            ? pb.getPartType()
-                                            : block instanceof com.endlessepoch.core.nova.block.part.CasingBlock cb
-                                                    ? cb.getPartType()
-                                                    : com.endlessepoch.core.api.multiblock.PartType.CASING;
-                                    return new PartBlockEntity(pos, state, pt);
+                                    if (block instanceof EntityBlock eb)
+                                        return (PartBlockEntity) eb.newBlockEntity(pos, state);
+                                    return new PartBlockEntity(pos, state, com.endlessepoch.core.api.multiblock.PartType.CASING);
                                 }, bb).build(null);
                     }
             );

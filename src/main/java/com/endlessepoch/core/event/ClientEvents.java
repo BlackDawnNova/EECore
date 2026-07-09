@@ -4,6 +4,9 @@ import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.client.model.CasingBakedModel;
 import com.endlessepoch.core.client.model.MachineModelLoader;
 import com.endlessepoch.core.registry.Menus;
+import com.endlessepoch.core.screen.BusScreen;
+import com.endlessepoch.core.screen.MachineTestScreen;
+import com.endlessepoch.core.menu.MachineMenu;
 import com.endlessepoch.core.screen.creative.CreativeConsumerScreen;
 import com.endlessepoch.core.screen.creative.CreativeGeneratorScreen;
 import net.minecraft.client.resources.model.BakedModel;
@@ -22,6 +25,8 @@ public class ClientEvents {
     public static void onRegisterScreens(RegisterMenuScreensEvent event) {
         event.register(Menus.CREATIVE_GENERATOR.get(), CreativeGeneratorScreen::new);
         event.register(Menus.CREATIVE_CONSUMER.get(), CreativeConsumerScreen::new);
+        event.register(Menus.BUS.get(), BusScreen::new);
+        event.register(Menus.MACHINE.get(), MachineTestScreen::new);
     }
 
     @SubscribeEvent
