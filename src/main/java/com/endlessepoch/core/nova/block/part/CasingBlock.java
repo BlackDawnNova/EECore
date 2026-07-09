@@ -50,6 +50,7 @@ public class CasingBlock extends Block implements EntityBlock {
                     if (pattern.isPresent() && !com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(
                             level, pattern.get(), ctrl, mc.getFacing())) {
                         mc.onMultiblockBroken();
+                        com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.notifyBreak(mc, ctrl, level);
                     }
                 }
             }

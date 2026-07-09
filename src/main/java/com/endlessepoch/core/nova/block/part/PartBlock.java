@@ -170,6 +170,7 @@ public class PartBlock extends Block implements EntityBlock {
                         if (p.isPresent() && !MultiBlockValidator.validate(
                                 level, p.get(), ctrl, mc.getFacing())) {
                             mc.onMultiblockBroken();
+                            MultiBlockFormHandler.notifyBreak(mc, ctrl, level);
                         }
                     }
                 }

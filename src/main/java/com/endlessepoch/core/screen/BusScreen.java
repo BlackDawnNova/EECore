@@ -46,25 +46,17 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
         int cols = Math.min(menu.getSlotCount(), 9);
         int slotX = 8 + (9 - cols) * 9;
         for (int i = 0; i < menu.getSlotCount(); i++)
-            drawSlot(g, x + slotX + (i % 9) * 18, y + 18 + (i / 9) * 18);
+            ScreenUtil.drawSlot(g, x + slotX + (i % 9) * 18, y + 18 + (i / 9) * 18);
         // Player inventory / 玩家背包
         int totalRows = (menu.getSlotCount() + 8) / 9;
         int gap = totalRows <= 3 ? 14 : 20;
         int invY = 18 + totalRows * 18 + gap;
         for (int r = 0; r < 3; r++)
             for (int c = 0; c < 9; c++)
-                drawSlot(g, x + 8 + c * 18, y + invY + r * 18);
+                ScreenUtil.drawSlot(g, x + 8 + c * 18, y + invY + r * 18);
         int hotY = invY + 3 * 18 + 4;
         for (int c = 0; c < 9; c++)
-            drawSlot(g, x + 8 + c * 18, y + hotY);
+            ScreenUtil.drawSlot(g, x + 8 + c * 18, y + hotY);
     }
 
-    private static void drawSlot(GuiGraphics g, int sx, int sy) {
-        g.fill(sx, sy, sx + 16, sy + 16, 0xFF_8B8B8B);
-        g.fill(sx + 1, sy + 1, sx + 15, sy + 15, 0xFF_373737);
-        g.fill(sx, sy, sx + 16, sy + 1, 0xFF_2B2B2B);
-        g.fill(sx, sy, sx + 1, sy + 16, 0xFF_2B2B2B);
-        g.fill(sx + 15, sy, sx + 16, sy + 16, 0xFF_FFFFFF);
-        g.fill(sx, sy + 15, sx + 16, sy + 16, 0xFF_FFFFFF);
-    }
 }

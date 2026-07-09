@@ -49,22 +49,13 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
 
         int rx = x + 170;
         for (int i = 0; i < 6; i++) {
-            drawSlot(g, rx, y + 11 + i * 34);
+            ScreenUtil.drawSlot(g, rx, y + 11 + i * 34);
         }
 
         for (int r = 0; r < 3; r++)
             for (int c = 0; c < 9; c++)
-                drawSlot(g, x + 8 + c * 18, y + 124 + r * 18);
+                ScreenUtil.drawSlot(g, x + 8 + c * 18, y + 124 + r * 18);
         for (int c = 0; c < 9; c++)
-            drawSlot(g, x + 8 + c * 18, y + 182);
-    }
-
-    private static void drawSlot(GuiGraphics g, int sx, int sy) {
-        g.fill(sx, sy, sx + 16, sy + 16, 0xFF_8B8B8B);
-        g.fill(sx + 1, sy + 1, sx + 15, sy + 15, 0xFF_373737);
-        g.fill(sx, sy, sx + 16, sy + 1, 0xFF_2B2B2B);
-        g.fill(sx, sy, sx + 1, sy + 16, 0xFF_2B2B2B);
-        g.fill(sx + 15, sy, sx + 16, sy + 16, 0xFF_FFFFFF);
-        g.fill(sx, sy + 15, sx + 16, sy + 16, 0xFF_FFFFFF);
+            ScreenUtil.drawSlot(g, x + 8 + c * 18, y + 182);
     }
 }
