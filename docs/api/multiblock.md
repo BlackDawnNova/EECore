@@ -317,30 +317,26 @@ Vanilla blocks: speed=9, correctTool=true   → netherite-tier
 
 All blocks have `getDrops()` code override (no loot table JSONs needed). / 所有方块已覆写 `getDrops()`，无需 loot table JSON。
 
-**IItemHandler Capability** — registered automatically:
-
+**IItemHandler Capability** — registered automatically for bus blocks / 总线方块自动注册:
 ```java
 // INPUT_BUS, OUTPUT_BUS → bus.getInventory()
-// MACHINE_CONTROLLER → mc.getInventory() (9 input + 9 output slots)
 ```
+
+Bus blocks open GUI on right-click (`BusMenu` + `BusScreen`), auto-expanding height, 1-81 configurable slots. / 总线右键打开 GUI，高度自适应，1-81 格可配。
 
 ### MachineScreen / 机器界面
 
-Generic base screen for all machine GUIs. Addon mods extend for custom functionality.
-通用机器界面基类，附属 mod 继承后自定义功能。
+Generic base screen. Addon mods extend for custom recipe slots, progress bars, etc. / 通用机器界面基类，附属 mod 继承后自定义配方槽位、进度条等。
 
 ```java
-// Built-in / 内置
 public class MyScreen extends MachineScreen<MyMenu> {
     public MyScreen(MyMenu menu, Inventory inv, Component title) {
         super(menu, inv, title);
     }
-
     @Override
     protected void renderBg(GuiGraphics g, float p, int mx, int my) {
-        // Custom background or call super for default / 自定义背景或调父类
-        super.renderBg(g, p, mx, my);
-        // Add recipe slots, progress bars, energy bars... / 加配方槽位,进度条,能量条...
+        super.renderBg(g, p, mx, my);  // keep base layout / 保留基础布局
+        // draw custom slots, bars... / 画自定义槽位、进度条...
     }
 }
 ```
@@ -348,17 +344,11 @@ public class MyScreen extends MachineScreen<MyMenu> {
 - `imageWidth`/`imageHeight`: custom dimensions / 自定义尺寸
 - `BG`: protected, override for custom texture / 覆写贴图
 - Title auto-resolves bilingual via menu buffer / 标题通过菜单缓冲区双语解析
-- Right side reserved slots (6 positions, marked K1-K6) / 右侧预留槽位(6个)
+- Right side reserved slots (6 positions, marked K1-K6) / 右侧预留槽位
 
 ### WrenchItem / 扳手
 
-Creative wrench for fast EECore block mining. / 创意扳手快速挖掘 EECore 方块。
-`eecore:wrench` — speed=100 on EECore blocks, speed=9 (netherite) on vanilla.
-
-### BusMenu / BusScreen
-
-Right-click input/output bus blocks opens inventory GUI. / 右键总线方块打开物品GUI。
-Auto-expanding height, 1-81 configurable slots. / 高度自适应, 1-81格可配。
+`eecore:wrench` — speed=100 on EECore blocks, speed=9 (netherite) on vanilla. / 创意扳手，EECore 方块 speed=100，原版 speed=9。
 
 ---
 
