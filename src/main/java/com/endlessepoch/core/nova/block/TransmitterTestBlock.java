@@ -17,7 +17,11 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootParams;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 /**
  * Minimal transmitter test block.
@@ -78,5 +82,10 @@ public class TransmitterTestBlock extends Block implements EntityBlock {
                     + " | Buffer: " + tx.getBufferEnergy() + " / " + tx.getBufferCapacity()));
         }
         return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
+        return List.of(new ItemStack(this.asItem()));
     }
 }

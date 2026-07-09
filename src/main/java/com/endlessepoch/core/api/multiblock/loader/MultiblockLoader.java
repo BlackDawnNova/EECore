@@ -8,6 +8,7 @@ import com.endlessepoch.core.api.multiblock.MachineEffectRegistry;
 import com.endlessepoch.core.api.multiblock.MachineRegistry;
 import com.endlessepoch.core.api.multiblock.MultiBlockPattern;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
+import com.endlessepoch.core.api.multiblock.TagDefRegistry;
 import com.endlessepoch.core.registry.Items;
 import com.endlessepoch.ecsformat.EcsFormat;
 import net.minecraft.resources.ResourceLocation;
@@ -30,6 +31,7 @@ public final class MultiblockLoader {
     private boolean offSet;
     private IMachineEffect effect;
     private String itemId;
+    private final Map<String, Map<Block, Integer>> perBlockLimits = new LinkedHashMap<>();
 
     private MultiblockLoader(ResourceLocation ecsFile) { this.ecsFile = ecsFile; }
     public static MultiblockLoader load(ResourceLocation ecsFile) { return new MultiblockLoader(ecsFile); }
@@ -42,6 +44,14 @@ public final class MultiblockLoader {
 
     public MultiblockLoader or(Block... blocks) {
         if (lastTag != null) tagBindings.get(lastTag).addAll(Arrays.asList(blocks));
+        return this;
+    }
+
+    /**
+     * Set per-block max count for a tag. -1 = unlimited. / 设置某方块在标签中的上限。
+     */
+    public MultiblockLoader limit(String tag, Block block, int maxCount) {
+        perBlockLimits.computeIfAbsent(tag, k -> new LinkedHashMap<>()).put(block, maxCount);
         return this;
     }
 
@@ -80,6 +90,11 @@ public final class MultiblockLoader {
                 for (char c : pattern.getDefinitions().keySet())
                     if (pattern.getTags(c).contains(e.getKey()))
                         pattern.addAlternatives(c, b.defaultBlockState());
+
+        // 2b. Register per-block limits on pattern / 每方块上限存 pattern
+        for (var e : perBlockLimits.entrySet())
+            for (var be : e.getValue().entrySet())
+                pattern.setBlockLimit(e.getKey(), be.getKey(), be.getValue());
 
         // 3. Create MachineDefinition / 创建定义
         String en = nameEn != null ? nameEn : machineId.getPath();

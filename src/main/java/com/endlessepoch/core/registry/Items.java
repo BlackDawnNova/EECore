@@ -1,10 +1,12 @@
 package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
+import com.endlessepoch.core.nova.block.part.PartBlock;
 import com.endlessepoch.core.nova.item.LaserLinkCardItem;
 import com.endlessepoch.core.nova.block.ScannerBoundaryBlock;
 import com.endlessepoch.core.nova.block.MachineControllerItem;
 import com.endlessepoch.core.nova.item.MultiblockScannerItem;
+import com.endlessepoch.core.nova.item.WrenchItem;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
@@ -27,6 +29,44 @@ public class Items {
 
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(Registries.ITEM, EECore.MOD_ID);
+
+    /** Accumulate block IDs per tag, then flush to JSON. / 收集方块ID，最后写入标签JSON。 */
+    static final java.util.Map<String, java.util.LinkedHashSet<String>> TAG_BLOCKS = new java.util.LinkedHashMap<>();
+    static void addToTag(String tag, String blockId) {
+        TAG_BLOCKS.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>()).add("eecore:" + blockId);
+    }
+
+    /**
+     * Project root resolved from working directory. gameDirectory=run → root is parent.
+     * 项目根目录，gameDirectory 在 run/ 下时回退到父目录。
+     */
+    private static final java.nio.file.Path PROJECT_ROOT;
+    static {
+        java.nio.file.Path cwd = java.nio.file.Path.of("").toAbsolutePath();
+        if (cwd.endsWith("run") && java.nio.file.Files.exists(cwd.resolve("../build.gradle"))) {
+            PROJECT_ROOT = cwd.resolve("..").normalize().toAbsolutePath();
+        } else {
+            PROJECT_ROOT = cwd;
+        }
+    }
+
+    /**
+     * Check if an emissive texture variant exists on disk. / 检查发光贴图是否存在。
+     * overlayTex "eecore:block/parts/input_bus/overlay_front"
+     * → checks "assets/eecore/textures/block/parts/input_bus/overlay_front_e.png"
+     */
+    private static boolean hasEmissiveTexture(String overlayTex) {
+        int colon = overlayTex.indexOf(':');
+        if (colon < 0) return false;
+        String ns = overlayTex.substring(0, colon);
+        String tex = overlayTex.substring(colon + 1);
+        String emissivePath = "assets/" + ns + "/textures/" + tex + "_e.png";
+        for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
+            if (java.nio.file.Files.exists(PROJECT_ROOT.resolve(base).resolve(emissivePath)))
+                return true;
+        }
+        return false;
+    }
 
     public static final Supplier<BlockItem> CREATIVE_GENERATOR_ITEM =
             ITEMS.register("creative_generator",
@@ -68,6 +108,9 @@ public class Items {
                     () -> new MultiblockScannerItem(new Item.Properties().stacksTo(1))
             );
 
+    public static final Supplier<WrenchItem> WRENCH =
+            ITEMS.register("wrench", () -> new WrenchItem(new Item.Properties()));
+
     // Multiblock parts / 多方块部件
     public static final Supplier<BlockItem> INPUT_BUS = registerPartItem("input_bus", 1);
     public static final Supplier<BlockItem> OUTPUT_BUS = registerPartItem("output_bus", 1);
@@ -97,13 +140,16 @@ public class Items {
         String casingName = com.endlessepoch.core.api.tier.VoltageTier.fromOrdinal(tier).name().toLowerCase();
         String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
 
-        // Block model / 方块模型
-        String blockModel = "{\"parent\":\"eecore:block/ee_base_12_front_emissive\"," +
+        // Block model — auto-select emissive parent if _e texture exists / 自动检测发光贴图选父模型
+        boolean hasE = hasEmissiveTexture(overlayTex);
+        String parent = hasE ? "eecore:block/ee_base_12_front_emissive" : "eecore:block/ee_base_12";
+        String blockModel = "{\"parent\":\"" + parent + "\"," +
                 "\"textures\":{" +
                 "\"particle\":\"" + casingTex + "\"," +
                 "\"all\":\"" + casingTex + "\"," +
-                "\"front\":\"" + overlayTex + "\"," +
-                "\"overlay_emissive\":\"" + overlayTex + "_e\"}}";
+                "\"front\":\"" + overlayTex + "\"";
+        if (hasE) blockModel += ",\"overlay_emissive\":\"" + overlayTex + "_e\"";
+        blockModel += "}}";
         writeJson("models/block", id, blockModel);
 
         // Blockstate / 方块状态
@@ -133,6 +179,9 @@ public class Items {
                 "\"faces\":{" +
                 "\"north\":{\"uv\":[2,2,14,14],\"texture\":\"#front\"}}}]}";
         writeJson("models/item", id, itemModel);
+
+        // Tool tier tag for future custom tools / 工具等级标签（后续自定义工具用）
+        addToTag(PartBlock.toolTagForTier(tier), id);
 
         return sup;
     }
@@ -215,19 +264,24 @@ public class Items {
         String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
         String overlayFront = "eecore:block/machines/" + itemId + "/overlay_front";
 
-        // Block model / 方块模型
-        String blockModel = "{\"parent\":\"eecore:block/ee_base_12_front_emissive\"," +
+        // Block model — auto-select emissive parent if _e texture exists / 自动检测发光贴图选父模型
+        boolean hasE = hasEmissiveTexture(overlayFront);
+        String parent = hasE ? "eecore:block/ee_base_12_front_emissive" : "eecore:block/ee_base_12";
+        String blockModel = "{\"parent\":\"" + parent + "\"," +
             "\"textures\":{" +
             "\"particle\":\"" + casingTex + "\"," +
             "\"all\":\"" + casingTex + "\"," +
-            "\"front\":\"" + overlayFront + "\"," +
-            "\"overlay_emissive\":\"" + overlayFront + "_e\"}}";
+            "\"front\":\"" + overlayFront + "\"";
+        if (hasE) blockModel += ",\"overlay_emissive\":\"" + overlayFront + "_e\"";
+        blockModel += "}}";
         writeJson("models/block/machines/" + itemId, "controller", blockModel);
 
-        // Register emissive for ALL machine_controller variants / 注册发光渲染（按方块ID匹配）
-        com.endlessepoch.core.api.client.EmissiveHelper.registerEmissiveModel(
-                "eecore:machine_controller",
-                "eecore:block/machines/" + itemId + "/overlay_front_e");
+        // Register emissive if _e texture exists / 有发光贴图才注册
+        if (hasE) {
+            com.endlessepoch.core.api.client.EmissiveHelper.registerEmissiveModel(
+                    "eecore:machine_controller",
+                    "eecore:block/machines/" + itemId + "/overlay_front_e");
+        }
 
         // Item model / 物品模型
         String itemModel = "{\"parent\":\"block/block\"," +
@@ -280,11 +334,36 @@ public class Items {
         return "eecore:block/machine_controller";
     }
 
+    static {
+        // After all registrations, write tag JSONs / 所有注册完成后写入标签
+        for (var e : TAG_BLOCKS.entrySet()) {
+            String[] parts = e.getKey().split(":", 2);
+            String ns = parts[0], path = parts.length > 1 ? parts[1] : parts[0];
+            var sb = new StringBuilder("{\"replace\":false,\"values\":[");
+            boolean first = true;
+            for (String id : e.getValue()) {
+                if (!first) sb.append(",");
+                sb.append("\"").append(id).append("\"");
+                first = false;
+            }
+            sb.append("]}");
+            for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
+                try {
+                    var d = PROJECT_ROOT.resolve(base).resolve("data").resolve(ns)
+                            .resolve("tags").resolve("block");
+                    java.nio.file.Files.createDirectories(d);
+                    java.nio.file.Files.writeString(d.resolve(path + ".json"), sb.toString());
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
     /** Write a JSON file to both src/ and build/resources/. / 写入 JSON 到 src 和 build。 */
     private static void writeJson(String subPath, String fileName, String json) {
         for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
             try {
-                var d = java.nio.file.Path.of(base, "assets", "eecore", subPath);
+                var d = PROJECT_ROOT.resolve(base).resolve("assets").resolve("eecore")
+                        .resolve(java.nio.file.Path.of("", subPath));
                 java.nio.file.Files.createDirectories(d);
                 java.nio.file.Files.writeString(d.resolve(fileName + ".json"), json);
             } catch (Exception ignored) {}

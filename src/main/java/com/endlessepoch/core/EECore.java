@@ -117,6 +117,7 @@ public class EECore {
                     .displayItems((params, output) -> {
                         output.accept(Items.MULTIBLOCK_SCANNER.get());
                         output.accept(Items.LASER_LINK_CARD.get());
+                        output.accept(Items.WRENCH.get());
                     })
                     .build()
     );
@@ -143,9 +144,9 @@ public class EECore {
         modEventBus.addListener(this::registerPayloadHandlers);
         modEventBus.addListener(EECore::onBuildCreativeTab);
 
-        // Machines: register before DeferredRegister freezes / 机器须在注册冻结前完成
+        // Register machine items before DeferredRegister freezes / 注册机器物品
         EECoreMachines.registerAll();
-        com.endlessepoch.core.api.multiblock.MachineRegistry.autoRegisterAll();
+        NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.event.BlockPlaceHandler::onBlockPlace);
         NeoForge.EVENT_BUS.addListener(EECoreCommands::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.multiblock.PatternStorage::onServerStarting);
         // Ghost preview for validation failures / 成形失败幽灵预览
@@ -180,7 +181,9 @@ public class EECore {
         MultiBlockRegistry.registerControllerBlock(com.endlessepoch.core.registry.Blocks.SCANNER_CONTROLLER.get());
         MultiBlockRegistry.registerControllerBlock(com.endlessepoch.core.registry.Blocks.MACHINE_CONTROLLER.get());
 
-        // Machine registration is done in constructor / 机器注册在构造函数完成
+        // Apply tag bindings (requires bound blocks) / 标签绑定（需要已注册的方块）
+        EECoreMachines.applyBindings();
+        com.endlessepoch.core.api.multiblock.MachineRegistry.autoRegisterAll();
 
         LOGGER.info(MOD_NAME + " initialized");
         LOGGER.info("Omega system: 12 tiers ELV~QV, 1Ω = 2FE");

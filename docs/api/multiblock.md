@@ -55,6 +55,8 @@ MultiblockLoader.load(ResourceLocation.parse("mymod:structure_name"))
     .effect("eecore:celestial")               // visual effect / 视觉特效（可选）
     .where("TagName", Blocks.IRON_BLOCK)       // tag→block binding / 标记→方块绑定
         .or(Blocks.GOLD_BLOCK)                // alternative / 替代
+    .limit("TagName", Blocks.IRON_BLOCK, 2)   // per-block max count (per-machine, independent) / 每方块上限（每机器独立）
+    .limit("TagName", Blocks.GOLD_BLOCK, 1)   // -1 = unlimited / -1 = 无限
     .itemId("custom_item_id")                 // custom item registry name / 自定义物品注册名（可选）
     .register(ResourceLocation.parse("your_mod:machine_id"));
 ```
@@ -74,8 +76,8 @@ def.getTier();           // voltage tier / 电压等级
 def.getEffect();         // IMachineEffect or null
 def.getBlock();          // controller block / 控制器方块
 def.getItem();           // controller item / 控制器物品
-def.getPattern();        // MultiBlockPattern
-def.getCenterOffset();   // controller→center offset / 中心偏移
+def.getPattern();        // Optional<MultiBlockPattern>
+def.getOffX/Y/Z();      // controller→center offset per axis / 中心偏移各轴
 ```
 
 ### MachineRegistry / 机器注册表
@@ -91,20 +93,30 @@ MachineRegistry.autoRegisterAll();        // scan config/ for sidecar .ecs / 自
 ```json
 {"name_en":"My Machine","name_zh":"我的机器","tier":"1","effect":"eecore:celestial"}
 ```
+Note: sidecar JSON only supports basic metadata (name, tier, effect). For tag bindings and per-block limits, use the code API (MultiblockLoader or EECoreMachines). / 边车 JSON 仅支持基础元数据。标签绑定和上限请用代码 API。
 
 ### EECoreMachines (built-in) / EECoreMachines（内置）
 
-```java
-public static final MachineDef MY_MACHINE = new MachineDef()
-    .ecs("eecore", "my_structure")     // data/eecore/structures/my_structure.ecs
-    .name("My Machine", "我的机器")
-    .tier(2)                            // MV casing
-    .center(0, 10, 0)                   // controller→center offset (optional)
-    .effect("eecore:celestial")         // visual effect (optional)
-    .out("eecore:my_machine");          // item registry ID
+`MachineDef` is an **internal helper** inside `EECoreMachines.java`. Addon mods should use `MultiblockLoader` directly—it has the same API. / `MachineDef` 是 EECore 内部的便捷封装，附属 mod 直接用 `MultiblockLoader`，API 一致。
 
-// In registerAll():
+```java
+// EECore internal / EECore 内部用
+public static final MachineDef MY_MACHINE = new MachineDef()
+    .ecs("eecore", "my_structure")
+    .name("My Machine", "我的机器")
+    .tier(2)
+    .center(0, 10, 0)
+    .effect("eecore:celestial")
+    .where("EE-0", Blocks.OBSIDIAN).or(Blocks.CRYING_OBSIDIAN)
+    .limit("EE-0", Blocks.OBSIDIAN, 4)
+    .limit("EE-0", Blocks.CRYING_OBSIDIAN, 2)
+    .out("eecore:my_machine");
 MY_MACHINE.register();
+
+// Addon mods use MultiblockLoader directly / 附属 mod 直接调
+MultiblockLoader.load(ResourceLocation.parse("mymod:my_machine"))
+    .name(...).tier(2).where("EE-0", ...).limit(...)
+    .register(ResourceLocation.parse("mymod:my_machine"));
 ```
 
 ---
@@ -228,12 +240,16 @@ MultiBlockRegistry.getAll(playerId);
 
 ### TagDefRegistry
 
+Tag-level global limit (shared across all machines using this tag) / tag级全局上限（所有使用此 tag 的机器共享）：
+
 ```java
 TagDefRegistry.register("gregtech:input_hatch",
     Set.of(SLV_HATCH, LV_HATCH, HV_HATCH),
     4  // global limit / 全局上限
 );
 ```
+
+For per-machine per-block limits, use `MultiblockLoader.limit()` instead — limits are stored per-pattern, independent across machines. / 每机器每方块独立上限用 `MultiblockLoader.limit()`——上限存 pattern，不同机器互不影响。
 
 ### IMultiBlockController
 
@@ -245,6 +261,69 @@ void onMultiblockBroken();
 UUID getOwnerUUID();
 String getOwnerName();
 void stampOwner(UUID owner, String name);
+```
+
+### IPart / PartBlock System / 部件系统
+
+Blocks that can be multiblock parts implement `IPart`. EECore provides `PartBlock` as the base.
+
+```java
+// IPart interface / 部件接口
+Set<PartAbility> getAbilities();       // ITEM_INPUT, ITEM_OUTPUT, FLUID_INPUT, etc.
+void onFormed(machineId, controllerPos);
+void onBroken();
+BlockPos getControllerPos();
+ResourceLocation getMachineId();
+boolean isFormed();
+```
+
+**PartBlock** — base block class for all parts:
+
+```java
+// Built-in LV part (default 4 slots) / 内置LV部件（默认4格）
+new PartBlock(Properties.of(), PartType.INPUT_BUS)
+
+// Custom tier + custom slot count / 自定义等级+格数
+new PartBlock(PartBlock.tieredProperties(5), PartType.INPUT_BUS, 18)
+// → UHV casing texture, hardness=18, 18 slots
+
+// Static utilities / 静态工具
+PartBlock.tieredProperties(int tier)   // h=3+tier*3, blast=6+tier*3
+PartBlock.toolTagForTier(int tier)     // needs_stone/iron/diamond/netherite_tool
+PartBlock.DEFAULT_BUS_SLOTS            // 4
+PartBlock.MAX_BUS_SLOTS                // 81
+```
+
+**InputBusBlockEntity** — bus with `IItemHandler` inventory, right-click opens GUI:
+
+```java
+bus.getInventory()     // IItemHandler (hopper/pipe compatible / 漏斗管道可交互)
+bus.getSlotCount()     // configurable at construction time / 构造时可配
+```
+
+Right-click opens `BusMenu` with auto-expanding `BusScreen` (inset slots, dynamic height, ≤3 rows compact).
+
+**CasingBlock** — structural part with no facing:
+
+```java
+new CasingBlock(Properties.of(), PartType.CASING)
+// Block hardness auto-scaled by tier in Blocks.java registration
+```
+
+**WrenchItem** — creative wrench for EECore blocks (`eecore:wrench`):
+
+```
+EECore blocks: speed=100, correctTool=true  → very fast
+Vanilla blocks: speed=9, correctTool=true   → netherite-tier
+```
+
+All blocks have `getDrops()` code override (no loot table JSONs needed). / 所有方块已覆写 `getDrops()`，无需 loot table JSON。
+
+**IItemHandler Capability** — registered automatically:
+
+```java
+// INPUT_BUS, OUTPUT_BUS → bus.getInventory()
+// MACHINE_CONTROLLER → mc.getInventory() (9 input + 9 output slots)
 ```
 
 ---

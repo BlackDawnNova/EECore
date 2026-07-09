@@ -69,6 +69,8 @@ public class Blocks {
     public static final Supplier<Block> MACHINE_CONTROLLER = BLOCKS.register(
             "machine_controller",
             () -> new MachineControllerBlock(BlockBehaviour.Properties.of()
+                    .strength(3.0f, 6.0f)
+                    .requiresCorrectToolForDrops()
                     .mapColor(MapColor.COLOR_BLACK)
                     .strength(2.0f)
                     .noOcclusion()
@@ -102,11 +104,14 @@ public class Blocks {
     public static final Supplier<Block> BV_MACHINE_CASING  = registerCasing("bv",  MapColor.COLOR_BLACK);
     public static final Supplier<Block> QV_MACHINE_CASING  = registerCasing("qv",  MapColor.GOLD);
 
-    private static Supplier<Block> registerCasing(String tier, MapColor color) {
-        return BLOCKS.register(tier + "_machine_casing",
+    private static Supplier<Block> registerCasing(String tierName, MapColor color) {
+        int tier = com.endlessepoch.core.api.tier.VoltageTier.fromShortName(tierName).getIndex();
+        String id = tierName + "_machine_casing";
+        Items.addToTag(com.endlessepoch.core.nova.block.part.PartBlock.toolTagForTier(tier), id);
+        return BLOCKS.register(id,
                 () -> new CasingBlock(BlockBehaviour.Properties.of()
                         .mapColor(color)
-                        .strength(2.0f)
+                        .strength(3.0f + tier * 3.0f, 6.0f + tier * 3.0f)
                         .requiresCorrectToolForDrops(),
                         PartType.CASING));
     }
@@ -114,16 +119,16 @@ public class Blocks {
     // ===== Multiblock parts / 多方块部件 =====
 
     public static final Supplier<Block> INPUT_BUS = BLOCKS.register("input_bus",
-            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.INPUT_BUS));
+            () -> new PartBlock(PartBlock.tieredProperties(1), PartType.INPUT_BUS));
     public static final Supplier<Block> OUTPUT_BUS = BLOCKS.register("output_bus",
-            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.OUTPUT_BUS));
+            () -> new PartBlock(PartBlock.tieredProperties(1), PartType.OUTPUT_BUS));
     public static final Supplier<Block> INPUT_HATCH = BLOCKS.register("input_hatch",
-            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.INPUT_HATCH));
+            () -> new PartBlock(PartBlock.tieredProperties(1), PartType.INPUT_HATCH));
     public static final Supplier<Block> OUTPUT_HATCH = BLOCKS.register("output_hatch",
-            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.OUTPUT_HATCH));
+            () -> new PartBlock(PartBlock.tieredProperties(1), PartType.OUTPUT_HATCH));
     public static final Supplier<Block> INPUT_ASSEMBLY = BLOCKS.register("input_assembly",
-            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.INPUT_ASSEMBLY));
+            () -> new PartBlock(PartBlock.tieredProperties(1), PartType.INPUT_ASSEMBLY));
     public static final Supplier<Block> OUTPUT_ASSEMBLY = BLOCKS.register("output_assembly",
-            () -> new PartBlock(BlockBehaviour.Properties.of().strength(2.0f).noOcclusion(), PartType.OUTPUT_ASSEMBLY));
+            () -> new PartBlock(PartBlock.tieredProperties(1), PartType.OUTPUT_ASSEMBLY));
 
 }

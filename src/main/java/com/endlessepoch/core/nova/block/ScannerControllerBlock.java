@@ -23,7 +23,11 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.LootParams;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 /**
  * Scanner controller block — placed as part of a structure, detected as 'K' by the scanner.
@@ -206,5 +210,10 @@ public class ScannerControllerBlock extends Block implements EntityBlock {
         return com.endlessepoch.core.api.multiblock.MultiBlockRegistry
                 .getPatternForController(com.endlessepoch.core.registry.Blocks.SCANNER_CONTROLLER.get())
                 .orElse(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("eecore", "unknown"));
+    }
+
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
+        return List.of(new ItemStack(this.asItem()));
     }
 }
