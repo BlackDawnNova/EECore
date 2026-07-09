@@ -1,1 +1,1 @@
-{"replace":false,"values":["eecore:input_bus","eecore:output_bus","eecore:input_hatch","eecore:output_hatch","eecore:input_assembly","eecore:output_assembly"]}
+{"replace":false,"values":["eecore:input_bus","eecore:output_bus","eecore:input_hatch","eecore:output_hatch","eecore:input_assembly","eecore:output_assembly","eecore:elv_machine_casing","eecore:lv_machine_casing","eecore:mv_machine_casing","eecore:hv_machine_casing"]}

@@ -48,10 +48,8 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         g.blit(BG, x, y, 0, 0, imageWidth, imageHeight, imageWidth, imageHeight);
 
         int rx = x + 170;
-        String[] labels = {"K1","K2","K3","K4","K5","K6"};
         for (int i = 0; i < 6; i++) {
             drawSlot(g, rx, y + 11 + i * 34);
-            g.drawString(font, labels[i], rx + 18 + 2, y + 24 + i * 18 + 5, 0x404040);
         }
 
         for (int r = 0; r < 3; r++)

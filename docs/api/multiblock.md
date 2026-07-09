@@ -344,7 +344,7 @@ public class MyScreen extends MachineScreen<MyMenu> {
 - `imageWidth`/`imageHeight`: custom dimensions / 自定义尺寸
 - `BG`: protected, override for custom texture / 覆写贴图
 - Title auto-resolves bilingual via menu buffer / 标题通过菜单缓冲区双语解析
-- Right side reserved slots (6 positions, marked K1-K6) / 右侧预留槽位
+- Right side reserved slots (6 positions) / 右侧预留槽位(6个)
 
 ### WrenchItem / 扳手
 
