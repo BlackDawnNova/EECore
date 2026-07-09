@@ -108,6 +108,10 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 
 dependencies {
+    // JUnit 5 for unit tests / 单元测试
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
     // GTCEu — local jar for rendering reference (optional, only for local testing)
     // 本地测试用，推送时 jar 会被 .gitignore 忽略
     def gtceuJar = file("libs/gtceu-1.21.1-7.0.1.jar")
@@ -184,6 +188,10 @@ publishing {
             url "file://${project.projectDir}/repo"
         }
     }
+}
+
+test {
+    useJUnitPlatform()
 }
 
 tasks.withType(JavaCompile).configureEach {

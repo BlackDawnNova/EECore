@@ -16,57 +16,28 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
  * Item registry for EECore.
  * Holds DeferredRegister and supplier entries for all mod items.
+ * Model/tag generation is delegated to {@link ResourceGenerator}.
  * <p>
  * EECore 物品注册表，包含所有模组物品的延迟注册与供应器。
+ * 模型/标签生成委托给 ResourceGenerator。
  */
 public class Items {
 
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(Registries.ITEM, EECore.MOD_ID);
 
-    /** Accumulate block IDs per tag, then flush to JSON. / 收集方块ID，最后写入标签JSON。 */
-    static final java.util.Map<String, java.util.LinkedHashSet<String>> TAG_BLOCKS = new java.util.LinkedHashMap<>();
+    /** Accumulate block IDs per tag, flushed later by ResourceGenerator.flushTags(). / 收集方块ID，稍后由 ResourceGenerator 写入。 */
+    public static final java.util.Map<String, java.util.LinkedHashSet<String>> TAG_BLOCKS = new java.util.LinkedHashMap<>();
     static void addToTag(String tag, String blockId) {
         TAG_BLOCKS.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>()).add("eecore:" + blockId);
     }
 
-    /**
-     * Project root resolved from working directory. gameDirectory=run → root is parent.
-     * 项目根目录，gameDirectory 在 run/ 下时回退到父目录。
-     */
-    private static final java.nio.file.Path PROJECT_ROOT;
-    static {
-        java.nio.file.Path cwd = java.nio.file.Path.of("").toAbsolutePath();
-        if (cwd.endsWith("run") && java.nio.file.Files.exists(cwd.resolve("../build.gradle"))) {
-            PROJECT_ROOT = cwd.resolve("..").normalize().toAbsolutePath();
-        } else {
-            PROJECT_ROOT = cwd;
-        }
-    }
-
-    /**
-     * Check if an emissive texture variant exists on disk. / 检查发光贴图是否存在。
-     * overlayTex "eecore:block/parts/input_bus/overlay_front"
-     * → checks "assets/eecore/textures/block/parts/input_bus/overlay_front_e.png"
-     */
-    private static boolean hasEmissiveTexture(String overlayTex) {
-        int colon = overlayTex.indexOf(':');
-        if (colon < 0) return false;
-        String ns = overlayTex.substring(0, colon);
-        String tex = overlayTex.substring(colon + 1);
-        String emissivePath = "assets/" + ns + "/textures/" + tex + "_e.png";
-        for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
-            if (java.nio.file.Files.exists(PROJECT_ROOT.resolve(base).resolve(emissivePath)))
-                return true;
-        }
-        return false;
-    }
+    // ── Basic blocks / 基础方块 ──
 
     public static final Supplier<BlockItem> CREATIVE_GENERATOR_ITEM =
             ITEMS.register("creative_generator",
@@ -111,13 +82,21 @@ public class Items {
     public static final Supplier<WrenchItem> WRENCH =
             ITEMS.register("wrench", () -> new WrenchItem(new Item.Properties()));
 
-    // Multiblock parts / 多方块部件
+    // ── Multiblock parts / 多方块部件 ──
+
     public static final Supplier<BlockItem> INPUT_BUS = registerPartItem("input_bus", 1);
     public static final Supplier<BlockItem> OUTPUT_BUS = registerPartItem("output_bus", 1);
     public static final Supplier<BlockItem> INPUT_HATCH = registerPartItem("input_hatch", 1);
     public static final Supplier<BlockItem> OUTPUT_HATCH = registerPartItem("output_hatch", 1);
     public static final Supplier<BlockItem> INPUT_ASSEMBLY = registerPartItem("input_assembly", 1);
     public static final Supplier<BlockItem> OUTPUT_ASSEMBLY = registerPartItem("output_assembly", 1);
+
+    /** EECore internal: auto-resolves block from id. / 内部便捷方法。 */
+    private static Supplier<BlockItem> registerPartItem(String id, int tier) {
+        return registerPartItem(
+                () -> java.util.Objects.requireNonNull(getPartBlock(id), "Part block not found: " + id),
+                id, tier, "eecore:block/parts/" + id + "/overlay_front");
+    }
 
     /**
      * Register a part item with voltage-tier casing + custom overlay. / 注册部件物品（附属 mod 用）。
@@ -126,63 +105,10 @@ public class Items {
      * @param tier          voltage tier (0=ELV..11=QV) / 电压等级
      * @param overlayTex    overlay texture path (e.g. "mymod:block/parts/hatch/overlay_front") / 覆面贴图路径
      */
-    /** EECore internal: auto-resolves block from id. / 内部便捷方法。 */
-    private static Supplier<BlockItem> registerPartItem(String id, int tier) {
-        return registerPartItem(
-                () -> java.util.Objects.requireNonNull(getPartBlock(id), "Part block not found: " + id),
-                id, tier, "eecore:block/parts/" + id + "/overlay_front");
-    }
-
     public static Supplier<BlockItem> registerPartItem(Supplier<Block> blockSupplier, String id, int tier, String overlayTex) {
         var sup = ITEMS.register(id,
                 () -> new BlockItem(blockSupplier.get(), new Item.Properties().stacksTo(64)));
-
-        String casingName = com.endlessepoch.core.api.tier.VoltageTier.fromOrdinal(tier).name().toLowerCase();
-        String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
-
-        // Block model — auto-select emissive parent if _e texture exists / 自动检测发光贴图选父模型
-        boolean hasE = hasEmissiveTexture(overlayTex);
-        String parent = hasE ? "eecore:block/ee_base_12_front_emissive" : "eecore:block/ee_base_12";
-        String blockModel = "{\"parent\":\"" + parent + "\"," +
-                "\"textures\":{" +
-                "\"particle\":\"" + casingTex + "\"," +
-                "\"all\":\"" + casingTex + "\"," +
-                "\"front\":\"" + overlayTex + "\"";
-        if (hasE) blockModel += ",\"overlay_emissive\":\"" + overlayTex + "_e\"";
-        blockModel += "}}";
-        writeJson("models/block", id, blockModel);
-
-        // Blockstate / 方块状态
-        String bs = "{\"variants\":{" +
-                "\"facing=north\":{\"model\":\"eecore:block/" + id + "\",\"y\":0}," +
-                "\"facing=east\":{\"model\":\"eecore:block/" + id + "\",\"y\":90}," +
-                "\"facing=south\":{\"model\":\"eecore:block/" + id + "\",\"y\":180}," +
-                "\"facing=west\":{\"model\":\"eecore:block/" + id + "\",\"y\":270}}}";
-        writeJson("blockstates", id, bs);
-
-        // Item model / 物品模型
-        String itemModel = "{\"parent\":\"block/block\"," +
-                "\"textures\":{" +
-                "\"particle\":\"" + casingTex + "\"," +
-                "\"all\":\"" + casingTex + "\"," +
-                "\"front\":\"" + overlayTex + "\"}," +
-                "\"elements\":[" +
-                "{\"from\":[0,0,0.04],\"to\":[16,16,16]," +
-                "\"faces\":{" +
-                "\"down\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-                "\"up\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-                "\"north\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-                "\"south\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-                "\"west\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-                "\"east\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}}}," +
-                "{\"from\":[2,2,0],\"to\":[14,14,0.02]," +
-                "\"faces\":{" +
-                "\"north\":{\"uv\":[2,2,14,14],\"texture\":\"#front\"}}}]}";
-        writeJson("models/item", id, itemModel);
-
-        // Tool tier tag for future custom tools / 工具等级标签（后续自定义工具用）
-        addToTag(PartBlock.toolTagForTier(tier), id);
-
+        ResourceGenerator.writePartModel(id, tier, overlayTex);
         return sup;
     }
 
@@ -198,12 +124,14 @@ public class Items {
         };
     }
 
+    // ── Machine controller / 机器控制器 ──
+
     public static final Supplier<BlockItem> MACHINE_CONTROLLER_ITEM =
             ITEMS.register("machine_controller",
                     () -> new BlockItem(Blocks.MACHINE_CONTROLLER.get(),
                             new Item.Properties().stacksTo(64)));
 
-    // Voltage-tier machine casings / 电压等级机器外壳
+    // ── Voltage-tier machine casings / 电压等级机器外壳 ──
 
     public static final Supplier<BlockItem> ELV_MACHINE_CASING = registerCasingItem("elv");
     public static final Supplier<BlockItem> LV_MACHINE_CASING  = registerCasingItem("lv");
@@ -244,6 +172,8 @@ public class Items {
         };
     }
 
+    // ── Dynamic machine items / 动态机器物品 ──
+
     /** Machine items registered by MultiblockLoader. / 由 MultiblockLoader 注册的机器物品列表。 */
     public static final List<Supplier<Item>> MACHINE_ITEMS = new ArrayList<>();
 
@@ -259,114 +189,6 @@ public class Items {
                         new Item.Properties().stacksTo(64), machineId, nameEn, nameZh, modelIndex));
         MACHINE_ITEMS.add(() -> sup.get());
 
-        // Casing name from tier / 电压等级→外壳名
-        String casingName = com.endlessepoch.core.api.tier.VoltageTier.fromOrdinal(tier).name().toLowerCase();
-        String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
-        String overlayFront = "eecore:block/machines/" + itemId + "/overlay_front";
-
-        // Block model — auto-select emissive parent if _e texture exists / 自动检测发光贴图选父模型
-        boolean hasE = hasEmissiveTexture(overlayFront);
-        String parent = hasE ? "eecore:block/ee_base_12_front_emissive" : "eecore:block/ee_base_12";
-        String blockModel = "{\"parent\":\"" + parent + "\"," +
-            "\"textures\":{" +
-            "\"particle\":\"" + casingTex + "\"," +
-            "\"all\":\"" + casingTex + "\"," +
-            "\"front\":\"" + overlayFront + "\"";
-        if (hasE) blockModel += ",\"overlay_emissive\":\"" + overlayFront + "_e\"";
-        blockModel += "}}";
-        writeJson("models/block/machines/" + itemId, "controller", blockModel);
-
-        // Register emissive if _e texture exists / 有发光贴图才注册
-        if (hasE) {
-            com.endlessepoch.core.api.client.EmissiveHelper.registerEmissiveModel(
-                    "eecore:machine_controller",
-                    "eecore:block/machines/" + itemId + "/overlay_front_e");
-        }
-
-        // Item model / 物品模型
-        String itemModel = "{\"parent\":\"block/block\"," +
-            "\"textures\":{" +
-            "\"particle\":\"" + casingTex + "\"," +
-            "\"all\":\"" + casingTex + "\"," +
-            "\"front\":\"" + overlayFront + "\"}," +
-            "\"elements\":[" +
-            "{\"from\":[0,0,0.04],\"to\":[16,16,16]," +
-            "\"faces\":{" +
-            "\"down\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"up\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"north\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"south\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"west\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"east\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}}}," +
-            "{\"from\":[2,2,0],\"to\":[14,14,0.02]," +
-            "\"faces\":{" +
-            "\"north\":{\"uv\":[2,2,14,14],\"texture\":\"#front\"}}}]}";
-        writeJson("models/item", itemId, itemModel);
-
-        // Update blockstate / 更新 blockstate
-        writeBlockstate();
-    }
-
-    /** Rebuild blockstate with per-machine model refs for all 0-31 indices. / 为所有 0-31 索引重建含每机器模型引用的 blockstate。 */
-    private static void writeBlockstate() {
-        var indices = com.endlessepoch.core.nova.block.MachineControllerBlock.getModelIndices();
-        StringBuilder sb = new StringBuilder("{\n  \"variants\": {\n");
-        for (int m = 0; m <= 31; m++) {
-            String ref = modelRefForIndex(m, indices);
-            sb.append("    \"facing=north,model=").append(m).append("\": { \"model\": \"").append(ref).append("\", \"y\": 0 },\n");
-            sb.append("    \"facing=east,model=").append(m).append("\":  { \"model\": \"").append(ref).append("\", \"y\": 90 },\n");
-            sb.append("    \"facing=south,model=").append(m).append("\": { \"model\": \"").append(ref).append("\", \"y\": 180 },\n");
-            sb.append("    \"facing=west,model=").append(m).append("\":  { \"model\": \"").append(ref).append("\", \"y\": 270 }");
-            if (m < 31) sb.append(",\n\n");
-            else sb.append("\n");
-        }
-        sb.append("  }\n}");
-        writeJson("blockstates", "machine_controller", sb.toString());
-    }
-
-    private static String modelRefForIndex(int idx, java.util.Map<String, Integer> indices) {
-        if (idx == 0 || idx == 3) return "eecore:block/machine_controller";
-        if (idx == 1) return "eecore:block/ee_base_12";
-        if (idx == 2) return "eecore:block/ee_base_16";
-        for (var e : indices.entrySet())
-            if (e.getValue() == idx)
-                return "eecore:block/machines/" + e.getKey() + "/controller";
-        return "eecore:block/machine_controller";
-    }
-
-    static {
-        // After all registrations, write tag JSONs / 所有注册完成后写入标签
-        for (var e : TAG_BLOCKS.entrySet()) {
-            String[] parts = e.getKey().split(":", 2);
-            String ns = parts[0], path = parts.length > 1 ? parts[1] : parts[0];
-            var sb = new StringBuilder("{\"replace\":false,\"values\":[");
-            boolean first = true;
-            for (String id : e.getValue()) {
-                if (!first) sb.append(",");
-                sb.append("\"").append(id).append("\"");
-                first = false;
-            }
-            sb.append("]}");
-            for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
-                try {
-                    var d = PROJECT_ROOT.resolve(base).resolve("data").resolve(ns)
-                            .resolve("tags").resolve("block");
-                    java.nio.file.Files.createDirectories(d);
-                    java.nio.file.Files.writeString(d.resolve(path + ".json"), sb.toString());
-                } catch (Exception ignored) {}
-            }
-        }
-    }
-
-    /** Write a JSON file to both src/ and build/resources/. / 写入 JSON 到 src 和 build。 */
-    private static void writeJson(String subPath, String fileName, String json) {
-        for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
-            try {
-                var d = PROJECT_ROOT.resolve(base).resolve("assets").resolve("eecore")
-                        .resolve(java.nio.file.Path.of("", subPath));
-                java.nio.file.Files.createDirectories(d);
-                java.nio.file.Files.writeString(d.resolve(fileName + ".json"), json);
-            } catch (Exception ignored) {}
-        }
+        ResourceGenerator.writeMachineModel(itemId, tier);
     }
 }

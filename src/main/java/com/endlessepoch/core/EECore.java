@@ -154,6 +154,9 @@ public class EECore {
         // Celestial halo effect for formed controllers / 日月星辰特效
         NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.CelestialRenderer.class);
         // Break detection handled by MachineControllerBlockEntity.serverTick polling / 破坏检测由BE轮询处理
+
+        // Flush block tags accumulated during item registration / 写入注册期间收集的方块标签
+        com.endlessepoch.core.registry.ResourceGenerator.flushTags(Items.TAG_BLOCKS);
     }
 
     /**
