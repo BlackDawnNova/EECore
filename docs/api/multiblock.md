@@ -240,16 +240,14 @@ MultiBlockRegistry.getAll(playerId);
 
 ### TagDefRegistry
 
-Tag-level global limit (shared across all machines using this tag) / tag级全局上限（所有使用此 tag 的机器共享）：
+Tags define valid blocks for pattern characters. Limits use `MultiblockLoader.limit()` instead.
+标签定义 Pattern 字符的有效方块。上限用 `MultiblockLoader.limit()`。
 
 ```java
 TagDefRegistry.register("gregtech:input_hatch",
-    Set.of(SLV_HATCH, LV_HATCH, HV_HATCH),
-    4  // global limit / 全局上限
+    Set.of(SLV_HATCH, LV_HATCH, HV_HATCH)
 );
 ```
-
-For per-machine per-block limits, use `MultiblockLoader.limit()` instead — limits are stored per-pattern, independent across machines. / 每机器每方块独立上限用 `MultiblockLoader.limit()`——上限存 pattern，不同机器互不影响。
 
 ### IMultiBlockController
 

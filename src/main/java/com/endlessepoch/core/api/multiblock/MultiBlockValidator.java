@@ -55,7 +55,6 @@ public final class MultiBlockValidator {
 
                     for (String tag : pattern.getTags(expected)) {
                         int mc = pattern.getBlockLimit(tag, actual.getBlock());
-                        if (mc <= 0) mc = TagDefRegistry.getMaxCount(tag);
                         if (mc > 0) {
                             String key = tag + "|" + actual.getBlock().hashCode();
                             tagCounts.merge(key, 1, Integer::sum);
