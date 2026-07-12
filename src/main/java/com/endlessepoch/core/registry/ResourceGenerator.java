@@ -1,6 +1,7 @@
 package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.api.client.EmissiveHelper;
+import com.endlessepoch.core.api.multiblock.PartType;
 import com.endlessepoch.core.api.tier.VoltageTier;
 import com.endlessepoch.core.nova.block.MachineControllerBlock;
 import com.endlessepoch.core.nova.block.part.PartBlock;
@@ -23,7 +24,7 @@ public class ResourceGenerator {
      * Project root resolved from working directory. gameDirectory=run → root is parent.
      * 项目根目录，gameDirectory 在 run/ 下时回退到父目录。
      */
-    static final java.nio.file.Path PROJECT_ROOT;
+    public static final java.nio.file.Path PROJECT_ROOT;
     static {
         java.nio.file.Path cwd = java.nio.file.Path.of("").toAbsolutePath();
         if (cwd.endsWith("run") && java.nio.file.Files.exists(cwd.resolve("../build.gradle"))) {
@@ -52,17 +53,22 @@ public class ResourceGenerator {
     }
 
     /**
-     * Write a JSON file to both src/ and build/resources/. / 写入 JSON 到 src 和 build。
+     * Write a JSON file to both src/ and build/resources/ under given namespace. / 写入 JSON 到指定 namespace。
      */
-    static void writeJson(String subPath, String fileName, String json) {
+    static void writeJsonNs(String namespace, String subPath, String fileName, String json) {
         for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
             try {
-                var d = PROJECT_ROOT.resolve(base).resolve("assets").resolve("eecore")
+                var d = PROJECT_ROOT.resolve(base).resolve("assets").resolve(namespace)
                         .resolve(java.nio.file.Path.of("", subPath));
                 java.nio.file.Files.createDirectories(d);
                 java.nio.file.Files.writeString(d.resolve(fileName + ".json"), json);
             } catch (Exception ignored) {}
         }
+    }
+
+    /** Write JSON to eecore namespace (legacy). / 写入 eecore 命名空间。 */
+    static void writeJson(String subPath, String fileName, String json) {
+        writeJsonNs("eecore", subPath, fileName, json);
     }
 
     /**
@@ -99,11 +105,11 @@ public class ResourceGenerator {
      * Generate block model + blockstate + item model for a multiblock part.
      * 为多方块部件生成方块模型+方块状态+物品模型。
      */
-    static void writePartModel(String id, int tier, String overlayTex) {
+    static void writePartModel(String id, int tier, String overlayTex, String namespace) {
         String casingName = VoltageTier.fromOrdinal(tier).name().toLowerCase();
         String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
+        String modelId = namespace + ":" + id;
 
-        // Block model — auto-select emissive parent if _e texture exists / 自动检测发光贴图选父模型
         boolean hasE = hasEmissiveTexture(overlayTex);
         String parent = hasE ? "eecore:block/ee_base_12_front_emissive" : "eecore:block/ee_base_12";
         String blockModel = "{\"parent\":\"" + parent + "\"," +
@@ -111,17 +117,20 @@ public class ResourceGenerator {
                 "\"particle\":\"" + casingTex + "\"," +
                 "\"all\":\"" + casingTex + "\"," +
                 "\"front\":\"" + overlayTex + "\"";
-        if (hasE) blockModel += ",\"overlay_emissive\":\"" + overlayTex + "_e\"";
+        if (hasE) {
+            blockModel += ",\"overlay_emissive\":\"" + overlayTex + "_e\"";
+            EmissiveHelper.registerEmissiveModel(modelId, overlayTex + "_e");
+        }
         blockModel += "}}";
-        writeJson("models/block", id, blockModel);
+        writeJsonNs(namespace, "models/block", id, blockModel);
 
         // Blockstate / 方块状态
         String bs = "{\"variants\":{" +
-                "\"facing=north\":{\"model\":\"eecore:block/" + id + "\",\"y\":0}," +
-                "\"facing=east\":{\"model\":\"eecore:block/" + id + "\",\"y\":90}," +
-                "\"facing=south\":{\"model\":\"eecore:block/" + id + "\",\"y\":180}," +
-                "\"facing=west\":{\"model\":\"eecore:block/" + id + "\",\"y\":270}}}";
-        writeJson("blockstates", id, bs);
+                "\"facing=north\":{\"model\":\"" + namespace + ":block/" + id + "\",\"y\":0}," +
+                "\"facing=east\":{\"model\":\"" + namespace + ":block/" + id + "\",\"y\":90}," +
+                "\"facing=south\":{\"model\":\"" + namespace + ":block/" + id + "\",\"y\":180}," +
+                "\"facing=west\":{\"model\":\"" + namespace + ":block/" + id + "\",\"y\":270}}}";
+        writeJsonNs(namespace, "blockstates", id, bs);
 
         // Item model / 物品模型
         String itemModel = "{\"parent\":\"block/block\"," +
@@ -141,7 +150,7 @@ public class ResourceGenerator {
                 "{\"from\":[2,2,0],\"to\":[14,14,0.02]," +
                 "\"faces\":{" +
                 "\"north\":{\"uv\":[2,2,14,14],\"texture\":\"#front\"}}}]}";
-        writeJson("models/item", id, itemModel);
+        writeJsonNs(namespace, "models/item", id, itemModel);
 
         // Tool tier tag / 工具等级标签
         Items.addToTag(PartBlock.toolTagForTier(tier), id);
@@ -200,6 +209,79 @@ public class ResourceGenerator {
     }
 
     /**
+     * Sync lang JSON for a given mod namespace.
+     * Only touches keys listed in PartReg.TRANS_EN/ZH — removes keys for deregistered
+     * parts, adds keys for newly registered ones. All other entries are left untouched.
+     * <p>
+     * 同步语言 JSON —— 只处理 PartReg 字典里有的 key：删已注销部件的、补新注册的。
+     * 非 PartReg 管理的 entry 原封不动。
+     */
+    public static void flushLang(String namespace, java.nio.file.Path root) {
+        Map<String, String> enMap = PartReg.TRANS_EN.getOrDefault(namespace, java.util.Collections.emptyMap());
+        Map<String, String> zhMap = PartReg.TRANS_ZH.getOrDefault(namespace, java.util.Collections.emptyMap());
+        if (enMap.isEmpty() && zhMap.isEmpty()) return;
+
+        for (String lang : new String[]{"en_us", "zh_cn"}) {
+            Map<String, String> trans = lang.equals("en_us") ? enMap : zhMap;
+            for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
+                try {
+                    var f = root.resolve(base).resolve("assets").resolve(namespace)
+                            .resolve("lang").resolve(lang + ".json");
+                    java.nio.file.Files.createDirectories(f.getParent());
+
+                    var map = new LinkedHashMap<String, String>();
+                    if (java.nio.file.Files.exists(f)) {
+                        for (String line : java.nio.file.Files.readAllLines(f)) {
+                            String trimmed = line.trim();
+                            if (trimmed.startsWith("\"") && trimmed.contains("\": \"")) {
+                                int kEnd = trimmed.indexOf('"', 1); if (kEnd < 0) continue;
+                                String key = trimmed.substring(1, kEnd);
+                                int vStart = trimmed.indexOf("\": \"") + 4;
+                                int vEnd = trimmed.lastIndexOf('"');
+                                if (vStart >= 4 && vEnd > vStart)
+                                    map.put(key, trimmed.substring(vStart, vEnd));
+                            }
+                        }
+                    }
+
+                    // Remove keys that were PartReg-managed but PartType no longer exists / 删已注销部件
+                    String prefix = "block." + namespace + ".";
+                    map.keySet().removeIf(key ->
+                            key.startsWith(prefix) && trans.containsKey(key) &&
+                            !PartType.values().stream().anyMatch(pt ->
+                                    pt.getId().getNamespace().equals(namespace) &&
+                                    key.equals(prefix + pt.getId().getPath())));
+
+                    // Add missing part translations / 补新部件翻译
+                    boolean changed = false;
+                    for (var e : trans.entrySet()) {
+                        if (!map.containsKey(e.getKey())) {
+                            map.put(e.getKey(), e.getValue());
+                            changed = true;
+                        }
+                    }
+
+                    // Only write if changed / 有变化才写
+                    if (!changed && map.size() > 0) continue;
+
+                    var sb = new StringBuilder("{\n");
+                    int count = 0;
+                    for (var e : map.entrySet()) {
+                        if (count > 0) sb.append(",\n");
+                        sb.append("  \"").append(e.getKey()).append("\": \"")
+                                .append(e.getValue().replace("\\", "\\\\").replace("\"", "\\\"")).append("\"");
+                        count++;
+                    }
+                    sb.append("\n}\n");
+                    java.nio.file.Files.writeString(f, sb.toString());
+                } catch (Exception e) {
+                    com.endlessepoch.core.EECore.LOGGER.warn("flushLang {}/{}: {}", namespace, lang, e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
      * Flush accumulated block tags to data/{ns}/tags/block/ JSON.
      * 将累积的方块标签写入 data/{ns}/tags/block/ JSON。
      */
@@ -225,4 +307,5 @@ public class ResourceGenerator {
             }
         }
     }
+
 }

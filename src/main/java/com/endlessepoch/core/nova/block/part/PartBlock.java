@@ -18,8 +18,6 @@ import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityTicker;
-import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -31,27 +29,26 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * Base block for all multiblock parts (bus, hatch, assembly).
- * Stores FACING + optional slot count, links to controller via BE on formation.
- * 多方块部件基类，存朝向+可选格数，成形时通过 BE 链接控制器。
+ * Base block for all multiblock parts. Configurable via fluent setters.
+ * Tier controls appearance (texture, hardness). All functionality params are explicit.
+ * 多方块部件基类，功能参数显式配置。
  */
 public class PartBlock extends Block implements EntityBlock {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     private final PartType partType;
-    private final int slotCount;
+    final int tier;
+    final int slotCount;
+    final int fluidCapacity;   // mB, 0 = no tank
+    final long energyCapacity; // Ω, 0 = no energy storage
 
-    /** Default slot count for bus-type parts. / 总线类部件默认格数。 */
     public static final int DEFAULT_BUS_SLOTS = 2;
-    /** Max slot count for bus-type parts. / 总线类部件最大格数。 */
-    public static final int MAX_BUS_SLOTS = 81;
+    public static final int DEFAULT_ASSEMBLY_SLOTS = 4;
+    public static final int MAX_SLOTS = 81;
 
-    /**
-     * Build tier-scaled block properties. Higher tier = harder to mine + needs pickaxe.
-     * 按电压等级生成方块属性，等级越高越硬，需要镐子。
-     */
+    /** Build tier-scaled block properties. / 按电压等级生成方块属性。 */
     public static Properties tieredProperties(int tier) {
-        float h = 3.0f + tier * 3.0f;   // LV=6, MV=9, HV=12, ..., QV=36
+        float h = 3.0f + tier * 3.0f;
         float b = 6.0f + tier * 3.0f;
         return Properties.of().strength(h, b).noOcclusion().requiresCorrectToolForDrops();
     }
@@ -64,25 +61,40 @@ public class PartBlock extends Block implements EntityBlock {
         return "minecraft:needs_stone_tool";
     }
 
-    public PartBlock(Properties properties, PartType type) {
-        this(properties, type, isBusType(type) ? DEFAULT_BUS_SLOTS : 0);
+    // Constructors / 构造器（tier + 显式功能参数）
+
+    /** Structural part (casing). / 纯结构。 */
+    public PartBlock(Properties p, PartType type, int tier) {
+        this(p, type, tier, 0, 0, 0);
     }
 
-    /**
-     * Create a part block with custom slot count. / 创建自定义格数的部件方块。
-     * @param slotCount inventory size for bus parts, ignored for non-bus types / 总线类部件的库存格数
-     */
-    public PartBlock(Properties properties, PartType type, int slotCount) {
-        super(properties);
+    /** Item bus with slot count. / 物品总线。 */
+    public PartBlock(Properties p, PartType type, int tier, int slotCount) {
+        this(p, type, tier, slotCount, 0, 0);
+    }
+
+    /** Assembly: slots + fluid capacity. / 总成：格子+流体。 */
+    public PartBlock(Properties p, PartType type, int tier, int slotCount, int fluidCapacity) {
+        this(p, type, tier, slotCount, fluidCapacity, 0);
+    }
+
+    /** Energy hatch or full config. / 能源仓或全配置。 */
+    public PartBlock(Properties p, PartType type, int tier, int slotCount, int fluidCapacity, long energyCapacity) {
+        super(p);
         this.partType = type;
-        int min = isBusType(type) ? 1 : 0;
-        this.slotCount = Math.max(min, Math.min(slotCount, MAX_BUS_SLOTS));
+        this.tier = tier;
+        this.slotCount = clamp(slotCount, isBusType(type) ? 1 : 0, MAX_SLOTS);
+        this.fluidCapacity = Math.max(0, fluidCapacity);
+        this.energyCapacity = Math.max(0, energyCapacity);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
     }
 
-    private static boolean isBusType(PartType type) {
-        String path = type.getId().getPath();
-        return path.equals("input_bus") || path.equals("output_bus");
+    private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(v, max)); }
+
+    public static boolean isBusType(PartType type) {
+        String p = type.getId().getPath();
+        return p.equals("input_bus") || p.equals("output_bus")
+                || p.equals("input_assembly") || p.equals("output_assembly");
     }
 
     public PartType getPartType() { return partType; }
@@ -98,28 +110,17 @@ public class PartBlock extends Block implements EntityBlock {
         return defaultBlockState().setValue(FACING, ctx.getHorizontalDirection().getOpposite());
     }
 
-    @Override
-    public BlockState rotate(BlockState state, Rotation rot) {
-        return state.setValue(FACING, rot.rotate(state.getValue(FACING)));
-    }
-
-    @Override
-    public BlockState mirror(BlockState state, Mirror mirror) {
-        return state.rotate(mirror.getRotation(state.getValue(FACING)));
-    }
+    @Override public BlockState rotate(BlockState s, Rotation r) { return s.setValue(FACING, r.rotate(s.getValue(FACING))); }
+    @Override public BlockState mirror(BlockState s, Mirror m) { return s.rotate(m.getRotation(s.getValue(FACING))); }
 
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return switch (partType.getId().getPath()) {
-            case "input_bus", "output_bus" -> new InputBusBlockEntity(pos, state, slotCount);
-            default -> new PartBlockEntity(pos, state, partType);
-        };
+        if (isBusType(partType))
+            return new InputBusBlockEntity(pos, state, partType, tier, slotCount);
+        return new PartBlockEntity(pos, state, partType, tier);
     }
 
-    /**
-     * Right-click opens inventory GUI for bus blocks. / 右键打开总线方块界面。
-     */
     @Override
     public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
                                             Player player, BlockHitResult hit) {
@@ -129,7 +130,13 @@ public class PartBlock extends Block implements EntityBlock {
                 player.openMenu(bus, buf -> {
                     buf.writeBlockPos(pos);
                     buf.writeVarInt(bus.getSlotCount());
+                    buf.writeBoolean(bus.isOutput());
                 });
+                return InteractionResult.SUCCESS;
+            }
+            if (be instanceof PartBlockEntity pe
+                    && (pe.getEnergyStorage() != null || pe.getFluidTank() != null)) {
+                player.openMenu(pe, buf -> buf.writeBlockPos(pos));
                 return InteractionResult.SUCCESS;
             }
         }
@@ -141,16 +148,11 @@ public class PartBlock extends Block implements EntityBlock {
         return List.of(new ItemStack(this.asItem()));
     }
 
-    /**
-     * When the part block is broken, drop inventory + notify controller to re-validate.
-     * 部件方块被破坏时掉落物品 + 通知控制器重新验证。
-     */
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
             BlockEntity be = level.getBlockEntity(pos);
             if (be != null && !level.isClientSide()) {
-                // Drop inventory contents / 掉落库存物品
                 if (be instanceof InputBusBlockEntity bus) {
                     for (int i = 0; i < bus.getSlotCount(); i++) {
                         var stack = bus.getInventory().getStackInSlot(i);
@@ -159,7 +161,6 @@ public class PartBlock extends Block implements EntityBlock {
                                     pos.getX(), pos.getY(), pos.getZ(), stack.copy());
                     }
                 }
-                // Notify controller to re-validate / 通知控制器重新验证
                 if (be instanceof IPart part && part.isFormed()) {
                     BlockPos ctrl = part.getControllerPos();
                     BlockEntity ctrlBe = level.getBlockEntity(ctrl);

@@ -112,12 +112,6 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-    // GTCEu — local jar for rendering reference (optional, only for local testing)
-    // 本地测试用，推送时 jar 会被 .gitignore 忽略
-    def gtceuJar = file("libs/gtceu-1.21.1-7.0.1.jar")
-    if (gtceuJar.exists()) {
-        compileOnly files("libs/gtceu-1.21.1-7.0.1.jar")
-    }
 
     def ae2Jar = fileTree("libs").matching { include "*appliedenergistics2*" }
     if (!ae2Jar.empty) { compileOnly ae2Jar; runtimeOnly ae2Jar }

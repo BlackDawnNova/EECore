@@ -12,13 +12,15 @@ public final class PartType {
 
     private static final Map<ResourceLocation, PartType> REGISTRY = new LinkedHashMap<>();
 
-    public static final PartType INPUT_BUS  = register("input_bus",  "eecore.part.input_bus");
-    public static final PartType OUTPUT_BUS = register("output_bus", "eecore.part.output_bus");
-    public static final PartType INPUT_HATCH  = register("input_hatch",  "eecore.part.input_hatch");
-    public static final PartType OUTPUT_HATCH = register("output_hatch", "eecore.part.output_hatch");
-    public static final PartType INPUT_ASSEMBLY  = register("input_assembly",  "eecore.part.input_assembly");
-    public static final PartType OUTPUT_ASSEMBLY = register("output_assembly", "eecore.part.output_assembly");
-    public static final PartType CASING = register("casing", "eecore.part.casing");
+    public static final PartType INPUT_BUS  = registerEe("input_bus",  "eecore.part.input_bus");
+    public static final PartType OUTPUT_BUS = registerEe("output_bus", "eecore.part.output_bus");
+    public static final PartType FLUID_INPUT  = registerEe("fluid_input",  "eecore.part.fluid_input");
+    public static final PartType FLUID_OUTPUT = registerEe("fluid_output", "eecore.part.fluid_output");
+    public static final PartType ENERGY_INPUT  = registerEe("energy_input",  "eecore.part.energy_input");
+    public static final PartType ENERGY_OUTPUT = registerEe("energy_output", "eecore.part.energy_output");
+    public static final PartType INPUT_ASSEMBLY  = registerEe("input_assembly",  "eecore.part.input_assembly");
+    public static final PartType OUTPUT_ASSEMBLY = registerEe("output_assembly", "eecore.part.output_assembly");
+    public static final PartType CASING = registerEe("casing", "eecore.part.casing");
 
     private final ResourceLocation id;
     private final String translationKey;
@@ -28,6 +30,12 @@ public final class PartType {
     public ResourceLocation getId() { return id; }
     public String getTranslationKey() { return translationKey; }
 
+    /** EECore internal shorthand — namespace auto-set to "eecore". / EECore 内部便捷方法。 */
+    private static PartType registerEe(String path, String translationKey) {
+        return register(ResourceLocation.fromNamespaceAndPath("eecore", path), translationKey);
+    }
+
+    /** Register with bare string (backward compat, namespace defaults to "minecraft"). / 字符串注册（向后兼容）。 */
     public static PartType register(String id, String translationKey) {
         return register(ResourceLocation.parse(id), translationKey);
     }

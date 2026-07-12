@@ -1,0 +1,9 @@
+{
+  "type": "eecore:machine",
+  "ingredient": { "item": "minecraft:gold_ore" },
+  "results": [
+    { "id": "minecraft:gold_ingot", "count": 1 },
+    { "id": "minecraft:gold_nugget", "count": 3 }
+  ],
+  "processingTime": 300
+}

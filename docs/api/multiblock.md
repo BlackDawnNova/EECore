@@ -121,23 +121,42 @@ MultiblockLoader.load(ResourceLocation.parse("mymod:my_machine"))
 
 ---
 
-## Machine Textures / 机器贴图
+## Textures / 贴图
 
-Directory-based, auto-detected. New machine just needs / 目录制，放贴图即用:
+### Machine Textures / 机器贴图
+
+Directory-based, auto-detected. / 目录制，放贴图即用:
 
 ```
 assets/<modid>/textures/block/machines/<machine_id>/
   overlay_front.png       ← front panel design / 面板图案
-  overlay_front_e.png     ← emissive version (optional) / 发光版（可选）
+  overlay_front_e.png     ← emissive version (optional, can be animated) / 发光版（可选，可动画）
 ```
-
-The controller block model automatically composites / 控制器模型自动合成:
-- **Body / 身体**: voltage-tier casing texture (`casings/voltage/<tier>/side.png`) / 电压外壳贴图
-- **Front panel / 面板**: `machines/<id>/overlay_front.png` (12×12 inset) / 12×12 凹入面板
-- **Emissive / 发光**: `machines/<id>/overlay_front_e.png` (fullbright layer) / 全亮发光层
 
 No model JSON needed per machine — generated automatically on first `runClient`.
 无需为每台机器手写模型 JSON——首次 `runClient` 自动生成。
+
+### Part Textures / 部件贴图
+
+EECore internal parts follow fixed path convention. Addon mods specify custom overlay paths via `PartReg.register()`.
+EECore 内部部件用固定路径。附属 Mod 通过 `PartReg.register()` 传自定义贴图路径。
+
+**EECore internal** / EECore 内部:
+```
+assets/eecore/textures/block/parts/<part_id>/
+  overlay_front.png       ← front panel (16×16 texture, 12×12 UV) / 面板
+  overlay_front_e.png     ← emissive glow overlay (optional, 12×12 UV area per frame) / 发光叠加层（可选，每帧12×12 UV区域）
+```
+
+**Addon mod** / 附属 Mod (custom path):
+```java
+// Pass any texture path / 传任意贴图路径
+"my_mod:block/parts/ev_fluid/overlay_front"
+// → textures at assets/my_mod/textures/block/parts/ev_fluid/
+```
+
+Emissive auto-detection: `hasEmissiveTexture(overlayTex)` checks for `_e.png` variant. If found → model switches to `ee_base_12_front_emissive` parent + registers `EmissiveHelper`.
+发光自动检测：检查 `_e.png` 变体，存在则切发光模型 + 注册 EmissiveHelper。
 
 ---
 
@@ -264,10 +283,11 @@ void stampOwner(UUID owner, String name);
 ### IPart / PartBlock System / 部件系统
 
 Blocks that can be multiblock parts implement `IPart`. EECore provides `PartBlock` as the base.
+所有多方块部件实现 `IPart`，EECore 以 `PartBlock` 为基类。
 
 ```java
 // IPart interface / 部件接口
-Set<PartAbility> getAbilities();       // ITEM_INPUT, ITEM_OUTPUT, FLUID_INPUT, etc.
+Set<PartAbility> getAbilities();       // ITEM_INPUT, ITEM_OUTPUT, FLUID_INPUT, ENERGY_INPUT, etc.
 void onFormed(machineId, controllerPos);
 void onBroken();
 BlockPos getControllerPos();
@@ -275,54 +295,128 @@ ResourceLocation getMachineId();
 boolean isFormed();
 ```
 
-**PartBlock** — base block class for all parts:
+#### PartType & PartAbility / 部件类型与能力
+
+9 built-in PartTypes. Each has exactly ONE functional role. / 9 种内置部件类型，每种独立单一功能：
+
+| PartType | Abilities / 能力 | BE Storage / 存储 |
+|----------|-----------------|-------------------|
+| `input_bus` | ITEM_INPUT | ItemStackHandler (1-81 slots) / 1-81格 |
+| `output_bus` | ITEM_OUTPUT | ItemStackHandler (1-81 slots) / 1-81格 |
+| `fluid_input` | FLUID_INPUT | FluidTank (configurable mB) / 可配mB |
+| `fluid_output` | FLUID_OUTPUT | FluidTank (configurable mB) / 可配mB |
+| `energy_input` | ENERGY_INPUT | OmegaStorage (configurable Ω) / 可配Ω |
+| `energy_output` | ENERGY_OUTPUT | OmegaStorage (configurable Ω) / 可配Ω |
+| `input_assembly` | ITEM_INPUT + FLUID_INPUT | ItemStackHandler + FluidTank |
+| `output_assembly` | ITEM_OUTPUT + FLUID_OUTPUT | ItemStackHandler + FluidTank |
+| `casing` | STRUCTURAL | — |
+
+Addon mods register custom types / 附属 mod 注册自定义类型:
+```java
+PartType.register(ResourceLocation.fromNamespaceAndPath("mymod", "custom"), "mymod.part.custom");
+PartAbility.register("mymod:my_ability");
+```
+
+#### PartBlock / 部件方块
+
+Base block class for all parts. Tier controls appearance only (texture + hardness); functionality params are explicit.
+统一方块基类。Tier 仅控制外观（贴图+硬度），功能参数显式可配。
 
 ```java
-// Built-in LV part (default 4 slots) / 内置LV部件（默认4格）
-new PartBlock(Properties.of(), PartType.INPUT_BUS)
+// Structural only (casing) / 纯结构
+new PartBlock(Properties, type, tier)
 
-// Custom tier + custom slot count / 自定义等级+格数
-new PartBlock(PartBlock.tieredProperties(5), PartType.INPUT_BUS, 18)
-// → UHV casing texture, hardness=18, 18 slots
+// Item bus (slot count) / 物品总线（格数）
+new PartBlock(Properties, type, tier, slotCount)
+
+// Assembly (slots + fluid capacity) / 总成（格子+流体）
+new PartBlock(Properties, type, tier, slotCount, fluidCapacity)
+
+// Energy hatch (energy capacity) / 能源仓（容量）
+new PartBlock(Properties, type, tier, 0, 0, energyCapacity)
 
 // Static utilities / 静态工具
 PartBlock.tieredProperties(int tier)   // h=3+tier*3, blast=6+tier*3
 PartBlock.toolTagForTier(int tier)     // needs_stone/iron/diamond/netherite_tool
-PartBlock.DEFAULT_BUS_SLOTS            // 4
-PartBlock.MAX_BUS_SLOTS                // 81
+PartBlock.DEFAULT_BUS_SLOTS            // 2
+PartBlock.DEFAULT_ASSEMBLY_SLOTS       // 4
+PartBlock.MAX_SLOTS                    // 81
 ```
 
-**InputBusBlockEntity** — bus with `IItemHandler` inventory, right-click opens GUI:
+#### One-Click Part Registration / 部件一键注册
+
+```java
+// EECore internal — one line in Blocks.java / EECore 内部一行
+INPUT_BUS = registerPartBlock("input_bus", 1, 2, 0, 0, "Input Bus", "输入总线");
+//           path, tier, slots, fluidCap, energyCap, nameEn, nameZh
+// Item + model + translation auto-registered via flushPartItems() on startup.
+// 物品+模型+翻译由 flushPartItems() 启动时自动注册。
+
+// Addon mod — one line with custom overlay texture / 附属 Mod 一行带贴图
+PartReg.register(MY_BLOCKS, MY_ITEMS, myTab,
+    "my_mod",              // namespace / 命名空间
+    "ev_fluid_input",      // path / 注册名
+    4,                     // tier (EHV) / 电压等级
+    "my_mod:block/parts/ev_fluid/overlay_front",  // overlay texture / 覆面贴图
+    "EV Fluid Input Hatch", // nameEn
+    "超高压流体输入仓");      // nameZh
+```
+
+Auto-generates: block model, blockstate, item model, tool tag, creative tab entry, lang entry.
+自动生成：方块模型、方块状态、物品模型、工具标签、创造栏条目、翻译条目。
+
+If `overlay_front_e.png` exists → auto-emissive model + EmissiveHelper registration. / 若有 `_e` 贴图 → 自动发光 + EmissiveHelper。
+
+#### InputBusBlockEntity / 总线 BE
+
+Bus with `IItemHandler` inventory, right-click opens GUI. Assembly parts also use this BE (inherits FluidTank from PartBlockEntity).
+总线+总成共用此 BE（总成同时继承 PartBlockEntity 的 FluidTank）。
 
 ```java
 bus.getInventory()     // IItemHandler (hopper/pipe compatible / 漏斗管道可交互)
 bus.getSlotCount()     // configurable at construction time / 构造时可配
+bus.isOutput()         // true for output bus/assembly / 输出总线/总成为 true
 ```
 
-Right-click opens `BusMenu` with auto-expanding `BusScreen` (inset slots, dynamic height, ≤3 rows compact).
+#### PartBlockEntity / 部件基类 BE
 
-**CasingBlock** — structural part with no facing:
+Energy hatches get OmegaStorage. Fluid hatches/assemblies get FluidTank. Capacities read from PartBlock config.
+能源仓自动创建 OmegaStorage，流体仓/总成自动创建 FluidTank。容量从 PartBlock 配置读取。
 
 ```java
-new CasingBlock(Properties.of(), PartType.CASING)
-// Block hardness auto-scaled by tier in Blocks.java registration
+pe.getEnergyStorage()  // OmegaStorage or null / 能量存储或 null
+pe.getFluidTank()      // FluidTank or null / 流体罐或 null
 ```
 
-**WrenchItem** — creative wrench for EECore blocks (`eecore:wrench`):
+#### Emissive Overlay / 发光覆面
+
+If `overlay_front_e.png` exists next to `overlay_front.png`, the model auto-switches to emissive parent and the part is auto-registered in EmissiveHelper for GlowBakedModel wrapping.
+若 `overlay_front_e.png` 与 `overlay_front.png` 同目录存在，模型自动切至发光父模型，部件自动注册 EmissiveHelper。
 
 ```
-EECore blocks: speed=100, correctTool=true  → very fast
-Vanilla blocks: speed=9, correctTool=true   → netherite-tier
+assets/<modid>/textures/block/parts/<id>/
+  overlay_front.png       ← front panel / 面板
+  overlay_front_e.png     ← emissive version (optional, can be animated 16×N) / 发光版（可选，可动画 16×N）
+```
+
+#### CasingBlock / 外壳方块
+
+Structural part with no facing. / 无朝向结构部件。
+
+```java
+new CasingBlock(Properties, PartType.CASING, tier)
+```
+
+#### Capability Registration / 能力注册
+
+All capabilities are registered automatically at mod init / 启动时自动注册:
+```java
+// ItemHandler: INPUT_BUS, OUTPUT_BUS, INPUT_ASSEMBLY, OUTPUT_ASSEMBLY
+// OMEGA_ENERGY: ENERGY_INPUT, ENERGY_OUTPUT
+// FluidHandler: FLUID_INPUT, FLUID_OUTPUT, INPUT_ASSEMBLY, OUTPUT_ASSEMBLY
 ```
 
 All blocks have `getDrops()` code override (no loot table JSONs needed). / 所有方块已覆写 `getDrops()`，无需 loot table JSON。
-
-**IItemHandler Capability** — registered automatically for bus blocks / 总线方块自动注册:
-```java
-// INPUT_BUS, OUTPUT_BUS → bus.getInventory()
-```
-
-Bus blocks open GUI on right-click (`BusMenu` + `BusScreen`), auto-expanding height, 1-81 configurable slots. / 总线右键打开 GUI，高度自适应，1-81 格可配。
 
 ### MachineScreen / 机器界面
 
@@ -406,8 +500,9 @@ MultiblockVisualizerScreen.FLUID_COLORS.put(MyFluids.STEAM_SOURCE.get(), new flo
 
 ## Creative Tabs / 创造标签
 
-Registered machine items appear in **EECore Machines** tab via `BuildCreativeModeTabContentsEvent`.
-注册的机器物品自动出现在 **EECore 机器** 创造标签。Casing blocks in **EECore 方块**。Tools in **EECore 物品**。
+Registered machine items appear in **EECore Machines** tab. / 注册的机器物品自动出现在 **EECore 机器**。
+Part items populate **EECore Blocks** tab dynamically via `Items.PART_ITEMS` list. / 部件物品通过 `Items.PART_ITEMS` 列表动态填充 **EECore 方块**。
+Casing blocks in **EECore Blocks**. Tools in **EECore Items**.
 
 Addon mods can add items to any EECore tab / 附属 mod 可向任何 EECore 标签添加物品:
 ```java

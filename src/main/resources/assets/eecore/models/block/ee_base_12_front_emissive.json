@@ -27,8 +27,8 @@
       }
     },
     {
-      "from": [2, 2, -0.004],
-      "to": [14, 14, -0.004],
+      "from": [2, 2,  -0.004],
+      "to": [14, 14,  -0.004],
       "neoforge_data": { "block_light": 15, "sky_light": 15 },
       "shade": false,
       "faces": {

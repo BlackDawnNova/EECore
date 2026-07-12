@@ -14,6 +14,7 @@ import com.endlessepoch.core.network.SyncGeneratorPacket;
 import com.endlessepoch.core.network.SyncPatternPacket;
 import com.endlessepoch.core.network.SyncPatternBinaryPacket;
 import com.endlessepoch.core.network.SyncValidationPacket;
+import com.endlessepoch.core.registry.EECoreRecipeTypes;
 import com.endlessepoch.core.registry.BlockEntities;
 import com.endlessepoch.core.registry.Blocks;
 import com.endlessepoch.core.registry.Items;
@@ -68,7 +69,7 @@ public class EECore {
                     .icon(() -> Items.LV_MACHINE_CASING.get().getDefaultInstance())
                     .withTabsBefore(CreativeModeTabs.SPAWN_EGGS)
                     .displayItems((params, output) -> {
-                        // Machines populated via BuildCreativeModeTabContentsEvent
+                        // Machines populated via BuildCreativeModeTabContentsEvent / 机器通过事件填充
                     })
                     .build()
     );
@@ -98,12 +99,8 @@ public class EECore {
                         output.accept(Items.SCANNER_CONTROLLER_ITEM.get());
                         output.accept(Items.SCANNER_BOUNDARY_ITEM.get());
                         // Multiblock parts / 多方块部件
-                        output.accept(Items.INPUT_BUS.get());
-                        output.accept(Items.OUTPUT_BUS.get());
-                        output.accept(Items.INPUT_HATCH.get());
-                        output.accept(Items.OUTPUT_HATCH.get());
-                        output.accept(Items.INPUT_ASSEMBLY.get());
-                        output.accept(Items.OUTPUT_ASSEMBLY.get());
+                        for (var sup : com.endlessepoch.core.registry.Items.PART_ITEMS)
+                            output.accept(sup.get());
                     })
                     .build()
     );
@@ -118,6 +115,12 @@ public class EECore {
                         output.accept(Items.MULTIBLOCK_SCANNER.get());
                         output.accept(Items.LASER_LINK_CARD.get());
                         output.accept(Items.WRENCH.get());
+                        output.accept(Items.HAMMER.get());
+                        output.accept(Items.FILE.get());
+                        output.accept(Items.WIRE_CUTTER.get());
+                        output.accept(Items.CROWBAR.get());
+                        output.accept(Items.SAW.get());
+                        output.accept(Items.SCREWDRIVER.get());
                     })
                     .build()
     );
@@ -135,8 +138,12 @@ public class EECore {
 
         Blocks.BLOCKS.register(modEventBus);
         Items.ITEMS.register(modEventBus);
+        com.endlessepoch.core.registry.Blocks.flushCasingTags();
+        com.endlessepoch.core.registry.Blocks.flushPartItems();
         BlockEntities.BLOCK_ENTITIES.register(modEventBus);
         Menus.MENUS.register(modEventBus);
+        EECoreRecipeTypes.RECIPE_TYPES.register(modEventBus);
+        EECoreRecipeTypes.RECIPE_SERIALIZERS.register(modEventBus);
         CREATIVE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
@@ -155,8 +162,10 @@ public class EECore {
         NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.CelestialRenderer.class);
         // Break detection handled by MachineControllerBlockEntity.serverTick polling / 破坏检测由BE轮询处理
 
-        // Flush block tags accumulated during item registration / 写入注册期间收集的方块标签
+        // Flush block tags + lang JSON generated during registration / 写入注册期间收集的标签和翻译
         com.endlessepoch.core.registry.ResourceGenerator.flushTags(Items.TAG_BLOCKS);
+        com.endlessepoch.core.registry.ResourceGenerator.flushLang(MOD_ID,
+                com.endlessepoch.core.registry.ResourceGenerator.PROJECT_ROOT);
     }
 
     /**
@@ -191,6 +200,27 @@ public class EECore {
         LOGGER.info(MOD_NAME + " initialized");
         LOGGER.info("Omega system: 12 tiers ELV~QV, 1Ω = 2FE");
         LOGGER.info("NovaNet: node registry active, test multiblock registered");
+
+        // Register built-in machine profiles / 注册内置机器种类
+        com.endlessepoch.core.api.machine.MachineProfileRegistry.register(
+                com.endlessepoch.core.api.machine.MachineProfile.of(
+                        EECore.MOD_ID, "furnace",
+                        net.minecraft.world.item.crafting.RecipeType.SMELTING,
+                        net.minecraft.world.level.block.Blocks.FURNACE,
+                        "eecore.profile.furnace"));
+        com.endlessepoch.core.api.machine.MachineProfileRegistry.register(
+                com.endlessepoch.core.api.machine.MachineProfile.of(
+                        EECore.MOD_ID, "blast_furnace",
+                        net.minecraft.world.item.crafting.RecipeType.BLASTING,
+                        net.minecraft.world.level.block.Blocks.BLAST_FURNACE,
+                        "eecore.profile.blast_furnace"));
+        // Custom EECore recipe type / 自定义配方类型
+        com.endlessepoch.core.api.machine.MachineProfileRegistry.register(
+                com.endlessepoch.core.api.machine.MachineProfile.of(
+                        EECore.MOD_ID, "machine",
+                        EECoreRecipeTypes.MACHINE.get(),
+                        net.minecraft.world.level.block.Blocks.FURNACE,
+                        "eecore.profile.machine"));
     }
 
     /**
@@ -206,6 +236,11 @@ public class EECore {
         );
         event.registerBlockEntity(
                 EECoreCapabilities.OMEGA_ENERGY,
+                BlockEntities.MACHINE_CONTROLLER.get(),
+                (be, side) -> ((com.endlessepoch.core.nova.block.MachineControllerBlockEntity) be).getEnergyStorage()
+        );
+        event.registerBlockEntity(
+                EECoreCapabilities.OMEGA_ENERGY,
                 BlockEntities.CREATIVE_CONSUMER.get(),
                 (be, side) -> be
         );
@@ -216,7 +251,7 @@ public class EECore {
                 (be, side) -> be
         );
 
-        // Item handler for input/output buses / 物品能力（输入/输出总线）
+        // Item handler for input/output buses / 物品能力（输入/输出总线 + 总成）
         event.registerBlock(
                 net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK,
                 (level, pos, state, be, side) -> {
@@ -225,7 +260,35 @@ public class EECore {
                     return null;
                 },
                 com.endlessepoch.core.registry.Blocks.INPUT_BUS.get(),
-                com.endlessepoch.core.registry.Blocks.OUTPUT_BUS.get()
+                com.endlessepoch.core.registry.Blocks.OUTPUT_BUS.get(),
+                com.endlessepoch.core.registry.Blocks.INPUT_ASSEMBLY.get(),
+                com.endlessepoch.core.registry.Blocks.OUTPUT_ASSEMBLY.get()
+        );
+
+        // Omega energy for energy hatches / 能源仓能量能力
+        event.registerBlock(
+                com.endlessepoch.core.api.EECoreCapabilities.OMEGA_ENERGY,
+                (level, pos, state, be, side) -> {
+                    if (be instanceof com.endlessepoch.core.nova.block.part.PartBlockEntity pe)
+                        return pe.getEnergyStorage();
+                    return null;
+                },
+                com.endlessepoch.core.registry.Blocks.ENERGY_INPUT.get(),
+                com.endlessepoch.core.registry.Blocks.ENERGY_OUTPUT.get()
+        );
+
+        // Fluid handler for fluid hatches + assemblies / 流体仓/总成流体能力
+        event.registerBlock(
+                net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
+                (level, pos, state, be, side) -> {
+                    if (be instanceof com.endlessepoch.core.nova.block.part.PartBlockEntity pe)
+                        return pe.getFluidTank();
+                    return null;
+                },
+                com.endlessepoch.core.registry.Blocks.FLUID_INPUT.get(),
+                com.endlessepoch.core.registry.Blocks.FLUID_OUTPUT.get(),
+                com.endlessepoch.core.registry.Blocks.INPUT_ASSEMBLY.get(),
+                com.endlessepoch.core.registry.Blocks.OUTPUT_ASSEMBLY.get()
         );
     }
 

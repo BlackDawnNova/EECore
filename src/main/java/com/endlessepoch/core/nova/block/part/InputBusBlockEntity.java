@@ -1,5 +1,6 @@
 package com.endlessepoch.core.nova.block.part;
 
+import com.endlessepoch.core.api.multiblock.PartAbility;
 import com.endlessepoch.core.api.multiblock.PartType;
 import com.endlessepoch.core.menu.BusMenu;
 import com.endlessepoch.core.registry.BlockEntities;
@@ -15,24 +16,23 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Bus block entity with configurable item inventory, hopper/pipe compatible via IItemHandler.
+ * Output buses are extract-only — items cannot be inserted manually.
  * 可配置格数的总线方块实体，通过 IItemHandler 支持漏斗/管道。
- * <p>
- * Addon mods set slot count via {@link PartBlock#PartBlock(Properties, PartType, int)}.
- * 附属 mod 通过 PartBlock 构造器设置格数。
+ * 输出总线只许取出，不可手动放入。
  */
 public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider {
 
     private final ItemStackHandler inventory;
+    private final boolean output;
 
-    public InputBusBlockEntity(BlockPos pos, BlockState state, int slotCount) {
-        super(pos, state, PartType.INPUT_BUS);
-        int clamped = Math.max(1, Math.min(slotCount, PartBlock.MAX_BUS_SLOTS));
-        this.inventory = new ItemStackHandler(clamped) {
+    public InputBusBlockEntity(BlockPos pos, BlockState state, PartType type, int tier, int slotCount) {
+        super(pos, state, type, tier);
+        this.output = getAbilities().contains(PartAbility.ITEM_OUTPUT);
+        this.inventory = new ItemStackHandler(slotCount) {
             @Override
             protected void onContentsChanged(int slot) { setChanged(); }
         };
@@ -40,8 +40,9 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
 
     public IItemHandler getInventory() { return inventory; }
     public int getSlotCount() { return inventory.getSlots(); }
+    public boolean isOutput() { return output; }
 
-    // ===== MenuProvider / 菜单提供者 =====
+    // MenuProvider / 菜单提供
 
     @Override
     public Component getDisplayName() {
@@ -54,7 +55,7 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
         return new BusMenu(id, inv, this);
     }
 
-    // ===== NBT =====
+    // NBT / 持久化
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider provider) {

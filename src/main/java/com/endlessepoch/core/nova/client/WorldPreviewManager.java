@@ -57,8 +57,8 @@ public class WorldPreviewManager {
         range = Math.max(MIN_RANGE, Math.min(MAX_RANGE, range));
         renderRangeSq = range * range;
         active = !missEntries.isEmpty() || !wrongEntries.isEmpty();
-        EECore.LOGGER.info("[EECore Preview] active={} missing={} wrong={} range={}",
-                active, missEntries.size(), wrongEntries.size());
+        EECore.LOGGER.debug("[EECore Preview] active={} missing={} wrong={} range={}",
+                active, missEntries.size(), wrongEntries.size(), range);
     }
 
     public void clearPreview() { patternId = null; missEntries.clear(); wrongEntries.clear(); active = false; }

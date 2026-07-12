@@ -37,7 +37,7 @@ public class Items {
         TAG_BLOCKS.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>()).add("eecore:" + blockId);
     }
 
-    // ── Basic blocks / 基础方块 ──
+    // Basic blocks / 基础方块
 
     public static final Supplier<BlockItem> CREATIVE_GENERATOR_ITEM =
             ITEMS.register("creative_generator",
@@ -82,56 +82,47 @@ public class Items {
     public static final Supplier<WrenchItem> WRENCH =
             ITEMS.register("wrench", () -> new WrenchItem(new Item.Properties()));
 
-    // ── Multiblock parts / 多方块部件 ──
+    // Tools / 工具
 
-    public static final Supplier<BlockItem> INPUT_BUS = registerPartItem("input_bus", 1);
-    public static final Supplier<BlockItem> OUTPUT_BUS = registerPartItem("output_bus", 1);
-    public static final Supplier<BlockItem> INPUT_HATCH = registerPartItem("input_hatch", 1);
-    public static final Supplier<BlockItem> OUTPUT_HATCH = registerPartItem("output_hatch", 1);
-    public static final Supplier<BlockItem> INPUT_ASSEMBLY = registerPartItem("input_assembly", 1);
-    public static final Supplier<BlockItem> OUTPUT_ASSEMBLY = registerPartItem("output_assembly", 1);
+    public static final Supplier<Item> HAMMER = ITEMS.register("hammer",
+            () -> new Item(new Item.Properties()));
+    public static final Supplier<Item> FILE = ITEMS.register("file",
+            () -> new Item(new Item.Properties()));
+    public static final Supplier<Item> WIRE_CUTTER = ITEMS.register("wire_cutter",
+            () -> new Item(new Item.Properties()));
+    public static final Supplier<Item> CROWBAR = ITEMS.register("crowbar",
+            () -> new Item(new Item.Properties()));
+    public static final Supplier<Item> SAW = ITEMS.register("saw",
+            () -> new Item(new Item.Properties()));
+    public static final Supplier<Item> SCREWDRIVER = ITEMS.register("screwdriver",
+            () -> new Item(new Item.Properties()));
 
-    /** EECore internal: auto-resolves block from id. / 内部便捷方法。 */
-    private static Supplier<BlockItem> registerPartItem(String id, int tier) {
-        return registerPartItem(
-                () -> java.util.Objects.requireNonNull(getPartBlock(id), "Part block not found: " + id),
-                id, tier, "eecore:block/parts/" + id + "/overlay_front");
-    }
+    // Multiblock parts / 多方块部件
+
+    /** All registered part items — used for creative tab population / 所有已注册部件物品。 */
+    public static final List<Supplier<BlockItem>> PART_ITEMS = new ArrayList<>();
+
+    /** Parts are now auto-registered via Blocks.flushPartItems() — items + models + lang all in one call. / 部件现由 flushPartItems 自动注册。 */
 
     /**
-     * Register a part item with voltage-tier casing + custom overlay. / 注册部件物品（附属 mod 用）。
-     * @param blockSupplier the part block supplier / 部件方块供应器
-     * @param id            registry name / 注册名
-     * @param tier          voltage tier (0=ELV..11=QV) / 电压等级
-     * @param overlayTex    overlay texture path (e.g. "mymod:block/parts/hatch/overlay_front") / 覆面贴图路径
+     * Register a part item with voltage-tier casing + custom overlay (for addon mods).
+     * 注册部件物品（附属 Mod 用）。
      */
-    public static Supplier<BlockItem> registerPartItem(Supplier<Block> blockSupplier, String id, int tier, String overlayTex) {
+    public static Supplier<BlockItem> registerPartItem(Supplier<? extends Block> blockSupplier, String id, int tier, String overlayTex) {
         var sup = ITEMS.register(id,
                 () -> new BlockItem(blockSupplier.get(), new Item.Properties().stacksTo(64)));
-        ResourceGenerator.writePartModel(id, tier, overlayTex);
+        ResourceGenerator.writePartModel(id, tier, overlayTex, "eecore");
         return sup;
     }
 
-    private static Block getPartBlock(String id) {
-        return switch (id) {
-            case "input_bus" -> Blocks.INPUT_BUS.get();
-            case "output_bus" -> Blocks.OUTPUT_BUS.get();
-            case "input_hatch" -> Blocks.INPUT_HATCH.get();
-            case "output_hatch" -> Blocks.OUTPUT_HATCH.get();
-            case "input_assembly" -> Blocks.INPUT_ASSEMBLY.get();
-            case "output_assembly" -> Blocks.OUTPUT_ASSEMBLY.get();
-            default -> null;
-        };
-    }
-
-    // ── Machine controller / 机器控制器 ──
+    // Machine controller / 机器控制器
 
     public static final Supplier<BlockItem> MACHINE_CONTROLLER_ITEM =
             ITEMS.register("machine_controller",
                     () -> new BlockItem(Blocks.MACHINE_CONTROLLER.get(),
                             new Item.Properties().stacksTo(64)));
 
-    // ── Voltage-tier machine casings / 电压等级机器外壳 ──
+    // Voltage-tier machine casings / 电压等级机器外壳
 
     public static final Supplier<BlockItem> ELV_MACHINE_CASING = registerCasingItem("elv");
     public static final Supplier<BlockItem> LV_MACHINE_CASING  = registerCasingItem("lv");
@@ -172,7 +163,7 @@ public class Items {
         };
     }
 
-    // ── Dynamic machine items / 动态机器物品 ──
+    // Dynamic machine items / 动态机器物品
 
     /** Machine items registered by MultiblockLoader. / 由 MultiblockLoader 注册的机器物品列表。 */
     public static final List<Supplier<Item>> MACHINE_ITEMS = new ArrayList<>();

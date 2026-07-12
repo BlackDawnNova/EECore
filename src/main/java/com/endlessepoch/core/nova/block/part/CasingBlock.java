@@ -19,22 +19,17 @@ import java.util.List;
 public class CasingBlock extends Block implements EntityBlock {
 
     private final PartType partType;
+    private final int tier;
 
-    public CasingBlock(Properties properties, PartType type) {
+    public CasingBlock(Properties properties, PartType type, int tier) {
         super(properties);
         this.partType = type;
-    }
-
-    public PartType getPartType() { return partType; }
-
-    @Override
-    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
-        return List.of(new ItemStack(this.asItem()));
+        this.tier = tier;
     }
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new PartBlockEntity(pos, state, partType);
+        return new PartBlockEntity(pos, state, partType, tier);
     }
 
     @Override

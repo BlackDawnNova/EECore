@@ -1,0 +1,11 @@
+{
+  "type": "eecore:machine",
+  "ingredient": { "item": "minecraft:iron_ore" },
+  "results": [
+    { "id": "minecraft:iron_ingot", "count": 1 },
+    { "id": "minecraft:iron_nugget", "count": 4 },
+    { "id": "minecraft:flint", "count": 1 },
+    { "id": "minecraft:gravel", "count": 2 }
+  ],
+  "processingTime": 200
+}

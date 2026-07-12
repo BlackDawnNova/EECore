@@ -5,6 +5,7 @@ import com.endlessepoch.core.client.model.CasingBakedModel;
 import com.endlessepoch.core.client.model.MachineModelLoader;
 import com.endlessepoch.core.registry.Menus;
 import com.endlessepoch.core.screen.BusScreen;
+import com.endlessepoch.core.screen.HatchScreen;
 import com.endlessepoch.core.screen.MachineTestScreen;
 import com.endlessepoch.core.menu.MachineMenu;
 import com.endlessepoch.core.screen.creative.CreativeConsumerScreen;
@@ -27,6 +28,7 @@ public class ClientEvents {
         event.register(Menus.CREATIVE_CONSUMER.get(), CreativeConsumerScreen::new);
         event.register(Menus.BUS.get(), BusScreen::new);
         event.register(Menus.MACHINE.get(), MachineTestScreen::new);
+        event.register(Menus.HATCH.get(), HatchScreen::new);
     }
 
     @SubscribeEvent

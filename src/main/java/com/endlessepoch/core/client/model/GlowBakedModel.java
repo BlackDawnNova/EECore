@@ -36,7 +36,7 @@ public class GlowBakedModel implements IDynamicBakedModel {
 
     @Override
     public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource random, ModelData data) {
-        return ChunkRenderTypeSet.of(RenderType.cutoutMipped());
+        return ChunkRenderTypeSet.of(RenderType.cutoutMipped(), RenderType.translucent());
     }
 
     @Override

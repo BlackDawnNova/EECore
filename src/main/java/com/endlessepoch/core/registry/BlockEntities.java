@@ -14,6 +14,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
 
+/** Block entity type registry for EECore / 方块实体类型注册表。 */
 public class BlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, EECore.MOD_ID);
@@ -51,22 +52,13 @@ public class BlockEntities {
     public static final Supplier<BlockEntityType<PartBlockEntity>> PART =
             BLOCK_ENTITIES.register("part",
                     () -> {
-                        var bb = new net.minecraft.world.level.block.Block[]{
-                            Blocks.ELV_MACHINE_CASING.get(), Blocks.LV_MACHINE_CASING.get(),
-                            Blocks.MV_MACHINE_CASING.get(), Blocks.HV_MACHINE_CASING.get(),
-                            Blocks.EHV_MACHINE_CASING.get(), Blocks.UHV_MACHINE_CASING.get(),
-                            Blocks.PHV_MACHINE_CASING.get(), Blocks.XHV_MACHINE_CASING.get(),
-                            Blocks.PLV_MACHINE_CASING.get(), Blocks.SV_MACHINE_CASING.get(),
-                            Blocks.BV_MACHINE_CASING.get(), Blocks.QV_MACHINE_CASING.get(),
-                            Blocks.INPUT_BUS.get(), Blocks.OUTPUT_BUS.get(),
-                            Blocks.INPUT_HATCH.get(), Blocks.OUTPUT_HATCH.get(),
-                            Blocks.INPUT_ASSEMBLY.get(), Blocks.OUTPUT_ASSEMBLY.get()
-                        };
+                        var bb = Blocks.PART_BLOCKS.stream()
+                                .map(Supplier::get).toArray(net.minecraft.world.level.block.Block[]::new);
                         return BlockEntityType.Builder.of((pos, state) -> {
                                     var block = state.getBlock();
                                     if (block instanceof EntityBlock eb)
                                         return (PartBlockEntity) eb.newBlockEntity(pos, state);
-                                    return new PartBlockEntity(pos, state, com.endlessepoch.core.api.multiblock.PartType.CASING);
+                                    return new PartBlockEntity(pos, state, com.endlessepoch.core.api.multiblock.PartType.CASING, 0);
                                 }, bb).build(null);
                     }
             );

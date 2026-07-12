@@ -13,12 +13,14 @@ import net.neoforged.neoforge.items.SlotItemHandler;
 
 /**
  * Container for input/output bus inventory + player inventory.
- * 总线容器——总线格 + 玩家背包。
+ * Output buses are extract-only — items cannot be placed manually.
+ * 总线容器——总线格 + 玩家背包。输出总线只许取出。
  */
 public class BusMenu extends AbstractContainerMenu {
 
     private final InputBusBlockEntity bus;
     private final int slotCount;
+    private final boolean isOutput;
     private final BlockPos pos;
 
     /** Server-side constructor. / 服务端构造器。 */
@@ -26,6 +28,7 @@ public class BusMenu extends AbstractContainerMenu {
         super(Menus.BUS.get(), id);
         this.bus = bus;
         this.slotCount = bus.getSlotCount();
+        this.isOutput = bus.isOutput();
         this.pos = bus.getBlockPos();
         addBusSlots(bus.getInventory());
         addPlayerSlots(inv);
@@ -36,6 +39,7 @@ public class BusMenu extends AbstractContainerMenu {
         super(Menus.BUS.get(), id);
         this.pos = buf.readBlockPos();
         this.slotCount = buf.readVarInt();
+        this.isOutput = buf.readBoolean();
         this.bus = null;
         addBusSlots(new net.neoforged.neoforge.items.wrapper.InvWrapper(
                 new net.minecraft.world.SimpleContainer(slotCount)));
@@ -49,7 +53,12 @@ public class BusMenu extends AbstractContainerMenu {
             int row = i / 9;
             int col = i % 9;
             this.addSlot(new SlotItemHandler(handler, i,
-                    x + col * 18, 18 + row * 18));
+                    x + col * 18, 18 + row * 18) {
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    return !isOutput;
+                }
+            });
         }
     }
 
@@ -77,9 +86,12 @@ public class BusMenu extends AbstractContainerMenu {
         remainder = stack.copy();
 
         if (index < slotCount) {
+            // Bus → player / 总线→玩家
             if (!this.moveItemStackTo(stack, slotCount, this.slots.size(), true))
                 return ItemStack.EMPTY;
         } else {
+            // Player → bus: blocked if output / 玩家→总线：输出仓禁止
+            if (isOutput) return ItemStack.EMPTY;
             if (!this.moveItemStackTo(stack, 0, slotCount, false))
                 return ItemStack.EMPTY;
         }
