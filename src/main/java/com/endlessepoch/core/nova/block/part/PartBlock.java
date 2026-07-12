@@ -8,7 +8,10 @@ import com.endlessepoch.core.api.multiblock.PartType;
 import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -41,6 +44,7 @@ public class PartBlock extends Block implements EntityBlock {
     final int slotCount;
     final int fluidCapacity;   // mB, 0 = no tank
     final long energyCapacity; // Ω, 0 = no energy storage
+    public final int fluidSlots; // GUI fluid display count, 1-27
 
     public static final int DEFAULT_BUS_SLOTS = 2;
     public static final int DEFAULT_ASSEMBLY_SLOTS = 4;
@@ -63,29 +67,20 @@ public class PartBlock extends Block implements EntityBlock {
 
     // Constructors / 构造器（tier + 显式功能参数）
 
-    /** Structural part (casing). / 纯结构。 */
-    public PartBlock(Properties p, PartType type, int tier) {
-        this(p, type, tier, 0, 0, 0);
-    }
-
-    /** Item bus with slot count. / 物品总线。 */
-    public PartBlock(Properties p, PartType type, int tier, int slotCount) {
-        this(p, type, tier, slotCount, 0, 0);
-    }
-
-    /** Assembly: slots + fluid capacity. / 总成：格子+流体。 */
-    public PartBlock(Properties p, PartType type, int tier, int slotCount, int fluidCapacity) {
-        this(p, type, tier, slotCount, fluidCapacity, 0);
-    }
-
-    /** Energy hatch or full config. / 能源仓或全配置。 */
-    public PartBlock(Properties p, PartType type, int tier, int slotCount, int fluidCapacity, long energyCapacity) {
-        super(p);
-        this.partType = type;
-        this.tier = tier;
-        this.slotCount = clamp(slotCount, isBusType(type) ? 1 : 0, MAX_SLOTS);
-        this.fluidCapacity = Math.max(0, fluidCapacity);
-        this.energyCapacity = Math.max(0, energyCapacity);
+    /** Structural part (casing). */
+    public PartBlock(Properties p, PartType type, int tier) { this(p, type, tier, 0, 0, 0, 0); }
+    /** Item bus with slot count. */
+    public PartBlock(Properties p, PartType type, int tier, int sc) { this(p, type, tier, sc, 0, 0, 0); }
+    /** Assembly: slots + fluid capacity. */
+    public PartBlock(Properties p, PartType type, int tier, int sc, int fc) { this(p, type, tier, sc, fc, 0, 0); }
+    /** Energy hatch or full config. */
+    public PartBlock(Properties p, PartType type, int tier, int sc, int fc, long ec) { this(p, type, tier, sc, fc, ec, 0); }
+    /** Full config with fluid slots. */
+    public PartBlock(Properties p, PartType type, int tier, int sc, int fc, long ec, int fs) {
+        super(p); this.partType = type; this.tier = tier;
+        this.slotCount = clamp(sc, isBusType(type) ? 1 : 0, MAX_SLOTS);
+        this.fluidCapacity = Math.max(0, fc); this.energyCapacity = Math.max(0, ec);
+        this.fluidSlots = fc > 0 ? Math.max(0, Math.min(27, fs)) : 0;
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
     }
 
@@ -127,20 +122,41 @@ public class PartBlock extends Block implements EntityBlock {
         if (!level.isClientSide()) {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof InputBusBlockEntity bus) {
+                var tanks = ((PartBlockEntity) bus).getFluidTanks();
+                int fs = tanks.isEmpty() ? 0 : this.fluidSlots;
                 player.openMenu(bus, buf -> {
-                    buf.writeBlockPos(pos);
-                    buf.writeVarInt(bus.getSlotCount());
-                    buf.writeBoolean(bus.isOutput());
-                });
-                return InteractionResult.SUCCESS;
+                    buf.writeBlockPos(pos); buf.writeVarInt(bus.getSlotCount()); buf.writeBoolean(bus.isOutput());
+                    buf.writeVarInt(fs);
+                    for (int i = 0; i < fs && i < tanks.size(); i++) {
+                        var s = tanks.get(i).getFluid();
+                        buf.writeBoolean(!s.isEmpty());
+                        if (!s.isEmpty()) buf.writeResourceLocation(net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(s.getFluid()));
+                        buf.writeVarInt(tanks.get(i).getFluidAmount()); buf.writeVarInt(tanks.get(i).getCapacity());
+                    }
+                }); return InteractionResult.SUCCESS;
             }
-            if (be instanceof PartBlockEntity pe
-                    && (pe.getEnergyStorage() != null || pe.getFluidTank() != null)) {
-                player.openMenu(pe, buf -> buf.writeBlockPos(pos));
-                return InteractionResult.SUCCESS;
+            if (be instanceof PartBlockEntity pe && (pe.getEnergyStorage() != null || !pe.getFluidTanks().isEmpty())) {
+                var tanks = pe.getFluidTanks();
+                player.openMenu(pe, buf -> {
+                    buf.writeBlockPos(pos); buf.writeVarInt(tanks.size());
+                    for (var t : tanks) {
+                        var s = t.getFluid();
+                        buf.writeBoolean(!s.isEmpty());
+                        if (!s.isEmpty()) buf.writeResourceLocation(net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(s.getFluid()));
+                        buf.writeVarInt(t.getFluidAmount()); buf.writeVarInt(t.getCapacity());
+                    }
+                }); return InteractionResult.SUCCESS;
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide());
+    }
+
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos,
+                                              Player player, InteractionHand hand, BlockHitResult hit) {
+        return net.neoforged.neoforge.fluids.FluidUtil.interactWithFluidHandler(player, hand, level, pos, hit.getDirection())
+                ? ItemInteractionResult.sidedSuccess(level.isClientSide())
+                : super.useItemOn(stack, state, level, pos, player, hand, hit);
     }
 
     @Override

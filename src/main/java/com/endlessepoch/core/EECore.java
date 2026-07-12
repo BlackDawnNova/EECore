@@ -282,7 +282,7 @@ public class EECore {
                 net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK,
                 (level, pos, state, be, side) -> {
                     if (be instanceof com.endlessepoch.core.nova.block.part.PartBlockEntity pe)
-                        return pe.getFluidTank();
+                        return pe.getFluidHandler();
                     return null;
                 },
                 com.endlessepoch.core.registry.Blocks.FLUID_INPUT.get(),
@@ -368,6 +368,12 @@ public class EECore {
                 SyncValidationPacket.TYPE,
                 SyncValidationPacket.STREAM_CODEC,
                 (payload, context) -> SyncValidationPacket.handle(payload, context)
+        );
+
+        registrar.playToClient(
+                com.endlessepoch.core.network.FluidSyncPacket.TYPE,
+                com.endlessepoch.core.network.FluidSyncPacket.CODEC,
+                (payload, context) -> com.endlessepoch.core.network.FluidSyncPacket.handle(payload, context)
         );
     }
 }

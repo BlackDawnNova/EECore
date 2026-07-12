@@ -142,17 +142,17 @@ public class Blocks {
 
     /** Register block + defer item registration. / 注册方块 + 延迟物品。 */
     public static Supplier<? extends Block> registerPartBlock(String path, int tier, int slots, int fluidCap, long energyCap) {
-        return registerPartBlock(path, tier, slots, fluidCap, energyCap, null, null);
+        return registerPartBlock(path, tier, slots, fluidCap, 0, energyCap, null, null);
     }
 
     /** Register block + item name (for auto item registration). / 方块+名字（自动注册物品）。 */
-    public static Supplier<? extends Block> registerPartBlock(String path, int tier, int slots, int fluidCap, long energyCap,
-                                                                String en, String zh) {
+    public static Supplier<? extends Block> registerPartBlock(String path, int tier, int slots, int fluidCap, int fluidSlots,
+                                                                long energyCap, String en, String zh) {
         ResourceLocation rl = ResourceLocation.fromNamespaceAndPath("eecore", path);
         PartType type = PartType.get(rl);
         if (type == null) throw new IllegalArgumentException("Unknown PartType: " + rl);
         var sup = BLOCKS.register(path,
-                () -> new PartBlock(PartBlock.tieredProperties(tier), type, tier, slots, fluidCap, energyCap));
+                () -> new PartBlock(PartBlock.tieredProperties(tier), type, tier, slots, fluidCap, energyCap, fluidSlots));
         PART_BLOCKS.add(sup);
         if (en != null) DEFERRED_ITEMS.add(new PartItemDef(path, tier, en, zh));
         return sup;
@@ -176,13 +176,13 @@ public class Blocks {
         throw new IllegalStateException("Part block not found: " + path);
     }
 
-    public static final Supplier<? extends Block> INPUT_BUS  = registerPartBlock("input_bus",  1, 2, 0, 0,    "Input Bus",    "输入总线");
-    public static final Supplier<? extends Block> OUTPUT_BUS = registerPartBlock("output_bus", 1, 2, 0, 0,    "Output Bus",   "输出总线");
-    public static final Supplier<? extends Block> FLUID_INPUT  = registerPartBlock("fluid_input",  1, 0, 8000, 0, "Fluid Input Hatch",  "流体输入仓");
-    public static final Supplier<? extends Block> FLUID_OUTPUT = registerPartBlock("fluid_output", 1, 0, 8000, 0, "Fluid Output Hatch", "流体输出仓");
-    public static final Supplier<? extends Block> ENERGY_INPUT  = registerPartBlock("energy_input",  1, 0, 0, 10000, "Energy Input Hatch",  "能源输入仓");
-    public static final Supplier<? extends Block> ENERGY_OUTPUT = registerPartBlock("energy_output", 1, 0, 0, 10000, "Energy Output Hatch", "能源输出仓");
-    public static final Supplier<? extends Block> INPUT_ASSEMBLY  = registerPartBlock("input_assembly",  1, 4, 8000, 0, "Input Assembly",  "输入总成");
-    public static final Supplier<? extends Block> OUTPUT_ASSEMBLY = registerPartBlock("output_assembly", 1, 4, 8000, 0, "Output Assembly", "输出总成");
+    public static final Supplier<? extends Block> INPUT_BUS  = registerPartBlock("input_bus",  1, 2, 0, 0, 0, "Input Bus", "输入总线");
+    public static final Supplier<? extends Block> OUTPUT_BUS = registerPartBlock("output_bus", 1, 2, 0, 0, 0, "Output Bus", "输出总线");
+    public static final Supplier<? extends Block> FLUID_INPUT  = registerPartBlock("fluid_input",  1, 0, 8000, 0, 0, "Fluid Input Hatch", "流体输入仓");
+    public static final Supplier<? extends Block> FLUID_OUTPUT = registerPartBlock("fluid_output", 1, 0, 8000, 0, 0, "Fluid Output Hatch", "流体输出仓");
+    public static final Supplier<? extends Block> ENERGY_INPUT  = registerPartBlock("energy_input",  1, 0, 0, 0, 10000, "Energy Input Hatch", "能源输入仓");
+    public static final Supplier<? extends Block> ENERGY_OUTPUT = registerPartBlock("energy_output", 1, 0, 0, 0, 10000, "Energy Output Hatch", "能源输出仓");
+    public static final Supplier<? extends Block> INPUT_ASSEMBLY  = registerPartBlock("input_assembly",  1, 9, 16000, 9, 0, "Input Assembly", "输入总成");
+    public static final Supplier<? extends Block> OUTPUT_ASSEMBLY = registerPartBlock("output_assembly", 1, 9, 16000, 9, 0, "Output Assembly", "输出总成");
 
 }

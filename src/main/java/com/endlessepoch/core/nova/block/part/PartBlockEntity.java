@@ -23,6 +23,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -36,7 +37,7 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
     private final PartType partType;
     private final Set<PartAbility> abilities = new java.util.LinkedHashSet<>();
     private OmegaStorage energyStorage;
-    private FluidTank fluidTank;
+    private List<FluidTank> fluidTanks = new java.util.ArrayList<>();
 
     public PartBlockEntity(BlockPos pos, BlockState state, PartType type, int tier) {
         super(BlockEntities.PART.get(), pos, state);
@@ -65,9 +66,13 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
         }
         if (abilities.contains(PartAbility.FLUID_INPUT) || abilities.contains(PartAbility.FLUID_OUTPUT)) {
             int fc = fluidCap > 0 ? fluidCap : 8000;
-            fluidTank = new FluidTank(fc) {
-                @Override protected void onContentsChanged() { setChanged(); }
-            };
+            int count = (state.getBlock() instanceof PartBlock pb && pb.fluidSlots > 0) ? pb.fluidSlots : 1;
+            boolean output = abilities.contains(PartAbility.FLUID_OUTPUT);
+            for (int i = 0; i < count; i++)
+                fluidTanks.add(new FluidTank(fc) {
+                    @Override protected void onContentsChanged() { setChanged(); }
+                    @Override public boolean isFluidValid(net.neoforged.neoforge.fluids.FluidStack s) { return !output; }
+                });
         }
     }
 
@@ -97,7 +102,25 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
     /** Omega energy storage, or null if not an energy hatch. / 能量存储，非能源仓时返回 null。 */
     public OmegaStorage getEnergyStorage() { return energyStorage; }
     /** Fluid tank, or null if not a fluid hatch. / 流体罐，非流体仓时返回 null。 */
-    public FluidTank getFluidTank() { return fluidTank; }
+    public List<FluidTank> getFluidTanks() { return fluidTanks; }
+    public FluidTank getFluidTank() { return fluidTanks.isEmpty() ? null : fluidTanks.get(0); }
+    public IFluidHandler getFluidHandler() {
+        if (fluidTanks.isEmpty()) return null;
+        if (fluidTanks.size() == 1) return fluidTanks.get(0);
+        return new net.neoforged.neoforge.fluids.capability.IFluidHandler() {
+            @Override public int getTanks() { return fluidTanks.size(); }
+            @Override public net.neoforged.neoforge.fluids.FluidStack getFluidInTank(int t) { return fluidTanks.get(t).getFluid(); }
+            @Override public int getTankCapacity(int t) { return fluidTanks.get(t).getCapacity(); }
+            @Override public boolean isFluidValid(int t, net.neoforged.neoforge.fluids.FluidStack s) { return fluidTanks.get(t).isFluidValid(s); }
+            @Override public int fill(net.neoforged.neoforge.fluids.FluidStack r, FluidAction a) {
+                // Prefer matching tanks, then empty / 优先同种流体，再空槽
+                for (var t : fluidTanks) if (t.getFluid().getFluid() == r.getFluid()) { int f=t.fill(r,a); if(f>0)return f; }
+                for (var t : fluidTanks) if (t.getFluid().isEmpty()) { int f=t.fill(r,a); if(f>0)return f; }
+                return 0; }
+            @Override public net.neoforged.neoforge.fluids.FluidStack drain(net.neoforged.neoforge.fluids.FluidStack r, FluidAction a) { for (var t : fluidTanks) { var d = t.drain(r, a); if (!d.isEmpty()) return d; } return net.neoforged.neoforge.fluids.FluidStack.EMPTY; }
+            @Override public net.neoforged.neoforge.fluids.FluidStack drain(int max, FluidAction a) { for (var t : fluidTanks) { var d = t.drain(max, a); if (!d.isEmpty()) return d; } return net.neoforged.neoforge.fluids.FluidStack.EMPTY; }
+        };
+    }
 
     // MenuProvider / 菜单提供
 
@@ -127,7 +150,9 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
         if (controllerPos != null) tag.putLong("ctrlPos", controllerPos.asLong());
         tag.putString("partType", partType.getId().toString());
         if (energyStorage != null) energyStorage.saveToNBT(tag);
-        if (fluidTank != null) tag.put("fluidTank", fluidTank.writeToNBT(provider, new CompoundTag()));
+        var fl = new net.minecraft.nbt.ListTag();
+        for (var t : fluidTanks) fl.add(t.writeToNBT(provider, new CompoundTag()));
+        if (!fl.isEmpty()) tag.put("fluidTanks", fl);
     }
 
     @Override
@@ -138,6 +163,10 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
         if (tag.contains("ctrlPos"))
             controllerPos = BlockPos.of(tag.getLong("ctrlPos"));
         if (energyStorage != null) energyStorage.loadFromNBT(tag);
-        if (fluidTank != null) fluidTank.readFromNBT(provider, tag.getCompound("fluidTank"));
+        if (tag.contains("fluidTanks")) {
+            var fl = tag.getList("fluidTanks", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            for (int i = 0; i < fl.size() && i < fluidTanks.size(); i++)
+                fluidTanks.get(i).readFromNBT(provider, fl.getCompound(i));
+        }
     }
 }
