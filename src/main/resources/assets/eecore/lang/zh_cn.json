@@ -2,6 +2,7 @@
   "itemGroup.eecore.machines": "EECore 机器",
   "itemGroup.eecore.blocks": "EECore 方块",
   "itemGroup.eecore.items": "EECore 物品",
+  "itemGroup.eecore.fluids": "EECore 流体",
   "block.eecore.creative_generator": "创造发电机",
   "block.eecore.creative_consumer": "创造耗电机",
   "eecore.generator.title": "创造发电机",
@@ -113,7 +114,7 @@
   "block.eecore.qv_machine_casing": "普朗克机器外壳",
   "block.eecore.input_bus": "输入总线",
   "block.eecore.output_bus": "输出总线",
-"block.eecore.input_assembly": "输入总成",
+  "block.eecore.input_assembly": "输入总成",
   "block.eecore.output_assembly": "输出总成",
   "eecore.profile.furnace": "熔炉",
   "eecore.profile.blast_furnace": "高炉",
@@ -132,5 +133,9 @@
   "block.eecore.fluid_input": "流体输入仓",
   "block.eecore.fluid_output": "流体输出仓",
   "block.eecore.energy_input": "能源输入仓",
-  "block.eecore.energy_output": "能源输出仓"
+  "block.eecore.energy_output": "能源输出仓",
+  "item.eecore.steam_bucket": "蒸汽桶",
+  "fluid_type.eecore.steam": "蒸汽",
+  "fluid_type.eecore.superheated_steam": "过热蒸汽",
+  "item.eecore.superheated_steam_bucket": "过热蒸汽桶"
 }

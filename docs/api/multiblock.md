@@ -512,6 +512,34 @@ modEventBus.addListener(MyMod::onBuildCreativeTab);
 
 ---
 
+## Custom Fluid Registration / 自定义流体注册
+
+One-click: FluidType + Source + Flowing + Bucket + texture + model + translation + creative tab.
+一键注册：流体类型 + 源 + 流 + 桶 + 贴图 + 模型 + 翻译 + 创造栏。
+
+```java
+// EECore internal / EECore 内部
+Fluids.register("steam", 0xFFE0E0E0, 400, "Steam", "蒸汽", Fluids.UPRIGHT);
+//              id     tint        temp  en     zh     style
+
+// Addon mod / 附属 Mod
+Fluids.register(MY_FLUID_TYPES, MY_FLUIDS, MY_ITEMS, "mymod",
+    "oil", 0xFF1A0A00, 350, "Oil", "原油", Fluids.UPRIGHT);
+```
+
+Auto-generated / 自动生成:
+- Bucket texture: vanilla water bucket with pixel replacement, 5-level gradient preserved / 桶贴图：原版水桶像素替换，保留5级渐变
+- Bucket model JSON / 桶模型
+- Translations for FluidType + BucketItem / 翻译
+- Creative tab entry via `Fluids.BUCKETS` list / 创造栏通过 BUCKETS 自动收集
+
+**Style / 样式:** `Fluids.UPRIGHT`(1) upright bucket, `Fluids.INVERTED`(2) 180° rotated.
+
+**Client registration / 客户端注册:** `Fluids.registerClient(event)` via `RegisterClientExtensionsEvent`.
+See [Emissive API](emissive.md) for client extension setup.
+
+---
+
 ## License / 许可
 
 **GNU GPL v3.0**

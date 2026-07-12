@@ -2,6 +2,7 @@
   "itemGroup.eecore.machines": "EECore Machines",
   "itemGroup.eecore.blocks": "EECore Blocks",
   "itemGroup.eecore.items": "EECore Items",
+  "itemGroup.eecore.fluids": "EECore Fluids",
   "block.eecore.creative_generator": "Creative Generator",
   "block.eecore.creative_consumer": "Creative Consumer",
   "eecore.generator.title": "Creative Generator",
@@ -113,7 +114,7 @@
   "block.eecore.qv_machine_casing": "QV Machine Casing",
   "block.eecore.input_bus": "Input Bus",
   "block.eecore.output_bus": "Output Bus",
-"block.eecore.input_assembly": "Input Assembly",
+  "block.eecore.input_assembly": "Input Assembly",
   "block.eecore.output_assembly": "Output Assembly",
   "eecore.profile.furnace": "Furnace",
   "eecore.profile.blast_furnace": "Blast Furnace",
@@ -132,5 +133,9 @@
   "block.eecore.fluid_input": "Fluid Input Hatch",
   "block.eecore.fluid_output": "Fluid Output Hatch",
   "block.eecore.energy_input": "Energy Input Hatch",
-  "block.eecore.energy_output": "Energy Output Hatch"
+  "block.eecore.energy_output": "Energy Output Hatch",
+  "item.eecore.steam_bucket": "Steam Bucket",
+  "fluid_type.eecore.steam": "Steam",
+  "fluid_type.eecore.superheated_steam": "Superheated Steam",
+  "item.eecore.superheated_steam_bucket": "Superheated Steam Bucket"
 }

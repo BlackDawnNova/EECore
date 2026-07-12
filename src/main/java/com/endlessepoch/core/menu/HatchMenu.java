@@ -53,7 +53,7 @@ public class HatchMenu extends AbstractContainerMenu {
         for(int i=0;i<Math.max(1,tankCount);i++){
             final int ti=i;
             this.addSlot(new Slot(new net.minecraft.world.SimpleContainer(1),0,sx+i*20,38){
-                @Override public boolean mayPlace(ItemStack s){return false;} // ghost slot
+                @Override public boolean mayPlace(ItemStack s){return false;} // ghost slot / 虚槽
                 @Override public int getMaxStackSize(){return 0;}
             });
         }

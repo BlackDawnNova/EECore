@@ -125,6 +125,19 @@ public class EECore {
                     .build()
     );
 
+    public static final Supplier<CreativeModeTab> FLUIDS_TAB = CREATIVE_TABS.register(
+            "eecore_fluids",
+            () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.eecore.fluids"))
+                    .icon(() -> com.endlessepoch.core.registry.Fluids.STEAM.bucket().get().getDefaultInstance())
+                    .withTabsBefore(ResourceLocation.parse("eecore:eecore_items"))
+                    .displayItems((params, output) -> {
+                        for (var b : com.endlessepoch.core.registry.Fluids.BUCKETS)
+                            output.accept(b.get());
+                    })
+                    .build()
+    );
+
     public EECore(IEventBus modEventBus, ModContainer container) {
         LOGGER.info(MOD_NAME + " v" + VERSION + " 加载中...");
         EmissiveHelper.registerEmissiveModel(
@@ -144,6 +157,8 @@ public class EECore {
         Menus.MENUS.register(modEventBus);
         EECoreRecipeTypes.RECIPE_TYPES.register(modEventBus);
         EECoreRecipeTypes.RECIPE_SERIALIZERS.register(modEventBus);
+        com.endlessepoch.core.registry.Fluids.FLUIDS.register(modEventBus);
+        com.endlessepoch.core.registry.Fluids.FLUID_TYPES.register(modEventBus);
         CREATIVE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
