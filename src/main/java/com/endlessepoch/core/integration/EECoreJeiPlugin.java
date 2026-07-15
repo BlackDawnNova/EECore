@@ -1,12 +1,11 @@
 package com.endlessepoch.core.integration;
 
 import com.endlessepoch.core.EECore;
-import com.endlessepoch.core.api.machine.MachineProfileRegistry;
+import com.endlessepoch.core.api.recipe.BoilerRecipe;
 import com.endlessepoch.core.api.recipe.MachineRecipe;
 import com.endlessepoch.core.registry.EECoreRecipeTypes;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
-import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
@@ -17,10 +16,6 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 
 import java.util.List;
 
-/**
- * JEI integration: custom machine recipe category + catalysts.
- * JEI 集成：自定义机器配方分类 + 催化剂。
- */
 @JeiPlugin
 public class EECoreJeiPlugin implements IModPlugin {
 
@@ -31,8 +26,9 @@ public class EECoreJeiPlugin implements IModPlugin {
 
     @Override
     public void registerCategories(IRecipeCategoryRegistration r) {
-        r.addRecipeCategories(new MachineRecipeCategory(
-                r.getJeiHelpers().getGuiHelper()));
+        var helper = r.getJeiHelpers().getGuiHelper();
+        r.addRecipeCategories(new MachineRecipeCategory(helper));
+        r.addRecipeCategories(new BoilerRecipeCategory(helper));
     }
 
     @Override
@@ -40,12 +36,15 @@ public class EECoreJeiPlugin implements IModPlugin {
         var level = Minecraft.getInstance().level;
         if (level == null) return;
 
-        List<RecipeHolder<MachineRecipe>> holders =
+        List<RecipeHolder<MachineRecipe>> machineHolders =
                 level.getRecipeManager().getAllRecipesFor(EECoreRecipeTypes.MACHINE.get());
-        List<MachineRecipe> recipes = holders.stream()
-                .map(RecipeHolder::value)
-                .toList();
-        r.addRecipes(MachineRecipeCategory.TYPE, recipes);
+        r.addRecipes(MachineRecipeCategory.TYPE,
+                machineHolders.stream().map(RecipeHolder::value).toList());
+
+        List<RecipeHolder<BoilerRecipe>> boilerHolders =
+                level.getRecipeManager().getAllRecipesFor(EECoreRecipeTypes.BOILER.get());
+        r.addRecipes(BoilerRecipeCategory.TYPE,
+                boilerHolders.stream().map(RecipeHolder::value).toList());
     }
 
     @Override
@@ -54,18 +53,7 @@ public class EECoreJeiPlugin implements IModPlugin {
                 ResourceLocation.fromNamespaceAndPath(EECore.MOD_ID, "creative_test"));
         var stack = new ItemStack(item);
 
-        for (var profile : MachineProfileRegistry.getAll()) {
-            var rt = profile.recipeType();
-            if (rt == net.minecraft.world.item.crafting.RecipeType.SMELTING)
-                r.addRecipeCatalyst(stack, RecipeTypes.SMELTING);
-            if (rt == net.minecraft.world.item.crafting.RecipeType.BLASTING)
-                r.addRecipeCatalyst(stack, RecipeTypes.BLASTING);
-            if (rt == net.minecraft.world.item.crafting.RecipeType.SMOKING)
-                r.addRecipeCatalyst(stack, RecipeTypes.SMOKING);
-            if (rt == net.minecraft.world.item.crafting.RecipeType.CAMPFIRE_COOKING)
-                r.addRecipeCatalyst(stack, RecipeTypes.CAMPFIRE_COOKING);
-        }
-
         r.addRecipeCatalyst(stack, MachineRecipeCategory.TYPE);
+        r.addRecipeCatalyst(stack, BoilerRecipeCategory.TYPE);
     }
 }

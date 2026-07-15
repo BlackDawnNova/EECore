@@ -20,7 +20,15 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
 
     @Override public void render(GuiGraphics g,int mx,int my,float p){super.render(g,mx,my,p);this.renderTooltip(g,mx,my);
         int x=(width-imageWidth)/2,y=(height-imageHeight)/2,fs=menu.getFluidSlots();
-        for(int i=0;i<fs;i++){int sx=x+8+(i%9)*18,sy=y+18+(i/9)*18;if(mx>=sx&&mx<sx+16&&my>=sy&&my<sy+16)g.renderTooltip(font,Component.literal(menu.getFluidAmt(i)+" / "+menu.getFluidCap(i)+" mB"),mx,my);}}
+        for(int i=0;i<fs;i++){
+            int sx=x+8+(i%9)*18,sy=y+18+(i/9)*18;
+            if(mx>=sx&&mx<sx+16&&my>=sy&&my<sy+16){
+                var fid=menu.getFluidId(i); var fn="";
+                if(fid!=null){var f=BuiltInRegistries.FLUID.get(fid);if(f!=null)fn=f.getFluidType().getDescription().getString()+": ";}
+                g.renderTooltip(font,Component.literal(fn+menu.getFluidAmt(i)+" / "+menu.getFluidCap(i)+" mB"),mx,my);
+            }
+        }
+    }
 
     @Override protected void renderBg(GuiGraphics g,float p,int mx,int my){int x=(width-imageWidth)/2,y=(height-imageHeight)/2;
         g.blit(BG,x,y,0,0,imageWidth,imageHeight,imageWidth,imageHeight);int fs=menu.getFluidSlots();

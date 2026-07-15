@@ -29,6 +29,7 @@ public final class EECoreMachines {
             .tier(1)
             .center(0, 49, 2)
             .effect("eecore:celestial")
+            .supports("furnace", "blast_furnace", "machine", "boiler")
             .where("EE-3", com.endlessepoch.core.registry.Blocks.INPUT_BUS)
                 .or(com.endlessepoch.core.registry.Blocks.OUTPUT_BUS)
                 .or(com.endlessepoch.core.registry.Blocks.INPUT_ASSEMBLY)
@@ -54,6 +55,7 @@ public final class EECoreMachines {
         private String ecsNs, ecsPath, nameEn, nameZh, outNs, outPath;
         private int tier;
         private String effect;
+        private String[] supported;
         private float cx, cy, cz;
         private boolean cSet;
         private String lastTag;
@@ -67,6 +69,7 @@ public final class EECoreMachines {
         MachineDef name(String en, String zh) { nameEn = en; nameZh = zh; return this; }
         MachineDef tier(int t) { tier = t; return this; }
         MachineDef effect(String e) { effect = e; return this; }
+        MachineDef supports(String... ids) { supported = ids; return this; }
         MachineDef center(float x, float y, float z) { cx = x; cy = y; cz = z; cSet = true; return this; }
         MachineDef out(String id) {
             var rl = ResourceLocation.parse(id);
@@ -103,6 +106,7 @@ public final class EECoreMachines {
                     .tier(tier);
             if (effect != null) b.effect(effect);
             if (cSet) b.center(cx, cy, cz);
+            if (supported != null) b.supports(supported);
             b.register(getOutId());
         }
 

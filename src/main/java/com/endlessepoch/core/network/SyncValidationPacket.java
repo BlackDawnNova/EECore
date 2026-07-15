@@ -16,7 +16,8 @@ public record SyncValidationPacket(
     int[] missingLocal, int[] missingWorld,
     int[] wrongLocal, int[] wrongWorld,
     int controllerX, int controllerY, int controllerZ,
-    int width, int height, int depth
+    int width, int height, int depth,
+    boolean postFormation
 ) implements CustomPacketPayload {
 
     public static final Type<SyncValidationPacket> TYPE =
@@ -27,6 +28,7 @@ public record SyncValidationPacket(
             buf.writeResourceLocation(pkt.patternId);
             buf.writeInt(pkt.controllerX); buf.writeInt(pkt.controllerY); buf.writeInt(pkt.controllerZ);
             buf.writeInt(pkt.width); buf.writeInt(pkt.height); buf.writeInt(pkt.depth);
+            buf.writeBoolean(pkt.postFormation);
             buf.writeVarIntArray(pkt.missingLocal); buf.writeVarIntArray(pkt.missingWorld);
             buf.writeVarIntArray(pkt.wrongLocal); buf.writeVarIntArray(pkt.wrongWorld);
         },
@@ -34,10 +36,11 @@ public record SyncValidationPacket(
             var id = buf.readResourceLocation();
             int cx = buf.readInt(), cy = buf.readInt(), cz = buf.readInt();
             int w = buf.readInt(), h = buf.readInt(), d = buf.readInt();
+            boolean pf = buf.readBoolean();
             return new SyncValidationPacket(id,
                 buf.readVarIntArray(), buf.readVarIntArray(),
                 buf.readVarIntArray(), buf.readVarIntArray(),
-                cx, cy, cz, w, h, d);
+                cx, cy, cz, w, h, d, pf);
         }
     );
 

@@ -55,6 +55,7 @@ public final class MultiBlockValidator {
 
                     for (String tag : pattern.getTags(expected)) {
                         int mc = pattern.getBlockLimit(tag, actual.getBlock());
+                        if (mc <= 0) mc = TagDefRegistry.getMaxCount(tag, actual.getBlock());
                         if (mc > 0) {
                             String key = tag + "|" + actual.getBlock().hashCode();
                             tagCounts.merge(key, 1, Integer::sum);
@@ -78,5 +79,64 @@ public final class MultiBlockValidator {
             case WEST  -> origin.offset(dz, dy, width - 1 - dx);
             default    -> origin.offset(dx, dy, dz);
         };
+    }
+
+    /**
+     * Validate pattern against world and send missing/wrong positions to client for ghost preview.
+     * Shared by ScannerControllerBlock and MachineControllerBlock.
+     * 逐块验证并发送幽灵预览包——共享方法。
+     */
+    public static void validateAndPreview(MultiBlockPattern pat, net.minecraft.resources.ResourceLocation patternId,
+                                          BlockPos controllerPos, Direction facing, Level level,
+                                          net.minecraft.server.level.ServerPlayer player,
+                                          boolean postFormation) {
+        int w = pat.width, h = pat.height, d = pat.depth;
+        var mLocal = new java.util.ArrayList<Integer>();
+        var mWorld = new java.util.ArrayList<Integer>();
+        var wLocal = new java.util.ArrayList<Integer>();
+        var wWorld = new java.util.ArrayList<Integer>();
+        for (int y = 0; y < h; y++)
+            for (int z = 0; z < d; z++)
+                for (int x = 0; x < w; x++) {
+                    char c = pat.getChar(x, y, z);
+                    if (c == 'A' || c == ' ' || c == com.endlessepoch.ecsformat.EcsFormat.CHAR_CONTROLLER) continue;
+                    int rx = x - pat.controllerX, ry = y - pat.controllerY, rz = z - pat.controllerZ;
+                    BlockPos worldPos = switch (facing) {
+                        case NORTH -> controllerPos.offset(rx, ry, rz);
+                        case SOUTH -> controllerPos.offset(-rx, ry, -rz);
+                        case EAST  -> controllerPos.offset(-rz, ry, rx);
+                        case WEST  -> controllerPos.offset(rz, ry, -rx);
+                        default    -> controllerPos.offset(rx, ry, rz);
+                    };
+                    var worldState = level.getBlockState(worldPos);
+                    var expected = pat.getExpectedState(x, y, z);
+                    if (worldState.isAir()) {
+                        mLocal.add(x); mLocal.add(y); mLocal.add(z);
+                        mWorld.add(worldPos.getX()); mWorld.add(worldPos.getY()); mWorld.add(worldPos.getZ());
+                    } else if (expected != null && expected.getBlock() != worldState.getBlock()) {
+                        var alts = pat.getAlternatives(c);
+                        boolean altMatch = false;
+                        for (var alt : alts)
+                            if (alt.getBlock() == worldState.getBlock()) { altMatch = true; break; }
+                        if (!altMatch) {
+                            wLocal.add(x); wLocal.add(y); wLocal.add(z);
+                            wWorld.add(worldPos.getX()); wWorld.add(worldPos.getY()); wWorld.add(worldPos.getZ());
+                        }
+                    }
+                }
+        int MAX = 1_000_000;
+        var pkt = new com.endlessepoch.core.network.SyncValidationPacket(patternId,
+                toArr(mLocal, MAX), toArr(mWorld, MAX),
+                toArr(wLocal, MAX), toArr(wWorld, MAX),
+                controllerPos.getX(), controllerPos.getY(), controllerPos.getZ(), w, h, d,
+                postFormation);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, pkt);
+    }
+
+    private static int[] toArr(java.util.List<Integer> list, int max) {
+        int len = Math.min(list.size(), max);
+        int[] arr = new int[len];
+        for (int i = 0; i < len; i++) arr[i] = list.get(i);
+        return arr;
     }
 }

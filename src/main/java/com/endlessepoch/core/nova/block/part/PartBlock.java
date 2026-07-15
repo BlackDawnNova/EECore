@@ -137,6 +137,7 @@ public class PartBlock extends Block implements EntityBlock {
             }
             if (be instanceof PartBlockEntity pe && (pe.getEnergyStorage() != null || !pe.getFluidTanks().isEmpty())) {
                 var tanks = pe.getFluidTanks();
+                var es = pe.getEnergyStorage();
                 player.openMenu(pe, buf -> {
                     buf.writeBlockPos(pos); buf.writeVarInt(tanks.size());
                     for (var t : tanks) {
@@ -144,7 +145,8 @@ public class PartBlock extends Block implements EntityBlock {
                         buf.writeBoolean(!s.isEmpty());
                         if (!s.isEmpty()) buf.writeResourceLocation(net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(s.getFluid()));
                         buf.writeVarInt(t.getFluidAmount()); buf.writeVarInt(t.getCapacity());
-                    }
+                    }                    buf.writeUtf(es != null ? es.getEnergyStored().toBigInteger().toString() : "0");
+                    buf.writeUtf(es != null ? es.getCapacity().toBigInteger().toString() : "0");
                 }); return InteractionResult.SUCCESS;
             }
         }

@@ -45,7 +45,9 @@ public class Fluids {
                                      DeferredRegister<Item> items, String ns, String id,
                                      int tint, int temp, String en, String zh, int style) {
         var type = types.register(id, () -> new FluidType(
-                FluidType.Properties.create().temperature(temp).density(1).viscosity(1000)));
+                FluidType.Properties.create().temperature(temp).density(1).viscosity(1000)
+                    .sound(net.neoforged.neoforge.common.SoundActions.BUCKET_FILL, net.minecraft.sounds.SoundEvents.BUCKET_FILL)
+                    .sound(net.neoforged.neoforge.common.SoundActions.BUCKET_EMPTY, net.minecraft.sounds.SoundEvents.BUCKET_EMPTY)));
         TINTS.put(type, tint);
 
         var sRef = new AtomicReference<Supplier<Fluid>>();
@@ -92,16 +94,16 @@ public class Fluids {
                         img.setRGB(x,y,0xFF000000|(Math.min(255,nr)<<16)|(Math.min(255,ng)<<8)|Math.min(255,nb));
                     }else img.setRGB(x,y,px);
                 }
+                if (flipped) {
+                    var rot = new java.awt.image.BufferedImage(16,16,java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                    var g2 = rot.createGraphics();
+                    g2.rotate(Math.PI,8,8); g2.drawImage(img,0,0,null); g2.dispose();
+                    for (int x=0;x<16;x++) for (int y=0;y<16;y++) img.setRGB(x,y,rot.getRGB(x,y));
+                }
                 for (String b : new String[]{"src/main/resources", "build/resources/main"}) {
                     var d = ResourceGenerator.PROJECT_ROOT.resolve(b).resolve("assets/eecore/textures/item");
                     java.nio.file.Files.createDirectories(d);
                     javax.imageio.ImageIO.write(img, "PNG", d.resolve(id + "_bucket.png").toFile());
-                    if (flipped) {
-                        var rot = new java.awt.image.BufferedImage(16,16,java.awt.image.BufferedImage.TYPE_INT_ARGB);
-                        var g2 = rot.createGraphics();
-                        g2.rotate(Math.PI,8,8); g2.drawImage(img,0,0,null); g2.dispose();
-                        for (int x=0;x<16;x++) for (int y=0;y<16;y++) img.setRGB(x,y,rot.getRGB(x,y));
-                    }
                 }
             }
         } catch (Exception ignored) {}

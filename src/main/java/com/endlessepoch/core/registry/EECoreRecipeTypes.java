@@ -1,6 +1,8 @@
 package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
+import com.endlessepoch.core.api.recipe.BoilerRecipe;
+import com.endlessepoch.core.api.recipe.BoilerRecipeSerializer;
 import com.endlessepoch.core.api.recipe.MachineRecipe;
 import com.endlessepoch.core.api.recipe.MachineRecipeSerializer;
 import net.minecraft.core.registries.Registries;
@@ -27,4 +29,10 @@ public class EECoreRecipeTypes {
                     () -> RecipeType.simple(ResourceLocation.fromNamespaceAndPath(EECore.MOD_ID, "machine")));
     public static final Supplier<RecipeSerializer<MachineRecipe>> MACHINE_SERIALIZER =
             RECIPE_SERIALIZERS.register("machine", MachineRecipeSerializer::new);
+
+    public static final Supplier<RecipeType<BoilerRecipe>> BOILER =
+            RECIPE_TYPES.register("boiler",
+                    () -> RecipeType.simple(ResourceLocation.fromNamespaceAndPath(EECore.MOD_ID, "boiler")));
+    public static final Supplier<RecipeSerializer<BoilerRecipe>> BOILER_SERIALIZER =
+            RECIPE_SERIALIZERS.register("boiler", BoilerRecipeSerializer::new);
 }

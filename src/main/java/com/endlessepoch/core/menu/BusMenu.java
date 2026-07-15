@@ -73,6 +73,30 @@ public class BusMenu extends AbstractContainerMenu {
         }
         super.clicked(slotId,button,type,player);
     }
-    @Override public ItemStack quickMoveStack(Player p,int i){return ItemStack.EMPTY;}
+    @Override public ItemStack quickMoveStack(Player p, int idx) {
+        Slot slot = this.slots.get(idx);
+        if (!slot.hasItem()) return ItemStack.EMPTY;
+        ItemStack src = slot.getItem();
+        ItemStack copy = src.copy();
+
+        int firstBusSlot = fluidSlots;
+        int lastBusSlot = firstBusSlot + slotCount - 1;
+        int firstPlayerSlot = lastBusSlot + 1;
+        int lastPlayerSlot = this.slots.size() - 1;
+
+        if (idx >= firstBusSlot && idx <= lastBusSlot) {
+            // Bus → player
+            if (!this.moveItemStackTo(src, firstPlayerSlot, lastPlayerSlot + 1, true))
+                return ItemStack.EMPTY;
+        } else {
+            // Player → bus (only if input bus)
+            if (isOutput) return ItemStack.EMPTY;
+            if (!this.moveItemStackTo(src, firstBusSlot, lastBusSlot + 1, false))
+                return ItemStack.EMPTY;
+        }
+        if (src.isEmpty()) slot.set(ItemStack.EMPTY);
+        else slot.setChanged();
+        return copy;
+    }
     @Override public boolean stillValid(Player p){return p.distanceToSqr(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)<=64;}
 }

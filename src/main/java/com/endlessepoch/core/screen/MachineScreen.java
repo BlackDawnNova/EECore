@@ -1,7 +1,7 @@
 package com.endlessepoch.core.screen;
 
-import com.endlessepoch.core.api.machine.MachineProfile;
-import com.endlessepoch.core.api.machine.MachineProfileRegistry;
+import com.endlessepoch.core.api.machine.MachineType;
+import com.endlessepoch.core.api.machine.MachineTypeRegistry;
 import com.endlessepoch.core.menu.MachineMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -43,17 +43,19 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
     @Override public void render(GuiGraphics g, int mx, int my, float p) {
         super.render(g, mx, my, p);
         this.renderTooltip(g, mx, my);
-        int x = left(), y = top();
         if (hoverProfile) g.renderTooltip(font, Component.translatable("eecore.gui.switch_profile"), mx, my);
         if (hoverForm) g.renderTooltip(font, Component.translatable("eecore.gui.retry_formation"), mx, my);
         if (hoverPause) {
             boolean p2 = menu instanceof MachineMenu mm && mm.isPaused();
             g.renderTooltip(font, Component.translatable(p2 ? "eecore.gui.resume" : "eecore.gui.pause"), mx, my);
         }
-        if (dropdownOpen && hoverDropIdx >= 0) {
-            var profiles = MachineProfileRegistry.getAll();
-            if (hoverDropIdx < profiles.size())
-                g.renderTooltip(font, profiles.get(hoverDropIdx).displayName(), mx, my);
+        if (dropdownOpen) {
+            drawDropdown(g, left(), top(), mx, my);
+            if (hoverDropIdx >= 0 && menu instanceof MachineMenu mm) {
+                var types = mm.getSupportedProfiles();
+                if (hoverDropIdx < types.size())
+                    g.renderTooltip(font, types.get(hoverDropIdx).displayName(), mx, my);
+            }
         }
     }
 
@@ -68,7 +70,7 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             int bx = x + SX, by = y + SY[i];
             ScreenUtil.drawSlot(g, bx, by);
 
-            if (i == IDX_PROFILE) {
+            if (i == IDX_PROFILE && menu instanceof MachineMenu mm && mm.hasMultipleProfiles()) {
                 drawButton(g, bx + 1, by + 1, "▾", 0xFF_6699CC, overBtn(mx, my, bx + 1, by + 1, 14, 14), pressedBtn == IDX_PROFILE);
                 if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverProfile = true;
             } else if (i == IDX_FORM) {
@@ -121,25 +123,24 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         for (int c = 0; c < 9; c++)
             ScreenUtil.drawSlot(g, x + 8 + c * 18, y + 182);
 
-        // Dropdown / 下拉菜单
-        if (dropdownOpen) drawDropdown(g, x, y, mx, my);
     }
 
     private void drawDropdown(GuiGraphics g, int gx, int gy, int mx, int my) {
-        List<MachineProfile> profiles = MachineProfileRegistry.getAll();
         if (!(menu instanceof MachineMenu mm)) return;
-        int curIdx = Math.min(mm.getProfileIndex(), profiles.size() - 1);
-        int dx = gx + SX + 2, dy = gy + SY[IDX_PROFILE] + 15;
+        var types = mm.getSupportedProfiles();
+        int curIdx = Math.min(mm.getProfileIndex(), types.size() - 1);
+        int dx = gx + SX - 112 + 12, dy = gy + SY[IDX_PROFILE] + 15;
         int itemH = 18, w = 112, pad = 5;
-        int innerW = w - pad * 2, innerH = profiles.size() * itemH + pad * 2;
+        int innerW = w - pad * 2, innerH = types.size() * itemH + pad * 2;
         int h = innerH + pad * 2;
 
+        g.pose().pushPose(); g.pose().translate(0, 0, 300);
         g.fill(dx, dy, dx + w, dy + h, 0xFF_1A1A1A);
         g.blit(BUS_BG, dx, dy, 0, 0, w, h, w, h);
         g.blit(PANEL_BG, dx + pad, dy + pad, 0, 0, innerW, innerH, innerW, innerH);
 
-        for (int i = 0; i < profiles.size(); i++) {
-            var prof = profiles.get(i);
+        for (int i = 0; i < types.size(); i++) {
+            var type = types.get(i);
             int iy = dy + pad + i * itemH;
             boolean hover = mx >= dx && mx < dx + w && my >= iy && my < iy + itemH;
             boolean active = (i == curIdx);
@@ -147,11 +148,12 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             if (active) g.fill(dx + pad, iy, dx + w - pad, iy + itemH, 0x44_FFFFFF);
             else if (hover) g.fill(dx + pad, iy, dx + w - pad, iy + itemH, 0x22_FFFFFF);
 
-            g.renderItem(prof.iconItem().getDefaultInstance(), dx + pad + 2, iy + 1);
-            g.drawString(font, prof.displayName().getString(), dx + pad + 20, iy + 5,
+            g.renderItem(type.iconItem().getDefaultInstance(), dx + pad + 2, iy + 1);
+            g.drawString(font, type.displayName().getString(), dx + pad + 20, iy + 5,
                     active ? 0xFF_FFCC44 : (hover ? 0xFFFFFFFF : 0xFF_AAAAAA));
             if (hover) hoverDropIdx = i;
         }
+        g.pose().popPose();
     }
 
     @Override public boolean mouseClicked(double mx, double my, int btn) {
@@ -164,14 +166,14 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
                 return true;
             }
             // Dropdown items / 下拉条目
-            if (dropdownOpen) {
-                var profiles = MachineProfileRegistry.getAll();
-                int dx = x + SX + 2, dy = y + SY[IDX_PROFILE] + 15;
-                int itemH = 18, w = 112, pad = 5, innerH = profiles.size() * itemH + pad * 2;
+            if (dropdownOpen && menu instanceof MachineMenu mm) {
+                var types = mm.getSupportedProfiles();
+                int dx = x + SX - 112 + 12, dy = y + SY[IDX_PROFILE] + 15;
+                int itemH = 18, w = 112, pad = 5, innerH = types.size() * itemH + pad * 2;
                 int h = innerH + pad * 2;
                 if (mx >= dx && mx < dx + w && my >= dy && my < dy + h) {
                     int idx = (int)(my - dy - pad) / itemH;
-                    if (idx >= 0 && idx < profiles.size()) {
+                    if (idx >= 0 && idx < types.size()) {
                         sendClick(idx < 0 ? 0 : 3 + idx);
                         dropdownOpen = false;
                         return true;

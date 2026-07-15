@@ -31,10 +31,21 @@ public class Items {
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(Registries.ITEM, EECore.MOD_ID);
 
-    /** Accumulate block IDs per tag, flushed later by ResourceGenerator.flushTags(). / 收集方块ID，稍后由 ResourceGenerator 写入。 */
+    /** Accumulate block IDs per tag, flushed later by ResourceGenerator.flushTags(). / 收集方块ID。 */
     public static final java.util.Map<String, java.util.LinkedHashSet<String>> TAG_BLOCKS = new java.util.LinkedHashMap<>();
     static void addToTag(String tag, String blockId) {
         TAG_BLOCKS.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>()).add("eecore:" + blockId);
+    }
+    static void addToTagNs(String tag, String ns, String id) {
+        TAG_BLOCKS.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>()).add(ns + ":" + id);
+    }
+    /** Accumulate item IDs per tag, flushed later by ResourceGenerator.flushItemTags(). / 收集物品ID。 */
+    public static final java.util.Map<String, java.util.LinkedHashSet<String>> TAG_ITEMS = new java.util.LinkedHashMap<>();
+    static void addToItemTag(String tag, String itemId) {
+        TAG_ITEMS.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>()).add("eecore:" + itemId);
+    }
+    static void addToItemTagNs(String tag, String ns, String id) {
+        TAG_ITEMS.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>()).add(ns + ":" + id);
     }
 
     // Basic blocks / 基础方块
@@ -173,11 +184,19 @@ public class Items {
      * Block model: tier casing body + machine overlay / 方块模型=电压外壳+机器面板
      * Item model:   tier casing body + 12x12 front panel / 物品模型=外壳体+面板
      */
-    public static void registerMachineItem(String itemId, ResourceLocation machineId, String nameEn, String nameZh, int tier) {
+    public static void registerMachineItem(String itemId, ResourceLocation machineId, String nameEn, String nameZh, int tier, String[] supportedTypes) {
         int modelIndex = com.endlessepoch.core.nova.block.MachineControllerBlock.allocateModelIndex(itemId);
+        java.util.List<net.minecraft.resources.ResourceLocation> types = java.util.List.of();
+        if (supportedTypes != null) {
+            types = java.util.Arrays.stream(supportedTypes)
+                    .map(s -> ResourceLocation.fromNamespaceAndPath(EECore.MOD_ID, s))
+                    .toList();
+        }
+        final var finalTypes = types;
         var sup = ITEMS.register(itemId,
                 () -> new MachineControllerItem(Blocks.MACHINE_CONTROLLER.get(),
-                        new Item.Properties().stacksTo(64), machineId, nameEn, nameZh, modelIndex));
+                        new Item.Properties().stacksTo(64), machineId, nameEn, nameZh, modelIndex,
+                        finalTypes));
         MACHINE_ITEMS.add(() -> sup.get());
 
         ResourceGenerator.writeMachineModel(itemId, tier);

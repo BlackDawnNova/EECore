@@ -29,13 +29,17 @@ public class MachineControllerItem extends BlockItem {
     private final ResourceLocation machineId;
     private final String nameEn, nameZh;
     private final int modelIndex;
+    private final List<ResourceLocation> supportedTypes;
 
-    public MachineControllerItem(Block block, Properties properties, ResourceLocation machineId, String nameEn, String nameZh, int modelIndex) {
+    public MachineControllerItem(Block block, Properties properties, ResourceLocation machineId,
+                                  String nameEn, String nameZh, int modelIndex,
+                                  List<ResourceLocation> supportedTypes) {
         super(block, properties);
         this.machineId = machineId;
         this.nameEn = nameEn;
         this.nameZh = nameZh;
         this.modelIndex = modelIndex;
+        this.supportedTypes = supportedTypes != null ? List.copyOf(supportedTypes) : List.of();
     }
 
     @Override
@@ -82,6 +86,7 @@ public class MachineControllerItem extends BlockItem {
         BlockEntity be = level.getBlockEntity(pos);
         if (be instanceof MachineControllerBlockEntity mc) {
             mc.setMachineId(machineId);
+            mc.setSupportedTypes(supportedTypes);
             if (ctx.getPlayer() != null)
                 mc.stampOwner(ctx.getPlayer().getUUID(), ctx.getPlayer().getName().getString());
         }

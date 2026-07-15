@@ -1,6 +1,7 @@
 package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
+import com.endlessepoch.core.block.OreBlockEntity;
 import com.endlessepoch.core.blockentity.creative.CreativeConsumerBlockEntity;
 import com.endlessepoch.core.blockentity.creative.CreativeGeneratorBlockEntity;
 import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
@@ -62,4 +63,11 @@ public class BlockEntities {
                                 }, bb).build(null);
                     }
             );
+
+    public static final Supplier<BlockEntityType<OreBlockEntity>> ORE =
+            BLOCK_ENTITIES.register("ore",
+                    () -> BlockEntityType.Builder.of(OreBlockEntity::new,
+                            com.endlessepoch.core.registry.OreRegistry.ORE_BLOCKS.stream()
+                                    .map(Supplier::get).toArray(net.minecraft.world.level.block.Block[]::new)
+                    ).build(null));
 }

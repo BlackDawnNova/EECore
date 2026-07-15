@@ -27,10 +27,10 @@
       }
     },
     {
-      "from": [2, 2,  -0.004],
-      "to": [14, 14,  -0.004],
-      "neoforge_data": { "block_light": 15, "sky_light": 15 },
+      "from": [2, 2,  -0.06],
+      "to": [14, 14,  -0.06],
       "shade": false,
+      "neoforge_data": { "block_light": 15, "sky_light": 15 },
       "faces": {
         "north": { "uv": [2, 2, 14, 14], "texture": "#overlay_emissive" }
       }

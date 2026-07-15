@@ -16,7 +16,8 @@ public class MachineMenu extends AbstractContainerMenu {
     private final BlockPos pos;
     private final String nameEn, nameZh;
     private final MachineControllerBlockEntity mc;
-    private final ContainerData data; // 0=paused 1=hasWork 2=progress 3=maxProgress 4=itemId 5=profileCount 6=profileIdx 7=outputBlocked / 数据槽位布局
+    private java.util.List<net.minecraft.resources.ResourceLocation> clientSupported;
+    private final ContainerData data;
 
     public MachineMenu(int id, Inventory inv, MachineControllerBlockEntity mc) {
         super(Menus.MACHINE.get(), id);
@@ -32,6 +33,11 @@ public class MachineMenu extends AbstractContainerMenu {
         super(Menus.MACHINE.get(), id);
         this.mc = null; this.pos = buf.readBlockPos();
         this.nameEn = buf.readUtf(); this.nameZh = buf.readUtf();
+        int count = buf.readVarInt();
+        var types = new java.util.ArrayList<net.minecraft.resources.ResourceLocation>();
+        for (int i = 0; i < count; i++)
+            types.add(net.minecraft.resources.ResourceLocation.parse(buf.readUtf()));
+        this.clientSupported = java.util.List.copyOf(types);
         this.data = new SimpleContainerData(8);
         addDataSlots(data);
         addSlots(inv);
@@ -45,6 +51,7 @@ public class MachineMenu extends AbstractContainerMenu {
     public int getMaxProgress() { return Math.max(data.get(3), 1); }
     public int getProcessingItemId() { return data.get(4); }
     public int getProfileCount() { return data.get(5); }
+    public boolean hasMultipleProfiles() { return data.get(5) > 1; }
     public int getProfileIndex() { return data.get(6); }
     public boolean isOutputBlocked() { return data.get(7) != 0; }
 
@@ -53,15 +60,25 @@ public class MachineMenu extends AbstractContainerMenu {
         if (mc != null) syncFromBE();
     }
 
+    public java.util.List<com.endlessepoch.core.api.machine.MachineType> getSupportedProfiles() {
+        var ids = mc != null ? mc.getSupportedTypes() : clientSupported;
+        if (ids == null) return java.util.List.of();
+        return ids.stream()
+                .map(id -> com.endlessepoch.core.api.machine.MachineTypeRegistry.get(id))
+                .filter(java.util.Optional::isPresent)
+                .map(java.util.Optional::get)
+                .toList();
+    }
+
     @Override public boolean clickMenuButton(Player p, int id) {
         if (mc == null) return false;
         if (id == 0) { mc.togglePause(); syncFromBE(); return true; }
         if (id == 1) { mc.retryFormation(); return true; }
         if (id >= 3) {
-            var profiles = com.endlessepoch.core.api.machine.MachineProfileRegistry.getAll();
+            var types = getSupportedProfiles();
             int idx = id - 3;
-            if (idx >= 0 && idx < profiles.size()) {
-                mc.selectProfile(profiles.get(idx).id());
+            if (idx >= 0 && idx < types.size()) {
+                mc.selectProfile(types.get(idx).id());
                 syncFromBE();
             }
             return true;
@@ -76,13 +93,9 @@ public class MachineMenu extends AbstractContainerMenu {
         data.set(2, mc.getProgress());
         data.set(3, mc.getMaxProgress());
         data.set(4, mc.getProcessingItemId());
-        var profiles = com.endlessepoch.core.api.machine.MachineProfileRegistry.getAll();
-        data.set(5, profiles.size());
-        int pIdx = 0;
-        var curId = mc.getCurrentProfileId();
-        for (int i = 0; i < profiles.size(); i++)
-            if (profiles.get(i).id().equals(curId)) { pIdx = i; break; }
-        data.set(6, pIdx);
+        var supported = mc.getSupportedTypes();
+        data.set(5, supported.size());
+        data.set(6, supported.indexOf(mc.getCurrentProfileId()));
         data.set(7, mc.isOutputBlocked() ? 1 : 0);
     }
 

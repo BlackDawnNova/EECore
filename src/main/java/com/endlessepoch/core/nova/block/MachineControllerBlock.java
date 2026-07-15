@@ -130,7 +130,7 @@ public class MachineControllerBlock extends Block implements EntityBlock {
                 com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector.clear(pos);
                 if (mc.getOwnerUUID() != null) {
                 var emptyPkt = new com.endlessepoch.core.network.SyncValidationPacket(mc.getMachineId(),
-                        new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0);
+                        new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0, false);
                 var player = level.getPlayerByUUID(mc.getOwnerUUID());
                 if (player instanceof net.minecraft.server.level.ServerPlayer sp)
                     net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, emptyPkt);
@@ -155,6 +155,9 @@ public class MachineControllerBlock extends Block implements EntityBlock {
                         buf.writeBlockPos(pos);
                         buf.writeUtf(en);
                         buf.writeUtf(zh);
+                        var types = mc.getSupportedTypes();
+                        buf.writeVarInt(types.size());
+                        for (var t : types) buf.writeUtf(t.toString());
                     });
                 }
             }
@@ -180,64 +183,16 @@ public class MachineControllerBlock extends Block implements EntityBlock {
         if (MultiBlockFormHandler.tryForm(be, pattern.get(), mc.getFacing(), player)) {
             player.sendSystemMessage(Component.literal("Formed: " + machineId));
             var emptyPkt = new com.endlessepoch.core.network.SyncValidationPacket(
-                    machineId, new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0);
+                    machineId, new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0, false);
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
                     (net.minecraft.server.level.ServerPlayer) player, emptyPkt);
             return InteractionResult.SUCCESS;
         }
 
-        validateAndPreview(pattern.get(), machineId, pos, mc.getFacing(), level,
-                (net.minecraft.server.level.ServerPlayer) player);
+        com.endlessepoch.core.api.multiblock.MultiBlockValidator.validateAndPreview(
+                pattern.get(), machineId, pos, mc.getFacing(), level,
+                (net.minecraft.server.level.ServerPlayer) player, mc.wasEverFormed());
         return InteractionResult.SUCCESS;
-    }
-
-    private static void validateAndPreview(com.endlessepoch.core.api.multiblock.MultiBlockPattern pat,
-                                            ResourceLocation patternId,
-                                            BlockPos controllerPos, Direction facing, Level level,
-                                            net.minecraft.server.level.ServerPlayer player) {
-        int w = pat.width, h = pat.height, d = pat.depth;
-        java.util.List<Integer> mLocal = new java.util.ArrayList<>(), mWorld = new java.util.ArrayList<>();
-        java.util.List<Integer> wLocal = new java.util.ArrayList<>(), wWorld = new java.util.ArrayList<>();
-        for (int y = 0; y < h; y++)
-            for (int z = 0; z < d; z++)
-                for (int x = 0; x < w; x++) {
-                    char c = pat.getChar(x, y, z);
-                    if (c == 'A' || c == ' ' || c == com.endlessepoch.ecsformat.EcsFormat.CHAR_CONTROLLER) continue;
-                    int rx = x - pat.controllerX, ry = y - pat.controllerY, rz = z - pat.controllerZ;
-                    BlockPos worldPos = switch (facing) {
-                        case NORTH -> controllerPos.offset(rx, ry, rz);
-                        case SOUTH -> controllerPos.offset(-rx, ry, -rz);
-                        case EAST  -> controllerPos.offset(-rz, ry, rx);
-                        case WEST  -> controllerPos.offset(rz, ry, -rx);
-                        default    -> controllerPos.offset(rx, ry, rz);
-                    };
-                    var worldState = level.getBlockState(worldPos);
-                    var expected = pat.getExpectedState(x, y, z);
-                    if (worldState.isAir()) {
-                        mLocal.add(x); mLocal.add(y); mLocal.add(z);
-                        mWorld.add(worldPos.getX()); mWorld.add(worldPos.getY()); mWorld.add(worldPos.getZ());
-                    } else if (expected != null && expected.getBlock() != worldState.getBlock()) {
-                        var alts = pat.getAlternatives(c);
-                        boolean altMatch = false;
-                        for (var alt : alts)
-                            if (alt.getBlock() == worldState.getBlock()) { altMatch = true; break; }
-                        if (!altMatch) {
-                            wLocal.add(x); wLocal.add(y); wLocal.add(z);
-                            wWorld.add(worldPos.getX()); wWorld.add(worldPos.getY()); wWorld.add(worldPos.getZ());
-                        }
-                    }
-                }
-        var pkt = new com.endlessepoch.core.network.SyncValidationPacket(patternId, toArr(mLocal, 1_000_000),
-                toArr(mWorld, 1_000_000), toArr(wLocal, 1_000_000), toArr(wWorld, 1_000_000),
-                controllerPos.getX(), controllerPos.getY(), controllerPos.getZ(), w, h, d);
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, pkt);
-    }
-
-    private static int[] toArr(java.util.List<Integer> list, int max) {
-        int len = Math.min(list.size(), max);
-        int[] arr = new int[len];
-        for (int i = 0; i < len; i++) arr[i] = list.get(i);
-        return arr;
     }
 
     @Override

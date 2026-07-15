@@ -55,7 +55,7 @@ public class EECore {
 
     public static final String MOD_ID = "eecore";
     public static final String MOD_NAME = "Endless Epoch Core";
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.2.0";
 
     public static final Logger LOGGER = LogUtils.getLogger();
 
@@ -100,6 +100,9 @@ public class EECore {
                         output.accept(Items.SCANNER_BOUNDARY_ITEM.get());
                         // Multiblock parts / 多方块部件
                         for (var sup : com.endlessepoch.core.registry.Items.PART_ITEMS)
+                            output.accept(sup.get());
+                        // Ore blocks / 矿石方块
+                        for (var sup : com.endlessepoch.core.registry.OreRegistry.ITEMS)
                             output.accept(sup.get());
                     })
                     .build()
@@ -154,6 +157,16 @@ public class EECore {
         com.endlessepoch.core.registry.Blocks.flushCasingTags();
         com.endlessepoch.core.registry.Blocks.flushPartItems();
         BlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        com.endlessepoch.core.registry.OreRegistry.BLOCKS.register(modEventBus);
+        com.endlessepoch.core.registry.OreRegistry.registerAll(
+            new com.endlessepoch.core.registry.OreRegistry.Material("iron",    0xAF, 0x8E, 0x77, "Iron",    "铁",   "minecraft:needs_stone_tool"),
+            new com.endlessepoch.core.registry.OreRegistry.Material("copper",  0xC1, 0x67, 0x46, "Copper",  "铜",   "minecraft:needs_stone_tool"),
+            new com.endlessepoch.core.registry.OreRegistry.Material("gold",    0xFF, 0xD7, 0x00, "Gold",    "金",   "minecraft:needs_iron_tool"),
+            new com.endlessepoch.core.registry.OreRegistry.Material("diamond", 0xA0, 0xFF, 0xFF, "Diamond", "钻石", "minecraft:needs_iron_tool")
+        );
+        com.endlessepoch.core.api.machine.MachineReg.BLOCKS.register(modEventBus);
+        com.endlessepoch.core.api.machine.MachineReg.BLOCK_ENTITY.register(modEventBus);
+        com.endlessepoch.core.api.machine.MachineReg.flushBE();
         Menus.MENUS.register(modEventBus);
         EECoreRecipeTypes.RECIPE_TYPES.register(modEventBus);
         EECoreRecipeTypes.RECIPE_SERIALIZERS.register(modEventBus);
@@ -179,8 +192,14 @@ public class EECore {
 
         // Flush block tags + lang JSON generated during registration / 写入注册期间收集的标签和翻译
         com.endlessepoch.core.registry.ResourceGenerator.flushTags(Items.TAG_BLOCKS);
+        com.endlessepoch.core.registry.ResourceGenerator.flushItemTags(Items.TAG_ITEMS);
         com.endlessepoch.core.registry.ResourceGenerator.flushLang(MOD_ID,
                 com.endlessepoch.core.registry.ResourceGenerator.PROJECT_ROOT);
+        com.endlessepoch.core.registry.ResourceGenerator.flushTrans(MOD_ID,
+                com.endlessepoch.core.registry.OreRegistry.TRANS_EN
+                        .getOrDefault(MOD_ID, java.util.Collections.emptyMap()),
+                com.endlessepoch.core.registry.OreRegistry.TRANS_ZH
+                        .getOrDefault(MOD_ID, java.util.Collections.emptyMap()));
     }
 
     /**
@@ -216,26 +235,31 @@ public class EECore {
         LOGGER.info("Omega system: 12 tiers ELV~QV, 1Ω = 2FE");
         LOGGER.info("NovaNet: node registry active, test multiblock registered");
 
-        // Register built-in machine profiles / 注册内置机器种类
-        com.endlessepoch.core.api.machine.MachineProfileRegistry.register(
-                com.endlessepoch.core.api.machine.MachineProfile.of(
+        // Register built-in machine types / 注册内置机器种类
+        com.endlessepoch.core.api.machine.MachineTypeRegistry.register(
+                com.endlessepoch.core.api.machine.MachineType.of(
                         EECore.MOD_ID, "furnace",
                         net.minecraft.world.item.crafting.RecipeType.SMELTING,
                         net.minecraft.world.level.block.Blocks.FURNACE,
-                        "eecore.profile.furnace"));
-        com.endlessepoch.core.api.machine.MachineProfileRegistry.register(
-                com.endlessepoch.core.api.machine.MachineProfile.of(
+                        "eecore.profile.furnace", (be) -> {}));
+        com.endlessepoch.core.api.machine.MachineTypeRegistry.register(
+                com.endlessepoch.core.api.machine.MachineType.of(
                         EECore.MOD_ID, "blast_furnace",
                         net.minecraft.world.item.crafting.RecipeType.BLASTING,
                         net.minecraft.world.level.block.Blocks.BLAST_FURNACE,
-                        "eecore.profile.blast_furnace"));
-        // Custom EECore recipe type / 自定义配方类型
-        com.endlessepoch.core.api.machine.MachineProfileRegistry.register(
-                com.endlessepoch.core.api.machine.MachineProfile.of(
+                        "eecore.profile.blast_furnace", (be) -> {}));
+        com.endlessepoch.core.api.machine.MachineTypeRegistry.register(
+                com.endlessepoch.core.api.machine.MachineType.of(
                         EECore.MOD_ID, "machine",
                         EECoreRecipeTypes.MACHINE.get(),
                         net.minecraft.world.level.block.Blocks.FURNACE,
-                        "eecore.profile.machine"));
+                        "eecore.profile.machine", (be) -> {}));
+        com.endlessepoch.core.api.machine.MachineTypeRegistry.register(
+                com.endlessepoch.core.api.machine.MachineType.of(
+                        EECore.MOD_ID, "boiler",
+                        EECoreRecipeTypes.BOILER.get(),
+                        net.minecraft.world.level.block.Blocks.BLAST_FURNACE,
+                        "eecore.profile.boiler", (be) -> {}));
     }
 
     /**
@@ -389,6 +413,12 @@ public class EECore {
                 com.endlessepoch.core.network.FluidSyncPacket.TYPE,
                 com.endlessepoch.core.network.FluidSyncPacket.CODEC,
                 (payload, context) -> com.endlessepoch.core.network.FluidSyncPacket.handle(payload, context)
+        );
+
+        registrar.playToClient(
+                com.endlessepoch.core.network.EnergySyncPacket.TYPE,
+                com.endlessepoch.core.network.EnergySyncPacket.CODEC,
+                (payload, context) -> com.endlessepoch.core.network.EnergySyncPacket.handle(payload, context)
         );
     }
 }

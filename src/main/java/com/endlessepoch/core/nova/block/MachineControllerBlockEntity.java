@@ -34,6 +34,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     private UUID nodeId = UUID.randomUUID();
     private boolean formed;
+    private boolean wasEverFormed;
     private UUID ownerUUID;
     private String ownerName;
     private ResourceLocation machineId;
@@ -56,6 +57,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private net.minecraft.world.item.ItemStack processingInput = net.minecraft.world.item.ItemStack.EMPTY;
     private ResourceLocation currentProfileId =
             ResourceLocation.fromNamespaceAndPath("eecore", "furnace");
+    private java.util.List<ResourceLocation> supportedTypes = java.util.List.of(
+            ResourceLocation.fromNamespaceAndPath("eecore", "furnace"));
 
     // Energy / 能源
     private final com.endlessepoch.core.api.energy.OmegaStorage energyStorage =
@@ -77,6 +80,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     @Override
     public void setRemoved() {
         super.setRemoved();
+        wasEverFormed = false;
         if (level != null && !level.isClientSide()) {
             com.endlessepoch.core.event.BlockPlaceHandler.unregisterController(worldPosition);
         }
@@ -91,6 +95,12 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     public ResourceLocation getMachineId() { return machineId; }
     public void setMachineId(ResourceLocation id) { this.machineId = id; setChanged(); }
+    public void setSupportedTypes(java.util.List<ResourceLocation> types) {
+        this.supportedTypes = java.util.List.copyOf(types);
+        if (!supportedTypes.contains(currentProfileId) && !supportedTypes.isEmpty())
+            currentProfileId = supportedTypes.get(0);
+        setChanged();
+    }
 
     /** All input bus positions in the formed structure. / 结构中所有输入总线位置。 */
     public List<BlockPos> getInputBuses() { if (formed && !partsScanned) scanParts(); return Collections.unmodifiableList(inputBusPos); }
@@ -105,9 +115,11 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     /** All fluid output positions. / 流体输出位置。 */
     public List<BlockPos> getFluidOutputs() { if (formed && !partsScanned) scanParts(); return Collections.unmodifiableList(fluidOutputPos); }
 
+    public boolean wasEverFormed() { return wasEverFormed; }
+
     @Override
     public void onMultiblockFormed() {
-        formed = true; partsScanned = false;
+        formed = true; wasEverFormed = true; partsScanned = false;
         setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
     }
@@ -156,33 +168,33 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     public void togglePause() { paused = !paused; setChanged(); }
 
-    /** Cycle to previous machine profile. / 切换到上一个机器种类。 */
+    public java.util.List<ResourceLocation> getSupportedTypes() { return supportedTypes; }
+
+    /** Cycle to previous supported profile. / 切换到上一个支持的机器种类。 */
     public void prevProfile() {
-        var profiles = com.endlessepoch.core.api.machine.MachineProfileRegistry.getAll();
-        if (profiles.isEmpty()) return;
-        int idx = profiles.size() - 1;
-        for (int i = 0; i < profiles.size(); i++)
-            if (profiles.get(i).id().equals(currentProfileId)) { idx = (i - 1 + profiles.size()) % profiles.size(); break; }
-        currentProfileId = profiles.get(idx).id();
+        if (supportedTypes.size() <= 1) return;
+        int idx = supportedTypes.indexOf(currentProfileId);
+        if (idx < 0) idx = 0;
+        idx = (idx - 1 + supportedTypes.size()) % supportedTypes.size();
+        currentProfileId = supportedTypes.get(idx);
         setChanged();
     }
 
-    /** Set machine profile by ID. / 按ID设置机器种类。 */
+    /** Set machine profile by ID (must be in supported list). / 按ID设置机器种类（必须在支持列表内）。 */
     public void selectProfile(ResourceLocation id) {
-        if (com.endlessepoch.core.api.machine.MachineProfileRegistry.get(id).isPresent()) {
+        if (supportedTypes.contains(id)) {
             currentProfileId = id;
             setChanged();
         }
     }
 
-    /** Cycle to next machine profile. / 切换到下一个机器种类。 */
+    /** Cycle to next supported profile. / 切换到下一个支持的机器种类。 */
     public void nextProfile() {
-        var profiles = com.endlessepoch.core.api.machine.MachineProfileRegistry.getAll();
-        if (profiles.isEmpty()) return;
-        int idx = 0;
-        for (int i = 0; i < profiles.size(); i++)
-            if (profiles.get(i).id().equals(currentProfileId)) { idx = (i + 1) % profiles.size(); break; }
-        currentProfileId = profiles.get(idx).id();
+        if (supportedTypes.size() <= 1) return;
+        int idx = supportedTypes.indexOf(currentProfileId);
+        if (idx < 0) idx = 0;
+        idx = (idx + 1) % supportedTypes.size();
+        currentProfileId = supportedTypes.get(idx);
         setChanged();
     }
 
@@ -233,6 +245,13 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                     level, pattern.get(), worldPosition, getFacing())) {
                 onMultiblockBroken();
                 com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.notifyBreak(this, worldPosition, level);
+                if (wasEverFormed && ownerUUID != null) {
+                    var player = level.getPlayerByUUID(ownerUUID);
+                    if (player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                        com.endlessepoch.core.api.multiblock.MultiBlockValidator.validateAndPreview(
+                                pattern.get(), machineId, worldPosition, getFacing(), level, sp, true);
+                    }
+                }
             }
         }
     }
@@ -243,9 +262,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private <C extends net.minecraft.world.item.crafting.RecipeInput,
              T extends net.minecraft.world.item.crafting.Recipe<C>>
     net.minecraft.world.item.crafting.RecipeType<T> getRecipeType() {
-        var prof = com.endlessepoch.core.api.machine.MachineProfileRegistry.get(currentProfileId);
+        var prof = com.endlessepoch.core.api.machine.MachineTypeRegistry.get(currentProfileId);
         return (net.minecraft.world.item.crafting.RecipeType<T>)
-                prof.map(com.endlessepoch.core.api.machine.MachineProfile::recipeType)
+                prof.map(com.endlessepoch.core.api.machine.MachineType::recipeType)
                         .orElse(net.minecraft.world.item.crafting.RecipeType.SMELTING);
     }
 
@@ -380,7 +399,18 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 level, pattern.get(), worldPosition, getFacing())) {
             com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.tryForm(
                     this, pattern.get(), getFacing(), null);
-            if (formed) scanParts();
+            if (formed) {
+                scanParts();
+                if (ownerUUID != null) {
+                    var player = level.getPlayerByUUID(ownerUUID);
+                    if (player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                        var clearPkt = new com.endlessepoch.core.network.SyncValidationPacket(machineId,
+                                new int[0], new int[0], new int[0], new int[0],
+                                0, 0, 0, 0, 0, 0, false);
+                        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, clearPkt);
+                    }
+                }
+            }
         }
     }
 
@@ -413,36 +443,34 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (pattern.isEmpty()) return;
         var pat = pattern.get();
         Direction facing = getFacing();
-        for (int y = 0; y < pat.height; y++)
-            for (int z = 0; z < pat.depth; z++)
-                for (int x = 0; x < pat.width; x++) {
-                    if (pat.getChar(x, y, z) == 'A' || pat.getChar(x, y, z) == ' ') continue;
-                    int rx = x - pat.controllerX, ry = y - pat.controllerY, rz = z - pat.controllerZ;
-                    BlockPos wp = switch (facing) {
-                        case NORTH -> worldPosition.offset(rx, ry, rz);
-                        case SOUTH -> worldPosition.offset(-rx, ry, -rz);
-                        case EAST  -> worldPosition.offset(-rz, ry, rx);
-                        case WEST  -> worldPosition.offset(rz, ry, -rx);
-                        default    -> worldPosition.offset(rx, ry, rz);
-                    };
-                    BlockEntity be = level.getBlockEntity(wp);
-                    if (be instanceof IPart part && part.isFormed()
-                            && machineId.equals(part.getMachineId())) {
-                        var abilities = part.getAbilities();
-                        if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.ITEM_INPUT))
-                            inputBusPos.add(wp.immutable());
-                        if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.ITEM_OUTPUT))
-                            outputBusPos.add(wp.immutable());
-                        if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.ENERGY_INPUT))
-                            energyInputPos.add(wp.immutable());
-                        if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.ENERGY_OUTPUT))
-                            energyOutputPos.add(wp.immutable());
-                        if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.FLUID_INPUT))
-                            fluidInputPos.add(wp.immutable());
-                        if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.FLUID_OUTPUT))
-                            fluidOutputPos.add(wp.immutable());
-                    }
-                }
+        for (BlockPos localPos : pat.getNonAirPositions()) {
+            int x = localPos.getX(), y = localPos.getY(), z = localPos.getZ();
+            int rx = x - pat.controllerX, ry = y - pat.controllerY, rz = z - pat.controllerZ;
+            BlockPos wp = switch (facing) {
+                case NORTH -> worldPosition.offset(rx, ry, rz);
+                case SOUTH -> worldPosition.offset(-rx, ry, -rz);
+                case EAST  -> worldPosition.offset(-rz, ry, rx);
+                case WEST  -> worldPosition.offset(rz, ry, -rx);
+                default    -> worldPosition.offset(rx, ry, rz);
+            };
+            BlockEntity be = level.getBlockEntity(wp);
+            if (be instanceof IPart part && part.isFormed()
+                    && machineId.equals(part.getMachineId())) {
+                var abilities = part.getAbilities();
+                if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.ITEM_INPUT))
+                    inputBusPos.add(wp.immutable());
+                if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.ITEM_OUTPUT))
+                    outputBusPos.add(wp.immutable());
+                if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.ENERGY_INPUT))
+                    energyInputPos.add(wp.immutable());
+                if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.ENERGY_OUTPUT))
+                    energyOutputPos.add(wp.immutable());
+                if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.FLUID_INPUT))
+                    fluidInputPos.add(wp.immutable());
+                if (abilities.contains(com.endlessepoch.core.api.multiblock.PartAbility.FLUID_OUTPUT))
+                    fluidOutputPos.add(wp.immutable());
+            }
+        }
         setChanged();
     }
 
@@ -464,10 +492,14 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         super.saveAdditional(tag, provider);
         tag.putUUID("nodeId", nodeId);
         tag.putBoolean("formed", formed);
+        tag.putBoolean("wasEverFormed", wasEverFormed);
         if (ownerUUID != null) tag.putUUID("ownerUUID", ownerUUID);
         if (ownerName != null) tag.putString("ownerName", ownerName);
         if (machineId != null) tag.putString("machineId", machineId.toString());
         tag.putString("profile", currentProfileId.toString());
+        net.minecraft.nbt.ListTag st = new net.minecraft.nbt.ListTag();
+        for (var t : supportedTypes) st.add(net.minecraft.nbt.StringTag.valueOf(t.toString()));
+        tag.put("supportedTypes", st);
         tag.putBoolean("paused", paused);
         tag.putBoolean("outputBlocked", outputBlocked);
         energyStorage.saveToNBT(tag);
@@ -483,12 +515,19 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         super.loadAdditional(tag, provider);
         if (tag.hasUUID("nodeId")) nodeId = tag.getUUID("nodeId");
         formed = tag.getBoolean("formed");
+        wasEverFormed = tag.getBoolean("wasEverFormed");
         if (tag.hasUUID("ownerUUID")) ownerUUID = tag.getUUID("ownerUUID");
         ownerName = tag.getString("ownerName");
         if (tag.contains("machineId"))
             machineId = ResourceLocation.tryParse(tag.getString("machineId"));
         if (tag.contains("profile"))
             currentProfileId = ResourceLocation.tryParse(tag.getString("profile"));
+        if (tag.contains("supportedTypes")) {
+            var list = new java.util.ArrayList<ResourceLocation>();
+            for (var t : tag.getList("supportedTypes", net.minecraft.nbt.Tag.TAG_STRING))
+                list.add(ResourceLocation.tryParse(t.getAsString()));
+            supportedTypes = java.util.List.copyOf(list);
+        }
         paused = tag.getBoolean("paused");
         outputBlocked = tag.getBoolean("outputBlocked");
         energyStorage.loadFromNBT(tag);

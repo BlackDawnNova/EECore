@@ -67,6 +67,7 @@ public class BlockPlaceHandler {
                 return !(che instanceof MachineControllerBlockEntity cmc && cmc.getMachineId() != null);
             });
         }
+        if (controllers.size() > 1000) controllers.clear();
     }
 
     /** Get max pattern radius for search (cached). / 获取最大 Pattern 搜索半径（缓存）。 */

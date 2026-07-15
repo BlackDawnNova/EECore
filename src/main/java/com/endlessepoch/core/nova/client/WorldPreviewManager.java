@@ -3,8 +3,10 @@ package com.endlessepoch.core.nova.client;
 import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
 import com.endlessepoch.core.network.SyncValidationPacket;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
@@ -18,10 +20,10 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import java.util.*;
 
 /**
- * Ghost preview with smart LOD. Near (<16 blocks): full block models.
+ * Ghost preview with smart LOD. Near (<16 blocks): full block models + translucent overlay + no-depth wireframe.
  * Far (16-48 blocks): full cubes merged into chunk wireframes, partial blocks individual wireframes.
  * <p>
- * 幽灵预览+智能LOD。近处全模型，远处完整方块合并+部分方块单独线框，非完整方块按VoxelShape真实外形线框。
+ * 幽灵预览+智能LOD。近处原方块模型 + 半透明覆盖 + 可透墙绿色线框，远处合并线框。
  */
 public class WorldPreviewManager {
 
@@ -32,6 +34,22 @@ public class WorldPreviewManager {
     private static final int LOD_CHUNK = 4;
     private static final double MIN_RANGE = 32.0, MAX_RANGE = 128.0;
 
+    /** Thick green wireframe visible through walls / 可透墙的粗绿线框 */
+    private static final RenderType GHOST_WIREFRAME = RenderType.create(
+            "eecore_ghost_wireframe",
+            DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.LINES,
+            16384,
+            false, false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderType.RENDERTYPE_LINES_SHADER)
+                    .setLineState(new RenderType.LineStateShard(java.util.OptionalDouble.of(4.0)))
+                    .setDepthTestState(RenderType.NO_DEPTH_TEST)
+                    .setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
+                    .setCullState(RenderType.NO_CULL)
+                    .createCompositeState(false)
+    );
+
     private record GhostEntry(BlockPos worldPos, BlockPos localPos) {}
 
     private ResourceLocation patternId;
@@ -39,10 +57,12 @@ public class WorldPreviewManager {
     private final List<GhostEntry> missEntries = new ArrayList<>();
     private final List<GhostEntry> wrongEntries = new ArrayList<>();
     private boolean active;
+    private boolean postFormation;
 
     public void updateValidation(SyncValidationPacket pkt) {
         missEntries.clear(); wrongEntries.clear();
         patternId = pkt.patternId();
+        postFormation = pkt.postFormation();
         var missW = pkt.missingWorldPositions();
         var missL = pkt.missingLocalPositions();
         var wrongW = pkt.wrongWorldPositions();
@@ -81,8 +101,8 @@ public class WorldPreviewManager {
         pose.translate(-cam.x, -cam.y, -cam.z);
 
         if (!missEntries.isEmpty() && pattern != null) {
-            // Near: full block models / 近处 完整方块模型
             int nearDrawn = 0;
+            var nearGhosts = new ArrayList<GhostEntry>();
             // Far: split full-cube vs partial / 远处分流
             var fullChunks = new HashMap<Long, AABB>();
             var partials = new HashMap<GhostEntry, BlockState>();
@@ -96,6 +116,7 @@ public class WorldPreviewManager {
                 if (state == null || state.isAir()) continue;
 
                 if (distSq <= NEAR_RANGE_SQ) {
+                    nearGhosts.add(entry);
                     pose.pushPose();
                     pose.translate(entry.worldPos.getX(), entry.worldPos.getY(), entry.worldPos.getZ());
                     blockRenderer.renderSingleBlock(state, pose, buf,
@@ -123,6 +144,34 @@ public class WorldPreviewManager {
                 buf.endBatch(RenderType.cutoutMipped());
                 buf.endBatch(RenderType.cutout());
                 buf.endBatch(RenderType.translucent());
+            }
+
+            if (postFormation && !nearGhosts.isEmpty()) {
+                var ghostVc = buf.getBuffer(GHOST_WIREFRAME);
+                for (var entry : nearGhosts) {
+                    BlockPos p = entry.worldPos;
+                    AABB box = new AABB(p.getX()-0.005, p.getY()-0.005, p.getZ()-0.005,
+                            p.getX()+1.005, p.getY()+1.005, p.getZ()+1.005);
+                    LevelRenderer.renderLineBox(pose, ghostVc, box, 0.15f, 0.95f, 0.45f, 1.0f);
+                }
+                buf.endBatch(GHOST_WIREFRAME);
+
+                var tess = Tesselator.getInstance();
+                var builder = tess.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+                for (var entry : nearGhosts) {
+                    BlockPos p = entry.worldPos;
+                    addGhostOverlay(pose.last(), builder,
+                            p.getX()+0.02f, p.getY()+0.02f, p.getZ()+0.02f,
+                            p.getX()+0.98f, p.getY()+0.98f, p.getZ()+0.98f,
+                            0.1f, 0.9f, 0.5f, 0.25f);
+                }
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.disableDepthTest();
+                RenderSystem.setShader(GameRenderer::getPositionColorShader);
+                BufferUploader.drawWithShader(builder.buildOrThrow());
+                RenderSystem.enableDepthTest();
+                RenderSystem.disableBlend();
             }
 
             // Far: all wireframes in one color / 远处统一蓝色线框
@@ -158,5 +207,31 @@ public class WorldPreviewManager {
         }
 
         pose.popPose();
+    }
+
+    /** Render a translucent colored cube for ghost overlay. / 渲染半透明彩色立方体覆盖层。 */
+    private static void addGhostOverlay(PoseStack.Pose pose, VertexConsumer vc,
+                                        float x1, float y1, float z1, float x2, float y2, float z2,
+                                        float r, float g, float b, float a) {
+        addTri(pose, vc, x1, y1, z1, x2, y1, z1, x1, y1, z2, r, g, b, a);
+        addTri(pose, vc, x2, y1, z1, x2, y1, z2, x1, y1, z2, r, g, b, a);
+        addTri(pose, vc, x1, y2, z1, x1, y2, z2, x2, y2, z1, r, g, b, a);
+        addTri(pose, vc, x2, y2, z1, x1, y2, z2, x2, y2, z2, r, g, b, a);
+        addTri(pose, vc, x1, y1, z1, x1, y2, z1, x2, y1, z1, r, g, b, a);
+        addTri(pose, vc, x2, y1, z1, x1, y2, z1, x2, y2, z1, r, g, b, a);
+        addTri(pose, vc, x1, y1, z2, x2, y1, z2, x1, y2, z2, r, g, b, a);
+        addTri(pose, vc, x2, y1, z2, x2, y2, z2, x1, y2, z2, r, g, b, a);
+        addTri(pose, vc, x1, y1, z1, x1, y1, z2, x1, y2, z1, r, g, b, a);
+        addTri(pose, vc, x1, y1, z2, x1, y2, z2, x1, y2, z1, r, g, b, a);
+        addTri(pose, vc, x2, y1, z1, x2, y2, z1, x2, y1, z2, r, g, b, a);
+        addTri(pose, vc, x2, y1, z2, x2, y2, z1, x2, y2, z2, r, g, b, a);
+    }
+
+    private static void addTri(PoseStack.Pose pose, VertexConsumer vc,
+                               float x1, float y1, float z1, float x2, float y2, float z2,
+                               float x3, float y3, float z3, float r, float g, float b, float a) {
+        vc.addVertex(pose, x1, y1, z1).setColor(r, g, b, a);
+        vc.addVertex(pose, x2, y2, z2).setColor(r, g, b, a);
+        vc.addVertex(pose, x3, y3, z3).setColor(r, g, b, a);
     }
 }

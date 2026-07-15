@@ -3,11 +3,11 @@ package com.endlessepoch.core.event;
 import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.client.model.CasingBakedModel;
 import com.endlessepoch.core.client.model.MachineModelLoader;
+import com.endlessepoch.core.client.model.OreBakedModel;
 import com.endlessepoch.core.registry.Menus;
 import com.endlessepoch.core.screen.BusScreen;
 import com.endlessepoch.core.screen.HatchScreen;
 import com.endlessepoch.core.screen.MachineTestScreen;
-import com.endlessepoch.core.menu.MachineMenu;
 import com.endlessepoch.core.screen.creative.CreativeConsumerScreen;
 import com.endlessepoch.core.screen.creative.CreativeGeneratorScreen;
 import net.minecraft.client.resources.model.BakedModel;
@@ -16,8 +16,6 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
-
-import java.util.Map;
 
 @EventBusSubscriber(modid = EECore.MOD_ID, value = Dist.CLIENT)
 public class ClientEvents {
@@ -39,14 +37,21 @@ public class ClientEvents {
     @SubscribeEvent
     public static void onModifyBakingResult(ModelEvent.ModifyBakingResult event) {
         var models = event.getModels();
-
-        // Casing blocks: disable AO for seamless tiling / 外壳方块关 AO 无缝拼接
         for (var entry : models.entrySet()) {
             String path = entry.getKey().id().getPath();
             if (path.endsWith("_machine_casing") && !"inventory".equals(entry.getKey().getVariant())) {
                 BakedModel model = entry.getValue();
                 if (!(model instanceof CasingBakedModel)) {
                     entry.setValue(new CasingBakedModel(model));
+                }
+            }
+            // Wrap ore models with dynamic composite renderer / 矿石用动态合成模型
+            if (path.endsWith("_ore") && entry.getKey().id().getNamespace().equals(EECore.MOD_ID)
+                    && !path.contains("crushed") && !path.contains("purified") && !path.contains("refined")
+                    && !"inventory".equals(entry.getKey().getVariant())) {
+                BakedModel model = entry.getValue();
+                if (!(model instanceof OreBakedModel)) {
+                    entry.setValue(new OreBakedModel(model));
                 }
             }
         }

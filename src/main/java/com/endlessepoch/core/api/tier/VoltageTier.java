@@ -155,18 +155,18 @@ public enum VoltageTier {
 
     public String getHexColor() {
         return switch (this) {
-            case ELV -> "#8D8D8D";
-            case LV -> "#4CAF50";
-            case MV -> "#2196F3";
-            case HV -> "#FF9800";
-            case EHV -> "#9C27B0";
-            case UHV -> "#F44336";
-            case PHV -> "#00BCD4";
-            case XHV -> "#FFEB3B";
-            case PLV -> "#E91E63";
-            case SV -> "#FFFFFF";
-            case BV -> "#000000";
-            case QV -> "#FFD700";
+            case ELV -> "#404040";
+            case LV  -> "#909090";
+            case MV  -> "#6B8E9B";
+            case HV  -> "#C0C0C0";
+            case EHV -> "#E05090";
+            case UHV -> "#5080D0";
+            case PHV -> "#D8D8E0";
+            case XHV -> "#F0C020";
+            case PLV -> "#2E8B57";
+            case SV  -> "#F0F0F0";
+            case BV  -> "#1A1A3A";
+            case QV  -> "#C02020";
         };
     }
 

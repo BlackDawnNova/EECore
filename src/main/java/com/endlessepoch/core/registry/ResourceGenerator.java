@@ -45,6 +45,8 @@ public class ResourceGenerator {
         String ns = overlayTex.substring(0, colon);
         String tex = overlayTex.substring(colon + 1);
         String emissivePath = "assets/" + ns + "/textures/" + tex + "_e.png";
+        if (ResourceGenerator.class.getClassLoader().getResource(emissivePath) != null)
+            return true;
         for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
             if (java.nio.file.Files.exists(PROJECT_ROOT.resolve(base).resolve(emissivePath)))
                 return true;
@@ -55,7 +57,7 @@ public class ResourceGenerator {
     /**
      * Write a JSON file to both src/ and build/resources/ under given namespace. / 写入 JSON 到指定 namespace。
      */
-    static void writeJsonNs(String namespace, String subPath, String fileName, String json) {
+    public static void writeJsonNs(String namespace, String subPath, String fileName, String json) {
         for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
             try {
                 var d = PROJECT_ROOT.resolve(base).resolve("assets").resolve(namespace)
@@ -209,6 +211,83 @@ public class ResourceGenerator {
     }
 
     /**
+     * One-click: block model + blockstate + item model for an ore block.
+     * Model uses 5 cube faces referencing 5 spot variants to stitch them all into atlas.
+     * 矿块模型——5面引5种矿斑变体，全部缝入 atlas。
+     */
+    public static void writeOreModel(String namespace, String materialId) {
+        String[] suffixes = {"dull_ore", "dull_ore_small", "fine_ore", "flint_ore", "diamond_ore"};
+        String[] faces = {"down", "up", "north", "south", "west"};
+        StringBuilder texJson = new StringBuilder("\"particle\":\"eecore:block/ores/ore_spots\"");
+        StringBuilder faceJson = new StringBuilder();
+        for (int i = 0; i < suffixes.length; i++) {
+            String texKey = "spot" + i;
+            String texPath = "eecore:block/ores/" + materialId + "_ore_" + i;
+            texJson.append(",\"").append(texKey).append("\":\"").append(texPath).append("\"");
+            if (faceJson.length() > 0) faceJson.append(",");
+            faceJson.append("\"").append(faces[i]).append("\":{\"uv\":[0,0,16,16],\"texture\":\"#spot").append(i).append("\"}");
+        }
+        // 6th face reuses spot0 / 第六面复用 spot0
+        faceJson.append(",\"east\":{\"uv\":[0,0,16,16],\"texture\":\"#spot0\"}");
+        String blockModel = "{\"parent\":\"block/block\",\"textures\":{" + texJson + "},"
+                + "\"elements\":[{\"from\":[0,0,0],\"to\":[16,16,16],\"faces\":{" + faceJson + "}}]}";
+        writeJsonNs(namespace, "models/block", materialId + "_ore", blockModel);
+
+        String bs = "{\"variants\":{\"\":{\"model\":\"" + namespace + ":block/" + materialId + "_ore\"}}}";
+        writeJsonNs(namespace, "blockstates", materialId + "_ore", bs);
+
+        String itemModel = "{\"parent\":\"" + namespace + ":block/" + materialId + "_ore\"}";
+        writeJsonNs(namespace, "models/item", materialId + "_ore", itemModel);
+    }
+
+    /**
+     * Simple lang writer — appends new key-value pairs to namespace's lang JSON.
+     * Unlike flushLang, this is NOT PartType-aware; pure key→value append.
+     * 简单翻译写入——追加键值到语言JSON，非PartType感知。
+     */
+    public static void flushTrans(String namespace, Map<String, String> enMap, Map<String, String> zhMap) {
+        if (enMap.isEmpty() && zhMap.isEmpty()) return;
+        for (String lang : new String[]{"en_us", "zh_cn"}) {
+            Map<String, String> trans = lang.equals("en_us") ? enMap : zhMap;
+            for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
+                try {
+                    var f = PROJECT_ROOT.resolve(base).resolve("assets").resolve(namespace)
+                            .resolve("lang").resolve(lang + ".json");
+                    java.nio.file.Files.createDirectories(f.getParent());
+                    var map = new LinkedHashMap<String, String>();
+                    if (java.nio.file.Files.exists(f)) {
+                        for (String line : java.nio.file.Files.readAllLines(f)) {
+                            String trimmed = line.trim();
+                            if (trimmed.startsWith("\"") && trimmed.contains("\": \"")) {
+                                int kEnd = trimmed.indexOf('"', 1); if (kEnd < 0) continue;
+                                String key = trimmed.substring(1, kEnd);
+                                int vStart = trimmed.indexOf("\": \"") + 4;
+                                int vEnd = trimmed.lastIndexOf('"');
+                                if (vStart >= 4 && vEnd > vStart)
+                                    map.put(key, trimmed.substring(vStart, vEnd));
+                            }
+                        }
+                    }
+                    for (var e : trans.entrySet())
+                        map.putIfAbsent(e.getKey(), e.getValue());
+                    var sb = new StringBuilder("{\n");
+                    int count = 0;
+                    for (var e : map.entrySet()) {
+                        if (count > 0) sb.append(",\n");
+                        sb.append("  \"").append(e.getKey()).append("\": \"")
+                                .append(e.getValue().replace("\\", "\\\\").replace("\"", "\\\"")).append("\"");
+                        count++;
+                    }
+                    sb.append("\n}\n");
+                    java.nio.file.Files.writeString(f, sb.toString());
+                } catch (Exception e) {
+                    com.endlessepoch.core.EECore.LOGGER.warn("flushTrans {}/{}: {}", namespace, lang, e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
      * Sync lang JSON for a given mod namespace.
      * Only touches keys listed in PartReg.TRANS_EN/ZH — removes keys for deregistered
      * parts, adds keys for newly registered ones. All other entries are left untouched.
@@ -286,7 +365,16 @@ public class ResourceGenerator {
      * 将累积的方块标签写入 data/{ns}/tags/block/ JSON。
      */
     public static void flushTags(Map<String, LinkedHashSet<String>> tagBlocks) {
-        for (var e : tagBlocks.entrySet()) {
+        flushTagSet(tagBlocks, "block");
+    }
+
+    /** Flush accumulated item tags to data/{ns}/tags/item/ JSON. */
+    public static void flushItemTags(Map<String, LinkedHashSet<String>> tagItems) {
+        flushTagSet(tagItems, "item");
+    }
+
+    private static void flushTagSet(Map<String, LinkedHashSet<String>> tags, String tagType) {
+        for (var e : tags.entrySet()) {
             String[] parts = e.getKey().split(":", 2);
             String ns = parts[0], path = parts.length > 1 ? parts[1] : parts[0];
             var sb = new StringBuilder("{\"replace\":false,\"values\":[");
@@ -300,7 +388,7 @@ public class ResourceGenerator {
             for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
                 try {
                     var d = PROJECT_ROOT.resolve(base).resolve("data").resolve(ns)
-                            .resolve("tags").resolve("block");
+                            .resolve("tags").resolve(tagType);
                     java.nio.file.Files.createDirectories(d);
                     java.nio.file.Files.writeString(d.resolve(path + ".json"), sb.toString());
                 } catch (Exception ignored) {}

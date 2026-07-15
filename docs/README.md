@@ -30,6 +30,7 @@ EECore 定义了 **Ω 能量标准**（`1 Ω = 2 FE`），12 级电压 ELV~QV。
 - **Animated text & items / 动画文字物品**: rainbow/blink/gradient tooltips
 - **Pluggable team system / 可插拔队伍系统**: EECore built-in + FTB Teams bridge / 内置+FTB桥接
 - **Creative tabs open for addon mods / 创造栏开放给附属 Mod**: `BuildCreativeModeTabContentsEvent` — addon items appear in EECore tabs / 附属物品进 EECore 标签
+- **Ore system / 矿石系统**: one-line registration `new Material(...)`, auto-generates textures+models+tags+lang, 5 random spot variants per ore, dynamic stone-base rendering from block below / 一行Material定义全自动生成贴图+模型+标签+翻译，5种随机矿斑变体，石底动态渲染
 
 ## Quick Start / 快速开始
 
@@ -68,6 +69,7 @@ assets/<modid>/textures/block/machines/<machine_id>/
 - [NovaNet Energy Network / 能量网络](api/novanet.md)
 - [Emissive API / 发光渲染](api/emissive.md)
 - [Team System / 队伍系统](api/team.md)
+- [Ore System / 矿石系统](api/ore.md)
 - [Animation API / 动画工具](api/animation.md)
 
 ## Dependency / 依赖

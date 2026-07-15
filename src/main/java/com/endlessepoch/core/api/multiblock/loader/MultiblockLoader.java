@@ -31,6 +31,7 @@ public final class MultiblockLoader {
     private boolean offSet;
     private IMachineEffect effect;
     private String itemId;
+    private String[] supportedTypes;
     private final Map<String, Map<Block, Integer>> perBlockLimits = new LinkedHashMap<>();
 
     private MultiblockLoader(ResourceLocation ecsFile) { this.ecsFile = ecsFile; }
@@ -65,6 +66,7 @@ public final class MultiblockLoader {
     }
     public MultiblockLoader effect(IMachineEffect e) { this.effect = e; return this; }
     public MultiblockLoader itemId(String id) { this.itemId = id; return this; }
+    public MultiblockLoader supports(String... ids) { this.supportedTypes = ids; return this; }
 
     /**
      * Register: loads .ecs, creates MachineDefinition, registers pattern + controller item.
@@ -123,7 +125,7 @@ public final class MultiblockLoader {
 
         // 7. Create controller item / 创建控制器物品
         String path = itemId != null ? itemId : machineId.getPath();
-        Items.registerMachineItem(path, machineId, en, zh, tier);
+        Items.registerMachineItem(path, machineId, en, zh, tier, supportedTypes);
 
         // 8. Register definition / 注册定义
         MachineRegistry.register(def);

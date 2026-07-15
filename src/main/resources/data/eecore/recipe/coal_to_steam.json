@@ -1,0 +1,6 @@
+{
+  "type": "eecore:boiler",
+  "inputFluid": { "id": "minecraft:water", "amount": 1000 },
+  "outputFluid": { "id": "eecore:steam", "amount": 800 },
+  "duration": 200
+}

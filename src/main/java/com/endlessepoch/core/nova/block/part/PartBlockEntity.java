@@ -131,7 +131,10 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
 
     @Override
     public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
-        return new HatchMenu(id, inv, this);
+        var menu = new HatchMenu(id, inv, this);
+        if (player instanceof net.minecraft.server.level.ServerPlayer sp)
+            menu.setViewer(sp);
+        return menu;
     }
 
     // Utility / 工具方法
