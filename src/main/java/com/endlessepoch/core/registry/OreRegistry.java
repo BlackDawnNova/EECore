@@ -62,10 +62,16 @@ public class OreRegistry {
                 .resolve("src/main/resources/assets/eecore/textures/template/material_stage");
         Path texBlock = ResourceGenerator.PROJECT_ROOT
                 .resolve("src/main/resources/assets/eecore/textures/block/ores");
+        Path texBlockBuild = ResourceGenerator.PROJECT_ROOT
+                .resolve("build/resources/main/assets/eecore/textures/block/ores");
         Path texItem = ResourceGenerator.PROJECT_ROOT
                 .resolve("src/main/resources/assets/eecore/textures/item");
+        Path texItemBuild = ResourceGenerator.PROJECT_ROOT
+                .resolve("build/resources/main/assets/eecore/textures/item");
         Path modelItem = ResourceGenerator.PROJECT_ROOT
                 .resolve("src/main/resources/assets/eecore/models/item");
+        Path modelItemBuild = ResourceGenerator.PROJECT_ROOT
+                .resolve("build/resources/main/assets/eecore/models/item");
 
         for (Material mat : materials) {
             for (int i = 0; i < SPOT_SUFFIXES.length; i++) {
@@ -73,7 +79,9 @@ public class OreRegistry {
                     byte[] png = tintSpot(spotDir, SPOT_SUFFIXES[i], mat.r, mat.g, mat.b);
                     if (png != null) {
                         Files.createDirectories(texBlock);
+                        Files.createDirectories(texBlockBuild);
                         Files.write(texBlock.resolve(mat.id + "_ore_" + i + ".png"), png);
+                        Files.write(texBlockBuild.resolve(mat.id + "_ore_" + i + ".png"), png);
                     }
                 } catch (Exception ignored) {}
             }
@@ -82,11 +90,15 @@ public class OreRegistry {
                     byte[] png = compositeStage(stageDir, st, mat.r, mat.g, mat.b);
                     if (png != null) {
                         Files.createDirectories(texItem);
+                        Files.createDirectories(texItemBuild);
                         String name = st.fileName(mat.id);
                         Files.write(texItem.resolve(name + ".png"), png);
+                        Files.write(texItemBuild.resolve(name + ".png"), png);
                         Files.createDirectories(modelItem);
-                        Files.writeString(modelItem.resolve(name + ".json"),
-                                "{\"parent\":\"minecraft:item/generated\",\"textures\":{\"layer0\":\"eecore:item/" + name + "\"}}");
+                        Files.createDirectories(modelItemBuild);
+                        String modelJson = "{\"parent\":\"minecraft:item/generated\",\"textures\":{\"layer0\":\"eecore:item/" + name + "\"}}";
+                        Files.writeString(modelItem.resolve(name + ".json"), modelJson);
+                        Files.writeString(modelItemBuild.resolve(name + ".json"), modelJson);
                     }
                 } catch (Exception ignored) {}
             }
@@ -116,11 +128,16 @@ public class OreRegistry {
             Items.addToItemTag("c:small_dusts/" + mat.id, "small_" + mat.id + "_dust");
             Items.addToItemTag("c:tiny_dusts/" + mat.id, "tiny_" + mat.id + "_dust");
             ResourceGenerator.writeOreModel(ns, mat.id);
+            if (mat.replaceTag != null && !mat.replaceTag.isEmpty())
+                ResourceGenerator.writeOreWorldgen(ns, mat.id, mat.replaceTag, mat.veinSize,
+                        mat.count, mat.minY, mat.maxY, mat.vanillaFeature, mat.biomeTag);
         }
     }
 
-    /** 材质定义——一行注册 / Material definition — one-line registration */
-    public record Material(String id, int r, int g, int b, String nameEn, String nameZh, String toolTag) {}
+    /** 材质定义——一行注册(含世界生成+原版移除) / Material — one-line with worldgen + vanilla removal */
+    public record Material(String id, int r, int g, int b, String nameEn, String nameZh, String toolTag,
+                            String replaceTag, int veinSize, int count, int minY, int maxY,
+                            String vanillaFeature, String biomeTag) {}
 
     // 贴图生成, 服务器自动跳过 / Image generation, skips on dedicated servers
 
@@ -226,10 +243,16 @@ public class OreRegistry {
                 .resolve("src/main/resources/assets/eecore/textures/template/material_stage");
         Path texBlock = ResourceGenerator.PROJECT_ROOT
                 .resolve("src/main/resources/assets/eecore/textures/block/ores");
+        Path texBlockBuild = ResourceGenerator.PROJECT_ROOT
+                .resolve("build/resources/main/assets/eecore/textures/block/ores");
         Path texItem = ResourceGenerator.PROJECT_ROOT
                 .resolve("src/main/resources/assets/" + namespace + "/textures/item");
+        Path texItemBuild = ResourceGenerator.PROJECT_ROOT
+                .resolve("build/resources/main/assets/" + namespace + "/textures/item");
         Path modelItem = ResourceGenerator.PROJECT_ROOT
                 .resolve("src/main/resources/assets/" + namespace + "/models/item");
+        Path modelItemBuild = ResourceGenerator.PROJECT_ROOT
+                .resolve("build/resources/main/assets/" + namespace + "/models/item");
 
         for (Material mat : materials) {
             for (int i = 0; i < SPOT_SUFFIXES.length; i++) {
@@ -237,7 +260,9 @@ public class OreRegistry {
                     byte[] png = tintSpot(spotDir, SPOT_SUFFIXES[i], mat.r, mat.g, mat.b);
                     if (png != null) {
                         Files.createDirectories(texBlock);
+                        Files.createDirectories(texBlockBuild);
                         Files.write(texBlock.resolve(mat.id + "_ore_" + i + ".png"), png);
+                        Files.write(texBlockBuild.resolve(mat.id + "_ore_" + i + ".png"), png);
                     }
                 } catch (Exception ignored) {}
             }
@@ -246,11 +271,15 @@ public class OreRegistry {
                     byte[] png = compositeStage(stageDir, st, mat.r, mat.g, mat.b);
                     if (png != null) {
                         Files.createDirectories(texItem);
+                        Files.createDirectories(texItemBuild);
                         String name = st.fileName(mat.id);
                         Files.write(texItem.resolve(name + ".png"), png);
+                        Files.write(texItemBuild.resolve(name + ".png"), png);
                         Files.createDirectories(modelItem);
-                        Files.writeString(modelItem.resolve(name + ".json"),
-                                "{\"parent\":\"minecraft:item/generated\",\"textures\":{\"layer0\":\"" + namespace + ":item/" + name + "\"}}");
+                        Files.createDirectories(modelItemBuild);
+                        String modelJson = "{\"parent\":\"minecraft:item/generated\",\"textures\":{\"layer0\":\"" + namespace + ":item/" + name + "\"}}";
+                        Files.writeString(modelItem.resolve(name + ".json"), modelJson);
+                        Files.writeString(modelItemBuild.resolve(name + ".json"), modelJson);
                     }
                 } catch (Exception ignored) {}
             }

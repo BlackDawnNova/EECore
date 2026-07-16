@@ -240,6 +240,45 @@ public class ResourceGenerator {
         writeJsonNs(namespace, "models/item", materialId + "_ore", itemModel);
     }
 
+    /** 矿石世界生成JSON(双写src+build, 随jar发布) / Ore worldgen JSONs — src + build, shipped in jar */
+    public static void writeOreWorldgen(String namespace, String materialId, String replaceTag,
+                                         int veinSize, int count, int minY, int maxY,
+                                         String vanillaFeature, String biomeTag) {
+        String blockRef = namespace + ":" + materialId + "_ore";
+        String featName = "ore_" + materialId;
+        String cfg = "{\"type\":\"minecraft:ore\",\"config\":{\"size\":" + veinSize
+                + ",\"discard_chance_on_air_exposure\":0.0,\"targets\":[{\"target\":"
+                + "{\"predicate_type\":\"minecraft:tag_match\",\"tag\":\"" + replaceTag + "\"},"
+                + "\"state\":{\"Name\":\"" + blockRef + "\"}}]}}";
+        writeDataNs(namespace, "worldgen/configured_feature", featName, cfg);
+        String plc = "{\"feature\":\"" + namespace + ":" + featName
+                + "\",\"placement\":["
+                + "{\"type\":\"minecraft:count\",\"count\":" + count + "},"
+                + "{\"type\":\"minecraft:in_square\"},"
+                + "{\"type\":\"minecraft:height_range\",\"height\":{\"type\":\"minecraft:uniform\","
+                + "\"min_inclusive\":{\"absolute\":" + minY + "},\"max_inclusive\":{\"absolute\":" + maxY + "}}},"
+                + "{\"type\":\"minecraft:biome\"}]}";
+        writeDataNs(namespace, "worldgen/placed_feature", featName, plc);
+        // Add our ore / 添加矿石
+        String add = "{\"type\":\"neoforge:add_features\",\"biomes\":\"" + biomeTag + "\","
+                + "\"features\":\"" + namespace + ":" + featName + "\",\"step\":\"underground_ores\"}";
+        writeDataNs(namespace, "neoforge/biome_modifier", "add_" + featName, add);
+        // TODO: remove vanilla counterpart / 原版移除待修复
+        // remove_features causes "Unbound values" crash in 1.21.1 — needs research
+    }
+
+    /** Write a data JSON to both src/ and build/resources/. / 写入 data JSON 到 src 与 build。 */
+    private static void writeDataNs(String namespace, String subPath, String fileName, String json) {
+        for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
+            try {
+                var d = PROJECT_ROOT.resolve(base).resolve("data").resolve(namespace)
+                        .resolve(java.nio.file.Path.of("", subPath));
+                java.nio.file.Files.createDirectories(d);
+                java.nio.file.Files.writeString(d.resolve(fileName + ".json"), json);
+            } catch (Exception ignored) {}
+        }
+    }
+
     /**
      * Simple lang writer — appends new key-value pairs to namespace's lang JSON.
      * Unlike flushLang, this is NOT PartType-aware; pure key→value append.

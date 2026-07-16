@@ -8,6 +8,7 @@ import com.endlessepoch.core.api.tier.VoltageTier;
 import com.endlessepoch.core.command.EECoreCommands;
 import com.endlessepoch.core.nova.client.ClientPacketHandlers;
 import com.endlessepoch.core.nova.network.node.NovaNodeRegistration;
+import com.endlessepoch.core.registry.OreRegistry.Material;
 import com.endlessepoch.core.network.OpenMbVisPacket;
 import com.endlessepoch.core.network.SyncConsumerPacket;
 import com.endlessepoch.core.network.SyncGeneratorPacket;
@@ -159,10 +160,19 @@ public class EECore {
         BlockEntities.BLOCK_ENTITIES.register(modEventBus);
         com.endlessepoch.core.registry.OreRegistry.BLOCKS.register(modEventBus);
         com.endlessepoch.core.registry.OreRegistry.registerAll(
-            new com.endlessepoch.core.registry.OreRegistry.Material("iron",    0xAF, 0x8E, 0x77, "Iron",    "铁",   "minecraft:needs_stone_tool"),
-            new com.endlessepoch.core.registry.OreRegistry.Material("copper",  0xC1, 0x67, 0x46, "Copper",  "铜",   "minecraft:needs_stone_tool"),
-            new com.endlessepoch.core.registry.OreRegistry.Material("gold",    0xFF, 0xD7, 0x00, "Gold",    "金",   "minecraft:needs_iron_tool"),
-            new com.endlessepoch.core.registry.OreRegistry.Material("diamond", 0xA0, 0xFF, 0xFF, "Diamond", "钻石", "minecraft:needs_iron_tool")
+            // id/R/G/B/英文/中文/工具标签/替换标签/矿团大小/数量/最低Y/最高Y/原版矿名/群系标签
+            new Material("iron",      0xAF, 0x8E, 0x77, "Iron",     "铁",   "minecraft:needs_stone_tool", "minecraft:stone_ore_replaceables",   8, 20, -64,  64, "minecraft:ore_iron",        "#c:is_overworld"),
+            new Material("copper",    0xC1, 0x67, 0x46, "Copper",  "铜",   "minecraft:needs_stone_tool", "minecraft:stone_ore_replaceables",   8, 16, -16, 112, "minecraft:ore_copper",      "#c:is_overworld"),
+            new Material("gold",      0xFF, 0xD7, 0x00, "Gold",    "金",   "minecraft:needs_iron_tool",  "minecraft:stone_ore_replaceables",   6,  4, -64,  32, "minecraft:ore_gold",        "#c:is_overworld"),
+            new Material("diamond",   0xA0, 0xFF, 0xFF, "Diamond", "钻石", "minecraft:needs_iron_tool",  "minecraft:stone_ore_replaceables",   4,  4, -64,  16, "minecraft:ore_diamond",     "#c:is_overworld"),
+            // Overworld / 主世界
+            new Material("coal",      0x33, 0x33, 0x33, "Coal",     "煤",   "minecraft:needs_stone_tool", "minecraft:stone_ore_replaceables",  17, 20,   0, 192, "minecraft:ore_coal",        "#c:is_overworld"),
+            new Material("redstone",  0xFF, 0x00, 0x00, "Redstone","红石", "minecraft:needs_iron_tool",  "minecraft:stone_ore_replaceables",   8,  8, -64,  15, "minecraft:ore_redstone",    "#c:is_overworld"),
+            new Material("lapis",     0x22, 0x44, 0xCC, "Lapis",   "青金石","minecraft:needs_stone_tool", "minecraft:stone_ore_replaceables",   7,  2, -64,  64, "minecraft:ore_lapis",       "#c:is_overworld"),
+            new Material("emerald",   0x11, 0xCC, 0x55, "Emerald", "绿宝石","minecraft:needs_iron_tool",  "minecraft:stone_ore_replaceables",   3,  3, -16, 320, "minecraft:ore_emerald",     "#c:is_overworld"),
+            // Nether / 下界
+            new Material("nether_gold",   0xFF, 0xD7, 0x00, "Nether Gold",    "下界金",   "minecraft:needs_stone_tool", "minecraft:nether_ore_replaceables", 10, 10, 10, 117, "minecraft:ore_nether_gold",   "#c:is_nether"),
+            new Material("nether_quartz", 0xFF, 0xF5, 0xEE, "Nether Quartz", "下界石英", "minecraft:needs_stone_tool", "minecraft:nether_ore_replaceables", 14, 16, 10, 117, "minecraft:ore_nether_quartz", "#c:is_nether")
         );
         com.endlessepoch.core.api.machine.MachineReg.BLOCKS.register(modEventBus);
         com.endlessepoch.core.api.machine.MachineReg.BLOCK_ENTITY.register(modEventBus);
@@ -184,6 +194,9 @@ public class EECore {
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.event.BlockPlaceHandler::onBlockPlace);
         NeoForge.EVENT_BUS.addListener(EECoreCommands::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.multiblock.PatternStorage::onServerStarting);
+        // Anti-xray proximity reveal & cleanup / 反矿透靠近揭示+离开清理
+        NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.antixray.ProximityRevealer::onServerTick);
+        NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.antixray.ProximityRevealer::onPlayerLeave);
         // Ghost preview for validation failures / 成形失败幽灵预览
         NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.WorldPreviewManager.get());
         // Celestial halo effect for formed controllers / 日月星辰特效
