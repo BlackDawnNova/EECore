@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tracks all block positions belonging to formed multiblocks.
@@ -12,8 +13,8 @@ import java.util.*;
  */
 public final class MultiBlockBreakDetector {
 
-    /** Broken block position → controller position / 破坏位置 → 控制器位置 */
-    private static final Map<BlockPos, BlockPos> FORMED_BLOCKS = new HashMap<>();
+    /** Broken block position → controller position (thread-safe) / 破坏位置 → 控制器位置（线程安全） */
+    private static final Map<BlockPos, BlockPos> FORMED_BLOCKS = new ConcurrentHashMap<>();
 
     private MultiBlockBreakDetector() {}
 

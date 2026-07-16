@@ -9,6 +9,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Global block-placement listener — triggers pattern re-check on ANY block
@@ -17,8 +18,8 @@ import java.util.*;
  */
 public class BlockPlaceHandler {
 
-    // Cached controller positions: BlockPos → world dimension registry key / 控制器位置缓存
-    private static final Map<BlockPos, net.minecraft.resources.ResourceKey<Level>> controllers = new HashMap<>();
+    // Cached controller positions (thread-safe) / 控制器位置缓存（线程安全）
+    private static final Map<BlockPos, net.minecraft.resources.ResourceKey<Level>> controllers = new ConcurrentHashMap<>();
     private static int validCheckTick;
 
     /** Register a controller (called from BE onLoad). / 注册控制器（BE 加载时调用）。 */

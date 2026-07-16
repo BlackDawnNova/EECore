@@ -99,26 +99,26 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
     @Override public BlockPos getControllerPos() { return controllerPos; }
     @Override public boolean isFormed() { return machineId != null; }
 
-    /** Omega energy storage, or null if not an energy hatch. / 能量存储，非能源仓时返回 null。 */
+    /** Omega energy storage (thread-safe), or null if not an energy hatch. / 能量存储（线程安全），非能源仓时返回 null。 */
     public OmegaStorage getEnergyStorage() { return energyStorage; }
-    /** Fluid tank, or null if not a fluid hatch. / 流体罐，非流体仓时返回 null。 */
-    public List<FluidTank> getFluidTanks() { return fluidTanks; }
+    /** Fluid tanks snapshot, or null if not a fluid hatch. / 流体罐列表快照，非流体仓时返回 null。 */
+    public List<FluidTank> getFluidTanks() { return java.util.Collections.unmodifiableList(fluidTanks); }
     public FluidTank getFluidTank() { return fluidTanks.isEmpty() ? null : fluidTanks.get(0); }
+    /** Fluid handler — fill/drain are synchronized on the tanks list. / 流体处理器，fill/drain 锁 tanks 列表。 */
     public IFluidHandler getFluidHandler() {
         if (fluidTanks.isEmpty()) return null;
         if (fluidTanks.size() == 1) return fluidTanks.get(0);
         return new net.neoforged.neoforge.fluids.capability.IFluidHandler() {
             @Override public int getTanks() { return fluidTanks.size(); }
-            @Override public net.neoforged.neoforge.fluids.FluidStack getFluidInTank(int t) { return fluidTanks.get(t).getFluid(); }
-            @Override public int getTankCapacity(int t) { return fluidTanks.get(t).getCapacity(); }
-            @Override public boolean isFluidValid(int t, net.neoforged.neoforge.fluids.FluidStack s) { return fluidTanks.get(t).isFluidValid(s); }
-            @Override public int fill(net.neoforged.neoforge.fluids.FluidStack r, FluidAction a) {
-                // Prefer matching tanks, then empty / 优先同种流体，再空槽
+            @Override public net.neoforged.neoforge.fluids.FluidStack getFluidInTank(int t) { synchronized(fluidTanks) { return fluidTanks.get(t).getFluid(); } }
+            @Override public int getTankCapacity(int t) { synchronized(fluidTanks) { return fluidTanks.get(t).getCapacity(); } }
+            @Override public boolean isFluidValid(int t, net.neoforged.neoforge.fluids.FluidStack s) { synchronized(fluidTanks) { return fluidTanks.get(t).isFluidValid(s); } }
+            @Override public int fill(net.neoforged.neoforge.fluids.FluidStack r, FluidAction a) { synchronized(fluidTanks) {
                 for (var t : fluidTanks) if (t.getFluid().getFluid() == r.getFluid()) { int f=t.fill(r,a); if(f>0)return f; }
                 for (var t : fluidTanks) if (t.getFluid().isEmpty()) { int f=t.fill(r,a); if(f>0)return f; }
-                return 0; }
-            @Override public net.neoforged.neoforge.fluids.FluidStack drain(net.neoforged.neoforge.fluids.FluidStack r, FluidAction a) { for (var t : fluidTanks) { var d = t.drain(r, a); if (!d.isEmpty()) return d; } return net.neoforged.neoforge.fluids.FluidStack.EMPTY; }
-            @Override public net.neoforged.neoforge.fluids.FluidStack drain(int max, FluidAction a) { for (var t : fluidTanks) { var d = t.drain(max, a); if (!d.isEmpty()) return d; } return net.neoforged.neoforge.fluids.FluidStack.EMPTY; }
+                return 0; } }
+            @Override public net.neoforged.neoforge.fluids.FluidStack drain(net.neoforged.neoforge.fluids.FluidStack r, FluidAction a) { synchronized(fluidTanks) { for (var t : fluidTanks) { var d = t.drain(r, a); if (!d.isEmpty()) return d; } return net.neoforged.neoforge.fluids.FluidStack.EMPTY; } }
+            @Override public net.neoforged.neoforge.fluids.FluidStack drain(int max, FluidAction a) { synchronized(fluidTanks) { for (var t : fluidTanks) { var d = t.drain(max, a); if (!d.isEmpty()) return d; } return net.neoforged.neoforge.fluids.FluidStack.EMPTY; } }
         };
     }
 

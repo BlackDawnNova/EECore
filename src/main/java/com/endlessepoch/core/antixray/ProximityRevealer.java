@@ -10,12 +10,12 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Per-player proximity reveal: when a player is within range of a disguised ore,
@@ -29,7 +29,7 @@ public final class ProximityRevealer {
     private static final int REVEAL_RADIUS_Y = REVEAL_RADIUS;
     private static final int SCAN_INTERVAL = 10; // 重伪装扫描间隔 / re-hide scan interval
 
-    private static final Map<UUID, Set<BlockPos>> REVEALED = new HashMap<>();
+    private static final Map<UUID, Set<BlockPos>> REVEALED = new ConcurrentHashMap<>();
 
     private static final BlockState DISGUISE_DEEPSLATE = Blocks.DEEPSLATE.defaultBlockState();
     private static final BlockState DISGUISE_STONE = Blocks.STONE.defaultBlockState();

@@ -21,8 +21,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Bus block entity with configurable item inventory, hopper/pipe compatible via IItemHandler.
  * Output buses are extract-only — items cannot be inserted manually.
+ * All inventory access is synchronized to support concurrent usage by EB or pipelines.
  * 可配置格数的总线方块实体，通过 IItemHandler 支持漏斗/管道。
- * 输出总线只许取出，不可手动放入。
+ * 输出总线只许取出，不可手动放入。所有库存访问已同步以支持 EB 或管道并发。
  */
 public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider {
 
@@ -33,8 +34,10 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
         super(pos, state, type, tier);
         this.output = getAbilities().contains(PartAbility.ITEM_OUTPUT);
         this.inventory = new ItemStackHandler(slotCount) {
-            @Override
-            protected void onContentsChanged(int slot) { setChanged(); }
+            @Override protected void onContentsChanged(int slot) { setChanged(); }
+            @Override public synchronized ItemStack extractItem(int slot, int amount, boolean simulate) { return super.extractItem(slot, amount, simulate); }
+            @Override public synchronized ItemStack insertItem(int slot, ItemStack stack, boolean simulate) { return super.insertItem(slot, stack, simulate); }
+            @Override public synchronized ItemStack getStackInSlot(int slot) { return super.getStackInSlot(slot); }
         };
     }
 

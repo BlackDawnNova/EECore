@@ -271,8 +271,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private void processRecipe() {
         if (inputBusPos.isEmpty() || outputBusPos.isEmpty()) {
             if (++debugTick % 100 == 0)
-                LOGGER.debug("[MachineController] in={} out={} formed={} paused={} machineId={}",
-                        inputBusPos.size(), outputBusPos.size(), formed, paused, machineId);
+                LOGGER.debug("[MachineController] in={} out={} formed={} paused={}",
+                        inputBusPos.size(), outputBusPos.size(), formed, paused);
             return;
         }
         // Drain energy from input hatches / 从能源仓吸电
@@ -367,16 +367,14 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                     slots.add(new SlotState(op, s, inv.getStackInSlot(s).copy()));
             }
         }
-        // For each result, find a slot that can accept it (accounting for previous result placements)
-        // 每次结果都要找到能放的槽（计入前面已占的）
+        // 每次结果都要找到能放的槽（计入前面已占的）/ Find a slot for each result
         var occupied = new boolean[slots.size()];
         for (var item : results) {
             boolean placed = false;
             for (int i = 0; i < slots.size(); i++) {
                 if (occupied[i]) continue;
                 var ss = slots.get(i);
-                // Simulate: does the slot have room for this item?
-                var current = ss.content().copy();
+                var current = ss.content().copy(); // 模拟检验 / simulate fit
                 int maxStack = current.isEmpty() ? item.getMaxStackSize()
                         : current.getMaxStackSize();
                 if (current.isEmpty() || (current.getItem() == item.getItem()

@@ -7,28 +7,25 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Full implementation of {@link IOmegaEnergyStorage}.
- * <p>
- * Provides per-tier energy tracking, NBT persistence, automatic voltage step-down,
- * and {@link EnergyTransferEvent} firing on every receive/extract.
- * <p>
- * 完整实现 IOmegaEnergyStorage，提供分层能量追踪、NBT 持久化、自动降压，收发时触发事件。
+ * Full implementation of {@link IOmegaEnergyStorage} with per-tier tracking, NBT persistence,
+ * automatic voltage step-down, and {@link EnergyTransferEvent} firing.
+ * 完整实现 IOmegaEnergyStorage，分层追踪+NBT持久化+自动降压+事件通知。
  *
- * <pre>{@code
- * // Via MachineSpec builder:
- * OmegaStorage storage = MachineSpec.builder(VoltageTier.MV)
- *         .capacity(10_000).maxIO(128).build().createStorage();
- *
- * // Direct construction:
- * OmegaStorage storage = new OmegaStorage(10_000, 128, 128, VoltageTier.MV);
- * }</pre>
+ * @implNote Thread-safe via {@code ReentrantReadWriteLock}. All reads acquire shared lock,
+ *           all writes acquire exclusive lock. Events are collected inside the lock and posted afterward.
  */
 public class OmegaStorage implements IOmegaEnergyStorage {
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private final List<EnergyTransferEvent> pendingEvents = new ArrayList<>(2);
+
     private final Map<VoltageTier, OmegaValue> tieredEnergy = new EnumMap<>(VoltageTier.class);
     private final BigInteger capacity;
     private final BigInteger maxInput;
@@ -62,89 +59,110 @@ public class OmegaStorage implements IOmegaEnergyStorage {
         this.energy = OmegaValue.zero();
     }
 
+    // === Thread-safe write helpers / 线程安全写辅助 ===
+
+    private void queueEvent(EnergyTransferEvent.Phase phase, EnergyPacket packet, OmegaValue amount) {
+        if (amount != null && !amount.isZero())
+            pendingEvents.add(new EnergyTransferEvent(phase, this, packet, amount));
+    }
+
+    /** Flush and clear pending energy-transfer events. Caller should post them to EVENT_BUS. / 刷新并清理待发事件。 */
+    public List<EnergyTransferEvent> flushPendingEvents() {
+        lock.writeLock().lock();
+        try {
+            if (pendingEvents.isEmpty()) return List.of();
+            List<EnergyTransferEvent> copy = List.copyOf(pendingEvents);
+            pendingEvents.clear();
+            return copy;
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    // === Writes (exclusive lock) / 写操作 ===
+
     public void setEnergy(OmegaValue energy) {
-        this.energy = energy;
-        tieredEnergy.put(VoltageTier.ELV, energy);
+        lock.writeLock().lock();
+        try {
+            this.energy = energy;
+            tieredEnergy.put(VoltageTier.ELV, energy);
+            pendingEvents.clear(); // discard stale events on external set / 外部赋值时丢弃过期事件
+        } finally { lock.writeLock().unlock(); }
     }
 
     public void saveToNBT(CompoundTag tag) {
-        tag.putString("energy", energy.toBigInteger().toString());
-        tag.putString("capacity", capacity.toString());
-        tag.putString("maxInput", maxInput.toString());
-        tag.putString("maxOutput", maxOutput.toString());
-        ListTag list = new ListTag();
-        for (Map.Entry<VoltageTier, OmegaValue> entry : tieredEnergy.entrySet()) {
-            CompoundTag entryTag = new CompoundTag();
-            entryTag.putString("tier", entry.getKey().getShortName());
-            entryTag.putString("value", entry.getValue().toBigInteger().toString());
-            list.add(entryTag);
-        }
-        tag.put("tieredEnergy", list);
+        lock.readLock().lock();
+        try {
+            tag.putString("energy", energy.toBigInteger().toString());
+            tag.putString("capacity", capacity.toString());
+            tag.putString("maxInput", maxInput.toString());
+            tag.putString("maxOutput", maxOutput.toString());
+            ListTag list = new ListTag();
+            for (Map.Entry<VoltageTier, OmegaValue> entry : tieredEnergy.entrySet()) {
+                CompoundTag entryTag = new CompoundTag();
+                entryTag.putString("tier", entry.getKey().getShortName());
+                entryTag.putString("value", entry.getValue().toBigInteger().toString());
+                list.add(entryTag);
+            }
+            tag.put("tieredEnergy", list);
+        } finally { lock.readLock().unlock(); }
     }
 
     public void loadFromNBT(CompoundTag tag) {
-        for (VoltageTier vt : VoltageTier.values()) tieredEnergy.put(vt, OmegaValue.zero());
+        lock.writeLock().lock();
+        try {
+            for (VoltageTier vt : VoltageTier.values()) tieredEnergy.put(vt, OmegaValue.zero());
+            pendingEvents.clear();
 
-        if (tag.contains("tieredEnergy", Tag.TAG_LIST)) {
-            ListTag list = tag.getList("tieredEnergy", Tag.TAG_COMPOUND);
-            for (int i = 0; i < list.size(); i++) {
-                CompoundTag entry = list.getCompound(i);
-                String tierName = entry.getString("tier");
-                VoltageTier vt = VoltageTier.fromShortName(tierName);
-                OmegaValue val = OmegaValue.zero();
-                if (entry.contains("value", Tag.TAG_STRING)) {
-                    String str = entry.getString("value");
-                    if (str != null && !str.isEmpty()) {
-                        try {
-                            val = OmegaValue.of(new BigInteger(str));
-                        } catch (NumberFormatException ignored) {}
+            if (tag.contains("tieredEnergy", Tag.TAG_LIST)) {
+                ListTag list = tag.getList("tieredEnergy", Tag.TAG_COMPOUND);
+                for (int i = 0; i < list.size(); i++) {
+                    CompoundTag entry = list.getCompound(i);
+                    String tierName = entry.getString("tier");
+                    VoltageTier vt = VoltageTier.fromShortName(tierName);
+                    OmegaValue val = OmegaValue.zero();
+                    if (entry.contains("value", Tag.TAG_STRING)) {
+                        String str = entry.getString("value");
+                        if (str != null && !str.isEmpty()) {
+                            try { val = OmegaValue.of(new BigInteger(str)); } catch (NumberFormatException ignored) {}
+                        }
+                    } else if (entry.contains("value", Tag.TAG_LONG)) {
+                        val = OmegaValue.of(entry.getLong("value"));
                     }
-                } else if (entry.contains("value", Tag.TAG_LONG)) {
-                    val = OmegaValue.of(entry.getLong("value"));
+                    tieredEnergy.put(vt, val);
                 }
-                tieredEnergy.put(vt, val);
             }
-        }
 
-        OmegaValue total = OmegaValue.zero();
-        if (tag.contains("energy", Tag.TAG_STRING)) {
-            String str = tag.getString("energy");
-            if (str != null && !str.isEmpty()) {
-                try {
-                    total = OmegaValue.of(new BigInteger(str));
-                } catch (NumberFormatException ignored) {}
+            OmegaValue total = OmegaValue.zero();
+            if (tag.contains("energy", Tag.TAG_STRING)) {
+                String str = tag.getString("energy");
+                if (str != null && !str.isEmpty()) {
+                    try { total = OmegaValue.of(new BigInteger(str)); } catch (NumberFormatException ignored) {}
+                }
+            } else if (tag.contains("energy", Tag.TAG_LONG)) {
+                total = OmegaValue.of(tag.getLong("energy"));
             }
-        } else if (tag.contains("energy", Tag.TAG_LONG)) {
-            total = OmegaValue.of(tag.getLong("energy"));
-        }
-        if (!total.isZero()) {
-            tieredEnergy.put(VoltageTier.ELV, total);
-        }
-        this.energy = computeTotal();
-    }
-
-    private void fireTransferEvent(EnergyTransferEvent.Phase phase, EnergyPacket packet, OmegaValue amount) {
-        if (amount != null && !amount.isZero()) {
-            NeoForge.EVENT_BUS.post(new EnergyTransferEvent(phase, this, packet, amount));
-        }
-    }
-
-    private OmegaValue computeTotal() {
-        OmegaValue total = OmegaValue.zero();
-        for (OmegaValue v : tieredEnergy.values()) total = total.add(v);
-        return total;
+            if (!total.isZero()) tieredEnergy.put(VoltageTier.ELV, total);
+            this.energy = computeTotal();
+        } finally { lock.writeLock().unlock(); }
     }
 
     @Override
     public EnergyPacket receivePacket(EnergyPacket packet, boolean simulate) {
         if (packet == null || packet.isEmpty()) return null;
-        if (!canInput(packet.getTier())) {
-            EnergyPacket stepped = packet.stepDownTo(tier);
-            if (stepped.isEmpty()) return null;
-            return receivePacket(stepped, simulate);
-        }
+        lock.writeLock().lock();
+        try {
+            if (!canInput(packet.getTier())) {
+                EnergyPacket stepped = packet.stepDownTo(tier);
+                if (stepped.isEmpty()) return null;
+                return receivePacketLocked(stepped, simulate);
+            }
+            return receivePacketLocked(packet, simulate);
+        } finally { lock.writeLock().unlock(); }
+    }
 
-        OmegaValue available = OmegaValue.of(capacity).subtract(getEnergyStored());
+    private EnergyPacket receivePacketLocked(EnergyPacket packet, boolean simulate) {
+        OmegaValue available = OmegaValue.of(capacity).subtract(energy);
         if (available.isZero()) return null;
 
         BigInteger packetEnergy = packet.getEnergy().toBigInteger();
@@ -155,7 +173,7 @@ public class OmegaStorage implements IOmegaEnergyStorage {
                     OmegaValue toStore = OmegaValue.of(limitedEnergy);
                     tieredEnergy.put(packet.getTier(), tieredEnergy.getOrDefault(packet.getTier(), OmegaValue.zero()).add(toStore));
                     energy = energy.add(toStore);
-                    fireTransferEvent(EnergyTransferEvent.Phase.RECEIVE, packet, toStore);
+                    queueEvent(EnergyTransferEvent.Phase.RECEIVE, packet, toStore);
                 }
                 BigInteger newAmps = limitedEnergy.divide(packet.getVoltage());
                 if (newAmps.signum() < 1) newAmps = BigInteger.ONE;
@@ -167,7 +185,7 @@ public class OmegaStorage implements IOmegaEnergyStorage {
         if (!simulate) {
             tieredEnergy.put(packet.getTier(), tieredEnergy.getOrDefault(packet.getTier(), OmegaValue.zero()).add(toStore));
             energy = energy.add(toStore);
-            fireTransferEvent(EnergyTransferEvent.Phase.RECEIVE, packet, toStore);
+            queueEvent(EnergyTransferEvent.Phase.RECEIVE, packet, toStore);
         }
         BigInteger actualAmps = toStore.toBigInteger().divide(packet.getVoltage());
         if (actualAmps.signum() < 1) actualAmps = BigInteger.ONE;
@@ -177,38 +195,42 @@ public class OmegaStorage implements IOmegaEnergyStorage {
     @Override
     public EnergyPacket extractPacket(VoltageTier requestedTier, boolean simulate) {
         if (requestedTier == null) return null;
-
-        OmegaValue available = tieredEnergy.getOrDefault(requestedTier, OmegaValue.zero());
-        if (!available.isZero()) {
-            if (!simulate) {
-                tieredEnergy.put(requestedTier, OmegaValue.zero());
-                energy = energy.subtract(available);
-                EnergyPacket extracted = new EnergyPacket(requestedTier, 1, available);
-                fireTransferEvent(EnergyTransferEvent.Phase.EXTRACT, extracted, available);
+        lock.writeLock().lock();
+        try {
+            OmegaValue available = tieredEnergy.getOrDefault(requestedTier, OmegaValue.zero());
+            if (!available.isZero()) {
+                OmegaValue toExtract = maxOutput.compareTo(BigInteger.ZERO) > 0
+                        ? OmegaValue.of(available.toBigInteger().min(maxOutput)) : available;
+                if (!simulate) {
+                    tieredEnergy.put(requestedTier, available.subtract(toExtract));
+                    energy = energy.subtract(toExtract);
+                    EnergyPacket pkt = new EnergyPacket(requestedTier, 1, toExtract);
+                    queueEvent(EnergyTransferEvent.Phase.EXTRACT, pkt, toExtract);
+                }
+                BigInteger amps = toExtract.toBigInteger().divide(requestedTier.getMinVoltage());
+                if (amps.signum() < 1) amps = BigInteger.ONE;
+                return new EnergyPacket(requestedTier, amps, toExtract);
             }
-            BigInteger amps = available.toBigInteger().divide(requestedTier.getMinVoltage());
-            if (amps.signum() < 1) amps = BigInteger.ONE;
-            return new EnergyPacket(requestedTier, amps, available);
-        }
 
-        for (VoltageTier higher : VoltageTier.values()) {
-            if (higher.ordinal() > requestedTier.ordinal()) {
-                OmegaValue higherEnergy = tieredEnergy.getOrDefault(higher, OmegaValue.zero());
-                if (!higherEnergy.isZero()) {
-                    EnergyPacket packet = new EnergyPacket(higher, 1, higherEnergy);
-                    EnergyPacket stepped = packet.stepDownTo(requestedTier);
-                    if (!stepped.isEmpty()) {
-                        if (!simulate) {
-                            tieredEnergy.put(higher, OmegaValue.zero());
-                            energy = energy.subtract(higherEnergy);
-                            fireTransferEvent(EnergyTransferEvent.Phase.EXTRACT, stepped, stepped.getEnergy());
+            for (VoltageTier higher : VoltageTier.values()) {
+                if (higher.ordinal() > requestedTier.ordinal()) {
+                    OmegaValue higherEnergy = tieredEnergy.getOrDefault(higher, OmegaValue.zero());
+                    if (!higherEnergy.isZero()) {
+                        EnergyPacket packet = new EnergyPacket(higher, 1, higherEnergy);
+                        EnergyPacket stepped = packet.stepDownTo(requestedTier);
+                        if (!stepped.isEmpty()) {
+                            if (!simulate) {
+                                tieredEnergy.put(higher, OmegaValue.zero());
+                                energy = energy.subtract(higherEnergy);
+                                queueEvent(EnergyTransferEvent.Phase.EXTRACT, stepped, stepped.getEnergy());
+                            }
+                            return stepped;
                         }
-                        return stepped;
                     }
                 }
             }
-        }
-        return null;
+            return null;
+        } finally { lock.writeLock().unlock(); }
     }
 
     @Override
@@ -224,54 +246,84 @@ public class OmegaStorage implements IOmegaEnergyStorage {
     @Override
     public OmegaValue extractEnergy(OmegaValue amount, boolean simulate) {
         if (amount == null || amount.isZero()) return OmegaValue.zero();
-        if (maxOutput.compareTo(BigInteger.ZERO) > 0 && amount.toBigInteger().compareTo(maxOutput) > 0) {
-            amount = OmegaValue.of(maxOutput);
-        }
+        lock.writeLock().lock();
+        try {
+            BigInteger limit = maxOutput.compareTo(BigInteger.ZERO) > 0
+                    ? amount.toBigInteger().min(maxOutput) : amount.toBigInteger();
+            OmegaValue remaining = OmegaValue.of(limit);
+            OmegaValue extracted = OmegaValue.zero();
 
-        VoltageTier current = VoltageTier.QV;
-        OmegaValue remaining = amount;
-        OmegaValue extracted = OmegaValue.zero();
-
-        while (!remaining.isZero()) {
-            OmegaValue avail = tieredEnergy.getOrDefault(current, OmegaValue.zero());
-            if (!avail.isZero()) {
-                OmegaValue toExtract = remaining.compareTo(avail) < 0 ? remaining : avail;
-                if (!simulate) {
-                    tieredEnergy.put(current, avail.subtract(toExtract));
-                    energy = energy.subtract(toExtract);
+            VoltageTier current = VoltageTier.QV;
+            while (!remaining.isZero()) {
+                OmegaValue avail = tieredEnergy.getOrDefault(current, OmegaValue.zero());
+                if (!avail.isZero()) {
+                    OmegaValue toExtract = remaining.compareTo(avail) < 0 ? remaining : avail;
+                    if (!simulate) {
+                        tieredEnergy.put(current, avail.subtract(toExtract));
+                        energy = energy.subtract(toExtract);
+                    }
+                    extracted = extracted.add(toExtract);
+                    remaining = remaining.subtract(toExtract);
+                    if (extracted.compareTo(OmegaValue.of(limit)) >= 0) break;
                 }
-                extracted = extracted.add(toExtract);
-                remaining = remaining.subtract(toExtract);
-                if (extracted.compareTo(amount) >= 0) break;
+                if (current == VoltageTier.ELV) break;
+                current = current.prev();
             }
-            if (current == VoltageTier.ELV) break;
-            current = current.prev();
-        }
-        return extracted;
+            return extracted;
+        } finally { lock.writeLock().unlock(); }
     }
 
+    public void setTieredEnergy(VoltageTier tier, OmegaValue amount) {
+        lock.writeLock().lock();
+        try {
+            tieredEnergy.put(tier, amount);
+            this.energy = computeTotal();
+        } finally { lock.writeLock().unlock(); }
+    }
+
+    // === Reads (shared lock) / 读操作 ===
+
     @Override
-    public OmegaValue getEnergyStored() { return energy; }
+    public OmegaValue getEnergyStored() {
+        lock.readLock().lock();
+        try { return energy; } finally { lock.readLock().unlock(); }
+    }
 
     @Override
     public OmegaValue getEnergyStored(VoltageTier tier) {
-        return tieredEnergy.getOrDefault(tier, OmegaValue.zero());
+        lock.readLock().lock();
+        try { return tieredEnergy.getOrDefault(tier, OmegaValue.zero()); } finally { lock.readLock().unlock(); }
     }
 
     @Override
-    public OmegaValue getCapacity() { return OmegaValue.of(capacity); }
+    public OmegaValue getCapacity() {
+        lock.readLock().lock();
+        try { return OmegaValue.of(capacity); } finally { lock.readLock().unlock(); }
+    }
 
     @Override
-    public OmegaValue getMaxInput() { return OmegaValue.of(maxInput); }
+    public OmegaValue getMaxInput() {
+        lock.readLock().lock();
+        try { return OmegaValue.of(maxInput); } finally { lock.readLock().unlock(); }
+    }
 
     @Override
-    public OmegaValue getMaxOutput() { return OmegaValue.of(maxOutput); }
+    public OmegaValue getMaxOutput() {
+        lock.readLock().lock();
+        try { return OmegaValue.of(maxOutput); } finally { lock.readLock().unlock(); }
+    }
 
     @Override
-    public VoltageTier getTier() { return tier; }
+    public VoltageTier getTier() {
+        lock.readLock().lock();
+        try { return tier; } finally { lock.readLock().unlock(); }
+    }
 
-    public void setTieredEnergy(VoltageTier tier, OmegaValue amount) {
-        tieredEnergy.put(tier, amount);
-        this.energy = computeTotal();
+    // === Internal / 内部方法 ===
+
+    private OmegaValue computeTotal() {
+        OmegaValue total = OmegaValue.zero();
+        for (OmegaValue v : tieredEnergy.values()) total = total.add(v);
+        return total;
     }
 }
