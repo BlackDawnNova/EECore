@@ -1,19 +1,18 @@
 package com.endlessepoch.core.api.energy.eb;
 
+import com.endlessepoch.core.Config;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Time-window batch buffer. Accumulates events until 10ms window elapses,
+ * Time-window batch buffer. Accumulates events until the configured window elapses,
  * then flushes the batch to the subscriber's background thread.
- * 时间窗口缓冲器，10ms 窗口满后批量推送至订阅者后台线程。
+ * 时间窗口缓冲器，窗口到期后批量推送至订阅者后台线程。
  */
 public class WindowBuffer {
-
-    private static final int MAX_CAPACITY = 16384;
-    static final long WINDOW_NANOS = 10_000_000L; // 10ms
 
     private final Queue<EeEvent> queue = new ConcurrentLinkedQueue<>();
     private final Subscriber subscriber;
@@ -27,7 +26,7 @@ public class WindowBuffer {
 
     /** Push an event into the buffer. / 推入事件。 */
     public void offer(EeEvent event) {
-        if (queue.size() >= MAX_CAPACITY) {
+        if (queue.size() >= Config.ebBufferCapacity) {
             queue.poll(); // drop oldest / 丢弃最早
             dropped++;
             if (dropped % 1000 == 1)
@@ -54,10 +53,10 @@ public class WindowBuffer {
             return;
         }
         long now = System.nanoTime();
-        if (now - windowStart >= WINDOW_NANOS && !queue.isEmpty()) {
+        if (now - windowStart >= Config.ebWindowNanos && !queue.isEmpty()) {
             List<EeEvent> batch = new ArrayList<>();
             EeEvent ev;
-            while ((ev = queue.poll()) != null && batch.size() < MAX_CAPACITY)
+            while ((ev = queue.poll()) != null && batch.size() < Config.ebMaxBatch)
                 batch.add(ev);
             if (!batch.isEmpty()) {
                 Schedulers.BACKGROUND.submit(() -> subscriber.onNext(batch));
@@ -67,4 +66,15 @@ public class WindowBuffer {
     }
 
     public int size() { return queue.size(); }
+
+    /**
+     * Re-sync after a dormant period (e.g. machine re-formed): drop stale leftovers and
+     * reset the tick timer so freshly published events aren't discarded as backlog.
+     * 休眠后对时（如机器重新成型）：清掉残留旧事件并重置计时器，防止新发布的事件被当积压丢弃。
+     */
+    public void resync(long gameTick) {
+        queue.clear();
+        timer.reset(gameTick);
+        windowStart = System.nanoTime();
+    }
 }

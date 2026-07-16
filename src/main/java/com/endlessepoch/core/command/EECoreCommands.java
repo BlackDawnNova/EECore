@@ -74,7 +74,10 @@ public final class EECoreCommands {
 
     private static int reloadStructures(CommandSourceStack source) {
         PatternStorage.loadAll();
-        source.sendSuccess(() -> Component.literal("§aEECore structures reloaded from disk."), true);
+        // Recipes may have changed via datapack reload — rebuild the snapshot cache
+        // 数据包重载后配方可能变化 — 重建配方快照缓存
+        com.endlessepoch.core.api.recipe.RecipeSnapshotCache.reload(source.getServer().getRecipeManager());
+        source.sendSuccess(() -> Component.literal("§aEECore structures + recipe snapshots reloaded."), true);
         return 1;
     }
 

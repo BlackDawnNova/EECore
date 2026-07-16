@@ -148,11 +148,24 @@ public class Blocks {
     /** Register block + item name (for auto item registration). / 方块+名字（自动注册物品）。 */
     public static Supplier<? extends Block> registerPartBlock(String path, int tier, int slots, int fluidCap, int fluidSlots,
                                                                 long energyCap, String en, String zh) {
+        return registerPartBlock(path, tier, slots, fluidCap, fluidSlots, energyCap, 1, en, zh);
+    }
+
+    /**
+     * Full variant with amperage — addon mods register tiered energy hatches in one call,
+     * e.g. registerPartBlock("hv_energy_input", 3, 0, 0, 0, 4_000_000, 4, "HV Energy Hatch", "HV能源仓").
+     * Unknown PartTypes are auto-registered; abilities resolve by path suffix.
+     * 含安培数的完整变体——附属 Mod 一行注册任意等级能源仓。未知 PartType 自动注册，能力按路径后缀识别。
+     */
+    public static Supplier<? extends Block> registerPartBlock(String path, int tier, int slots, int fluidCap, int fluidSlots,
+                                                                long energyCap, int amperage, String en, String zh) {
         ResourceLocation rl = ResourceLocation.fromNamespaceAndPath("eecore", path);
         PartType type = PartType.get(rl);
-        if (type == null) throw new IllegalArgumentException("Unknown PartType: " + rl);
+        if (type == null) type = PartType.register(rl, "block.eecore." + path); // auto-register / 自动注册
+        final PartType fType = type;
         var sup = BLOCKS.register(path,
-                () -> new PartBlock(PartBlock.tieredProperties(tier), type, tier, slots, fluidCap, energyCap, fluidSlots));
+                () -> new PartBlock(PartBlock.tieredProperties(tier), fType, tier, slots, fluidCap, energyCap, fluidSlots)
+                        .amperage(amperage));
         PART_BLOCKS.add(sup);
         if (en != null) DEFERRED_ITEMS.add(new PartItemDef(path, tier, en, zh));
         return sup;
@@ -180,9 +193,10 @@ public class Blocks {
     public static final Supplier<? extends Block> OUTPUT_BUS = registerPartBlock("output_bus", 1, 2, 0, 0, 0, "Output Bus", "输出总线");
     public static final Supplier<? extends Block> FLUID_INPUT  = registerPartBlock("fluid_input",  1, 0, 8000, 0, 0, "Fluid Input Hatch", "流体输入仓");
     public static final Supplier<? extends Block> FLUID_OUTPUT = registerPartBlock("fluid_output", 1, 0, 8000, 0, 0, "Fluid Output Hatch", "流体输出仓");
-    public static final Supplier<? extends Block> ENERGY_INPUT  = registerPartBlock("energy_input",  1, 0, 0, 0, 10000, "Energy Input Hatch", "能源输入仓");
-    public static final Supplier<? extends Block> ENERGY_OUTPUT = registerPartBlock("energy_output", 1, 0, 0, 0, 10000, "Energy Output Hatch", "能源输出仓");
+    public static final Supplier<? extends Block> ENERGY_INPUT  = registerPartBlock("energy_input",  1, 0, 0, 0, 64000, "Energy Input Hatch", "能源输入仓");
+    public static final Supplier<? extends Block> ENERGY_OUTPUT = registerPartBlock("energy_output", 1, 0, 0, 0, 64000, "Energy Output Hatch", "能源输出仓");
     public static final Supplier<? extends Block> INPUT_ASSEMBLY  = registerPartBlock("input_assembly",  1, 9, 16000, 9, 0, "Input Assembly", "输入总成");
     public static final Supplier<? extends Block> OUTPUT_ASSEMBLY = registerPartBlock("output_assembly", 1, 9, 16000, 9, 0, "Output Assembly", "输出总成");
+    public static final Supplier<? extends Block> PARALLEL_HATCH = registerPartBlock("parallel_hatch", 1, 0, 0, 0, 0, "Parallel Control Hatch", "并行控制仓");
 
 }

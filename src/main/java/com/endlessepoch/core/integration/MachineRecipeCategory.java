@@ -78,12 +78,20 @@ public class MachineRecipeCategory extends AbstractRecipeCategory<MachineRecipe>
         var font = net.minecraft.client.Minecraft.getInstance().font;
         String duration = String.format("%.2f 秒", ticks / 20f);
         g.drawString(font, "耗时: " + duration, 6, 63, WHITE);
-        g.drawString(font, "总计: -- Ω", 6, 75, WHITE);
-        g.drawString(font, "功率: -- A", 6, 87, WHITE);
+        // Energy: base tier values; overclock shown in-game only / 显示基础电压下能耗，超频只在游戏内生效
+        if (recipe.getEnergyPerTick() > 0) {
+            long total = recipe.getEnergyPerTick() * recipe.getProcessingTime();
+            g.drawString(font, "总计: " + total + " Ω", 6, 75, WHITE);
+            g.drawString(font, "功率: " + recipe.getEnergyPerTick() + " Ω/t", 6, 87, WHITE);
+        } else {
+            g.drawString(font, "总计: -- Ω", 6, 75, WHITE);
+            g.drawString(font, "功率: -- Ω/t", 6, 87, WHITE);
+        }
 
-        // Tier button — tier color, no arrow / 电压等级——对应颜色
-        String tierText = DEFAULT_TIER.name();
-        int tierColor = parseHex(DEFAULT_TIER.getHexColor());
+        // Tier button — recipe required tier, tier color / 配方需求电压——对应颜色
+        VoltageTier tier = recipe.getRequiredTier() != null ? recipe.getRequiredTier() : DEFAULT_TIER;
+        String tierText = tier.name();
+        int tierColor = parseHex(tier.getHexColor());
         int tw = font.width(tierText);
         g.drawString(font, tierText, W - tw - 6, 87, tierColor);
     }

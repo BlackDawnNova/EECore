@@ -43,10 +43,11 @@ public final class PartReg {
                                                 String overlayTex, String nameEn, String nameZh) {
         ResourceLocation rl = ResourceLocation.fromNamespaceAndPath(namespace, path);
         PartType type = PartType.get(rl);
-        if (type == null) throw new IllegalArgumentException("Unknown PartType: " + rl);
+        if (type == null) type = PartType.register(rl, "block." + namespace + "." + path); // auto-register / 自动注册
+        final PartType fType = type;
 
         var blockSup = blockReg.register(path,
-                () -> new PartBlock(PartBlock.tieredProperties(tier), type, tier));
+                () -> new PartBlock(PartBlock.tieredProperties(tier), fType, tier));
         Items.addToTag(PartBlock.toolTagForTier(tier), path);
 
         var itemSup = itemReg.register(path,

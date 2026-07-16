@@ -91,13 +91,27 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             boolean paused2 = mm.isPaused();
             boolean blocked = mm.isOutputBlocked();
             boolean running = mm.hasWork() && !paused2 && !blocked;
-            String key;
-            int color;
-            if (blocked) { key = "eecore.gui.status.output_full"; color = 0xFF_FFAA00; }
-            else if (running) { key = "eecore.gui.status.working"; color = 0xFF_55FF55; }
-            else if (paused2) { key = "eecore.gui.status.paused"; color = 0xFF_FF5555; }
-            else { key = "eecore.gui.status.idle"; color = 0xFF_888888; }
-            g.drawString(font, Component.translatable(key).getString(), sx, py, color);
+            int vTier = mm.getVoltageBlockedTier();
+            if (blocked) {
+                g.drawString(font, Component.translatable("eecore.gui.status.output_full").getString(), sx, py, 0xFF_FFAA00);
+            } else if (running) {
+                g.drawString(font, Component.translatable("eecore.gui.status.working").getString(), sx, py, 0xFF_55FF55);
+            } else if (paused2) {
+                g.drawString(font, Component.translatable("eecore.gui.status.paused").getString(), sx, py, 0xFF_FF5555);
+            } else if (vTier >= 0) {
+                // Voltage gate hint: show required tier so the player knows to upgrade
+                // 电压不足提示：显示需求电压，引导玩家升级
+                var tiers = com.endlessepoch.core.api.tier.VoltageTier.values();
+                String tierName = vTier < tiers.length ? tiers[vTier].name() : "?";
+                g.drawString(font, Component.translatable("eecore.gui.status.voltage_low", tierName).getString(),
+                        sx, py, 0xFF_FF6644);
+            } else if (mm.isEnergyBlocked()) {
+                // Recipe matched but hatches have no power / 配方已匹配但能源仓没电
+                g.drawString(font, Component.translatable("eecore.gui.status.energy_low").getString(),
+                        sx, py, 0xFF_FFCC00);
+            } else {
+                g.drawString(font, Component.translatable("eecore.gui.status.idle").getString(), sx, py, 0xFF_888888);
+            }
 
             if (mm.hasWork()) {
                 int itemId = mm.getProcessingItemId();

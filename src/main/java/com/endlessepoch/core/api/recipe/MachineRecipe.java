@@ -28,15 +28,19 @@ public class MachineRecipe implements Recipe<SingleRecipeInput> {
     private final int processingTime;
     private final VoltageTier requiredTier;
     private final double maxHeat; // heat ceiling for this recipe / 该配方热量天花板
+    private final long energyPerTick; // Ω per tick, 0 = no energy cost / 每 tick 能耗，0 表示不耗电
+    private final int maxParallel; // recipe-level parallel cap / 配方级并行上限
 
     public MachineRecipe(String group, Ingredient ingredient, List<ItemStack> results, int processingTime,
-                         VoltageTier requiredTier, double maxHeat) {
+                         VoltageTier requiredTier, double maxHeat, long energyPerTick, int maxParallel) {
         this.group = group;
         this.ingredient = ingredient;
         this.results = List.copyOf(results);
         this.processingTime = processingTime;
         this.requiredTier = requiredTier;
         this.maxHeat = maxHeat;
+        this.energyPerTick = energyPerTick;
+        this.maxParallel = maxParallel;
     }
 
     /** Heat ceiling — heat never exceeds this. / 热量天花板 */
@@ -44,6 +48,12 @@ public class MachineRecipe implements Recipe<SingleRecipeInput> {
 
     /** Minimum voltage required, or ELV if unset. / 最低需求电压，未设置时默认 ELV。 */
     public VoltageTier getRequiredTier() { return requiredTier; }
+
+    /** Ω consumed per tick at base tier, 0 = free. / 基础电压下每 tick 消耗 Ω，0 表示免费 */
+    public long getEnergyPerTick() { return energyPerTick; }
+
+    /** Recipe-level max parallel operations. / 配方级最大并行数 */
+    public int getMaxParallel() { return maxParallel; }
 
     @Override
     public boolean matches(SingleRecipeInput input, Level level) {

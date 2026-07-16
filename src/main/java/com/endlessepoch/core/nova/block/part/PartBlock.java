@@ -45,6 +45,7 @@ public class PartBlock extends Block implements EntityBlock {
     final int fluidCapacity;   // mB, 0 = no tank
     final long energyCapacity; // Ω, 0 = no energy storage
     public final int fluidSlots; // GUI fluid display count, 1-27
+    private int amperage = 1;  // energy hatch amperage / 能源仓安培数，默认 1A
 
     public static final int DEFAULT_BUS_SLOTS = 2;
     public static final int DEFAULT_ASSEMBLY_SLOTS = 4;
@@ -86,10 +87,31 @@ public class PartBlock extends Block implements EntityBlock {
 
     private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(v, max)); }
 
+    /** Valid amperage steps, aligned with EnergyPacket amperage model. / 合法安培档位，与能量包模型一致。 */
+    public static final int[] VALID_AMPERAGES = {1, 2, 4, 8, 16};
+
+    /**
+     * Fluent: set hatch amperage (addon API). Only 1/2/4/8/16 allowed — matches the
+     * EnergyPacket amperage steps; anything else fails fast at registration.
+     * 链式设置安培数（附属 API）。仅允许 1/2/4/8/16，与能量包安培档位一致，非法值注册期直接报错。
+     */
+    public PartBlock amperage(int a) {
+        if (a != 1 && a != 2 && a != 4 && a != 8 && a != 16)
+            throw new IllegalArgumentException(
+                    "Invalid amperage " + a + " — must be one of 1/2/4/8/16 / 非法安培数，仅允许 1/2/4/8/16");
+        this.amperage = a;
+        return this;
+    }
+    public int getAmperage() { return amperage; }
+
+    /**
+     * Suffix match so addon-registered tiered variants (e.g. "hv_input_bus") behave like built-ins.
+     * 后缀匹配，附属注册的分级变体（如 hv_input_bus）与内置部件行为一致。
+     */
     public static boolean isBusType(PartType type) {
         String p = type.getId().getPath();
-        return p.equals("input_bus") || p.equals("output_bus")
-                || p.equals("input_assembly") || p.equals("output_assembly");
+        return p.endsWith("input_bus") || p.endsWith("output_bus")
+                || p.endsWith("input_assembly") || p.endsWith("output_assembly");
     }
 
     public PartType getPartType() { return partType; }

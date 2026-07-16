@@ -82,8 +82,12 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
             EnergyPacket packet = new EnergyPacket(selectedTier, amperage, OmegaValue.of(outputPerTick));
             boolean sent = false;
             for (Direction dir : Direction.values()) {
-                var neighbor = level.getBlockEntity(worldPosition.relative(dir));
-                if (neighbor instanceof IOmegaEnergyStorage receiver && neighbor != this) {
+                // Capability lookup — reaches energy hatches too, not just BEs implementing the interface
+                // 走 Capability 查询——能源仓等仅暴露能力的方块也能收到，而非只认实现接口的 BE
+                var receiver = level.getCapability(
+                        com.endlessepoch.core.api.EECoreCapabilities.OMEGA_ENERGY,
+                        worldPosition.relative(dir), dir.getOpposite());
+                if (receiver != null && receiver != this) {
                     EnergyPacket accepted = receiver.receivePacket(packet, false);
                     if (accepted != null && !accepted.isEmpty()) {
                         sent = true;

@@ -27,10 +27,10 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * /eecore build — one-click staged multiblock construction from player inventory.
- * Inspired by GTCEu Terminal auto-build. Supports full-build or single-layer build.
+ * /eecore build — command-driven multiblock construction from player inventory.
+ * Supports full-build or single-layer build.
  * <p>
- * 一键分级成型——从背包消耗材料自动放置多方块结构。仿 GTCEu Terminal 自动建造。
+ * 指令建造——从背包消耗材料放置多方块结构，支持整体或单层建造。
  */
 public final class CommandAutoBuild {
 

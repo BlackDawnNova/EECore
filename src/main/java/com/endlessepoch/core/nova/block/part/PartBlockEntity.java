@@ -35,6 +35,8 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
     private ResourceLocation machineId;
     private BlockPos controllerPos;
     private final PartType partType;
+    private final int tier; // voltage tier ordinal — parallel hatch bonus etc. / 电压等级序数，并行仓加成等使用
+    private int amperage = 1; // energy hatch amperage / 能源仓安培数
     private final Set<PartAbility> abilities = new java.util.LinkedHashSet<>();
     private OmegaStorage energyStorage;
     private List<FluidTank> fluidTanks = new java.util.ArrayList<>();
@@ -42,27 +44,56 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
     public PartBlockEntity(BlockPos pos, BlockState state, PartType type, int tier) {
         super(BlockEntities.PART.get(), pos, state);
         this.partType = type;
-        switch (type.getId().getPath()) {
-            case "input_bus"       -> abilities.add(PartAbility.ITEM_INPUT);
-            case "output_bus"      -> abilities.add(PartAbility.ITEM_OUTPUT);
-            case "fluid_input"     -> abilities.add(PartAbility.FLUID_INPUT);
-            case "fluid_output"    -> abilities.add(PartAbility.FLUID_OUTPUT);
-            case "energy_input"    -> abilities.add(PartAbility.ENERGY_INPUT);
-            case "energy_output"   -> abilities.add(PartAbility.ENERGY_OUTPUT);
-            case "input_assembly"  -> { abilities.add(PartAbility.ITEM_INPUT); abilities.add(PartAbility.FLUID_INPUT); }
-            case "output_assembly" -> { abilities.add(PartAbility.ITEM_OUTPUT); abilities.add(PartAbility.FLUID_OUTPUT); }
-            case "casing" -> abilities.add(PartAbility.STRUCTURAL);
-        }
+        this.tier = tier;
+        // Suffix match so addon-registered tiered variants (e.g. "hv_energy_input") map abilities too
+        // 后缀匹配，附属注册的分级变体（如 hv_energy_input）同样获得能力
+        String p = type.getId().getPath();
+        if (p.endsWith("input_assembly"))       { abilities.add(PartAbility.ITEM_INPUT); abilities.add(PartAbility.FLUID_INPUT); }
+        else if (p.endsWith("output_assembly")) { abilities.add(PartAbility.ITEM_OUTPUT); abilities.add(PartAbility.FLUID_OUTPUT); }
+        else if (p.endsWith("input_bus"))       abilities.add(PartAbility.ITEM_INPUT);
+        else if (p.endsWith("output_bus"))      abilities.add(PartAbility.ITEM_OUTPUT);
+        else if (p.endsWith("fluid_input"))     abilities.add(PartAbility.FLUID_INPUT);
+        else if (p.endsWith("fluid_output"))    abilities.add(PartAbility.FLUID_OUTPUT);
+        else if (p.endsWith("energy_input"))    abilities.add(PartAbility.ENERGY_INPUT);
+        else if (p.endsWith("energy_output"))   abilities.add(PartAbility.ENERGY_OUTPUT);
+        else if (p.endsWith("parallel_hatch"))  abilities.add(PartAbility.PARALLEL);
+        else if (p.endsWith("casing"))          abilities.add(PartAbility.STRUCTURAL);
         // Read config from PartBlock if available (CasingBlock doesn't extend PartBlock) / 从 PartBlock 读配置
         int fluidCap = 0;
         long energyCap = 0;
         if (state.getBlock() instanceof PartBlock pb) {
             fluidCap = pb.fluidCapacity;
             energyCap = pb.energyCapacity;
+            this.amperage = pb.getAmperage();
         }
         if (abilities.contains(PartAbility.ENERGY_INPUT) || abilities.contains(PartAbility.ENERGY_OUTPUT)) {
             long ec = energyCap > 0 ? energyCap : 10000;
-            energyStorage = new OmegaStorage(ec, Long.MAX_VALUE, Long.MAX_VALUE, VoltageTier.fromOrdinal(tier));
+            // Rate = tier voltage × amperage / 速率 = 电压 × 安培
+            var tierV = VoltageTier.fromOrdinal(tier);
+            java.math.BigInteger io = tierV.getMinVoltage()
+                    .multiply(java.math.BigInteger.valueOf(Math.max(1, amperage)));
+            long rate = io.bitLength() >= 63 ? Long.MAX_VALUE : io.longValue();
+            // Input hatch: charging rate-limited, machine drains freely (lump-sum recipe cost).
+            // Output hatch: machine fills freely, external discharge rate-limited.
+            // 输入仓：充电限速、机器划扣不限速（配方一次性扣款）；输出仓：机器灌入不限速、对外放电限速。
+            boolean isInput = abilities.contains(PartAbility.ENERGY_INPUT);
+            long maxIn  = isInput ? rate : Long.MAX_VALUE;
+            long maxOut = isInput ? Long.MAX_VALUE : rate;
+            if (isInput) {
+                // Ping controller on real energy arrival — wakes "insufficient energy" machines
+                // 收到实际能量时唤醒「能量不足」等待中的控制器
+                energyStorage = new OmegaStorage(ec, maxIn, maxOut, tierV) {
+                    @Override
+                    public com.endlessepoch.core.api.energy.EnergyPacket receivePacket(
+                            com.endlessepoch.core.api.energy.EnergyPacket packet, boolean simulate) {
+                        var accepted = super.receivePacket(packet, simulate);
+                        if (!simulate && accepted != null && !accepted.isEmpty()) notifyControllerEnergy();
+                        return accepted;
+                    }
+                };
+            } else {
+                energyStorage = new OmegaStorage(ec, maxIn, maxOut, tierV);
+            }
         }
         if (abilities.contains(PartAbility.FLUID_INPUT) || abilities.contains(PartAbility.FLUID_OUTPUT)) {
             int fc = fluidCap > 0 ? fluidCap : 8000;
@@ -101,6 +132,24 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
 
     /** Omega energy storage (thread-safe), or null if not an energy hatch. / 能量存储（线程安全），非能源仓时返回 null。 */
     public OmegaStorage getEnergyStorage() { return energyStorage; }
+    /** Voltage tier ordinal of this part. / 部件电压等级序数。 */
+    public int getTier() { return tier; }
+    /** Energy hatch amperage. / 能源仓安培数。 */
+    public int getAmperage() { return amperage; }
+
+    private long lastEnergyNotifyTick;
+
+    /** Throttled (1s) controller wake-up on energy arrival. / 收电唤醒控制器，20 tick 合并节流。 */
+    private void notifyControllerEnergy() {
+        if (level == null || level.isClientSide() || controllerPos == null) return;
+        long t = level.getGameTime();
+        if (t - lastEnergyNotifyTick < 20) return; // coalesce during charging / 充电期间合并通知
+        lastEnergyNotifyTick = t;
+        if (level.getBlockEntity(controllerPos)
+                instanceof com.endlessepoch.core.nova.block.MachineControllerBlockEntity mc) {
+            mc.onEnergyReceived();
+        }
+    }
     /** Fluid tanks snapshot, or null if not a fluid hatch. / 流体罐列表快照，非流体仓时返回 null。 */
     public List<FluidTank> getFluidTanks() { return java.util.Collections.unmodifiableList(fluidTanks); }
     public FluidTank getFluidTank() { return fluidTanks.isEmpty() ? null : fluidTanks.get(0); }

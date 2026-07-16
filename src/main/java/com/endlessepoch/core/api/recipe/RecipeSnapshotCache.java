@@ -36,14 +36,21 @@ public final class RecipeSnapshotCache {
 
         for (var holder : rm.getAllRecipesFor(com.endlessepoch.core.registry.EECoreRecipeTypes.MACHINE.get())) {
             if (holder.value() instanceof MachineRecipe mr) {
+                // Clamp — BigInteger.longValue() truncates above 2^63 / 高电压钳位防截断
+                var mv = mr.getRequiredTier().getMinVoltage();
+                long voltage = mv.bitLength() >= 63 ? Long.MAX_VALUE : mv.longValue();
                 var snap = new RecipeSnapshot(
                         holder.id().hashCode() & 0x7FFFFFFFFFFFFFFFL,
                         RecipeSnapshot.ingredientItemIds(mr.getIngredient()),
                         RecipeSnapshot.itemIdsFrom(mr.getResults().toArray(new net.minecraft.world.item.ItemStack[0])),
                         RecipeSnapshot.countsFrom(mr.getResults().toArray(new net.minecraft.world.item.ItemStack[0])),
-                        0L, // energyCost — set by machine at runtime / 运行时由机器设定
+                        mr.getEnergyPerTick() * mr.getProcessingTime(), // base total energy / 基础总能耗
                         mr.getProcessingTime(),
-                        mr.getRequiredTier().getMinVoltage().longValue()
+                        voltage,
+                        mr.getEnergyPerTick(),
+                        mr.getRequiredTier().ordinal(),
+                        mr.getMaxParallel(),
+                        mr.getMaxHeat()
                 );
                 for (long itemId : snap.inputItemIds()) {
                     CACHE.computeIfAbsent(itemId, k -> Collections.synchronizedList(new ArrayList<>())).add(snap);

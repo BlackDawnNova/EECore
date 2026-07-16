@@ -25,6 +25,34 @@ public class Config {
     public static volatile double heatSpeedBoostMax = 1.5;
     public static volatile boolean ebDebugLog;
     public static volatile int ebDebugInterval = 100;
+    // Scheduling hot cache / 调度热缓存
+    public static volatile long ebWindowNanos = 10_000_000L;
+    public static volatile int ebMaxBatch = 16384;
+    public static volatile int ebStaleTicks = 20;
+    public static volatile int ebBufferCapacity = 16384;
+    // Thread pool (read once at lazy pool init, 0 = auto) / 线程池（池懒加载时读取一次，0=自动）
+    public static volatile int ebBgThreads = 0;
+    public static volatile int ebFjParallelism = 0;
+    public static volatile int ebSegmentCount = 0;
+    // Phase 3 hot cache / Phase 3 热缓存
+    public static volatile boolean p3ParallelBatching;
+    public static volatile int p3BatchThreshold = 16;
+    public static volatile boolean p3EnergyEnabled;
+    public static volatile long p3VanillaEnergyPerTick = 0;
+    public static volatile int p3MaxOverclock = 8;
+    public static volatile int p3BaseParallel = 1;
+    public static volatile int p3MaxParallelPerMachine = 16384;
+    public static volatile int p3GlobalMaxShards = 16384;
+    public static volatile int p3SingleMachineShardLimit = 5461;
+    public static volatile int p3SegmentMergeCount = 256;
+    public static volatile int p3MainThreadLimit = 256;
+    public static volatile int p3OverloadWarnThreshold = 3000;
+    public static volatile double p3TpsFullThreshold = 19.5;
+    public static volatile double p3TpsReducedThreshold = 16.5;
+    public static volatile double p3CpuWarnThreshold = 0.80;
+    public static volatile double p3CpuHighThreshold = 0.90;
+    public static volatile double p3CpuCriticalThreshold = 0.95;
+    public static volatile String p3PrimeOffsetMode = "PERFORMANCE";
 
     // ── General / 通用 ──
     public static final ModConfigSpec.DoubleValue STEP_LOSS_FACTOR;
@@ -48,7 +76,7 @@ public class Config {
     public static final ModConfigSpec.IntValue EB_FJ_PARALLELISM;
     public static final ModConfigSpec.IntValue EB_SEGMENT_COUNT;
 
-    // ── Phase 3 stubs / Phase 3 预留 ──
+    // ── Phase 3 — execution layer / Phase 3 执行层 ──
     public static final ModConfigSpec.BooleanValue P3_PARALLEL_BATCHING;
     public static final ModConfigSpec.IntValue P3_BATCH_SIZE;
     public static final ModConfigSpec.BooleanValue P3_PREDICTIVE_HEAT;
@@ -57,6 +85,22 @@ public class Config {
     public static final ModConfigSpec.DoubleValue P3_CPU_TARGET;
     public static final ModConfigSpec.IntValue P3_MAIN_THREAD_LIMIT;
     public static final ModConfigSpec.IntValue P3_FORK_JOIN_RECIPES;
+    public static final ModConfigSpec.IntValue P3_BATCH_THRESHOLD;
+    public static final ModConfigSpec.BooleanValue P3_ENERGY_ENABLED;
+    public static final ModConfigSpec.LongValue P3_VANILLA_ENERGY_PER_TICK;
+    public static final ModConfigSpec.IntValue P3_MAX_OVERCLOCK;
+    public static final ModConfigSpec.IntValue P3_BASE_PARALLEL;
+    public static final ModConfigSpec.IntValue P3_MAX_PARALLEL_PER_MACHINE;
+    public static final ModConfigSpec.IntValue P3_GLOBAL_MAX_SHARDS;
+    public static final ModConfigSpec.IntValue P3_SINGLE_MACHINE_SHARD_LIMIT;
+    public static final ModConfigSpec.IntValue P3_SEGMENT_MERGE_COUNT;
+    public static final ModConfigSpec.IntValue P3_OVERLOAD_WARN_THRESHOLD;
+    public static final ModConfigSpec.DoubleValue P3_TPS_FULL_THRESHOLD;
+    public static final ModConfigSpec.DoubleValue P3_TPS_REDUCED_THRESHOLD;
+    public static final ModConfigSpec.DoubleValue P3_CPU_WARN_THRESHOLD;
+    public static final ModConfigSpec.DoubleValue P3_CPU_HIGH_THRESHOLD;
+    public static final ModConfigSpec.DoubleValue P3_CPU_CRITICAL_THRESHOLD;
+    public static final ModConfigSpec.ConfigValue<String> P3_PRIME_OFFSET_MODE;
 
     // ── Debug / 调试 ──
     public static final ModConfigSpec.BooleanValue EB_DEBUG_LOG;
@@ -138,17 +182,17 @@ public class Config {
                 .defineInRange("segmentCount", 0, 0, 256);
         b.pop();
 
-        // ── Phase 3 stubs / Phase 3 预留 ──
+        // ── Phase 3 — execution layer / Phase 3 执行层 ──
         b.comment(
-                "Phase 3 — advanced execution (stubs, not yet wired).",
-                "Phase 3 — 高级执行特性（预留，尚未接入管线）。").push("phase3");
+                "Phase 3 — parallel batch execution layer.",
+                "Phase 3 — 并行批处理执行层。").push("phase3");
         P3_PARALLEL_BATCHING = b
                 .comment("Enable ForkJoin parallel batch processing.",
                         "启用 ForkJoin 并行批处理。")
                 .define("parallelBatching", false);
         P3_BATCH_SIZE = b
-                .comment("Min batch size to trigger parallel split.",
-                        "触发并行拆分的批大小下限。")
+                .comment("Local buffer submit chunk size per machine.",
+                        "单机本地缓冲每次提交的分块大小。")
                 .defineInRange("batchSize", 256, 16, 16384);
         P3_PREDICTIVE_HEAT = b
                 .comment("Pre-compute heat for queued recipes.",
@@ -167,13 +211,79 @@ public class Config {
                         "自适应调度的目标 CPU 占用率。")
                 .defineInRange("cpuTarget", 0.8, 0.1, 0.95);
         P3_MAIN_THREAD_LIMIT = b
-                .comment("Max recipes per tick on the main thread — hard lock, cannot disable.",
-                        "主线程每 tick 最大配方提交数 — 硬锁，不可关。")
-                .defineInRange("mainThreadLimit", 256, 16, 4096);
+                .comment("Max recipe units written per tick on the main thread — hard cap 256, may only be lowered.",
+                        "主线程每 tick 最大配方单元写入数 — 硬上限 256，只允许调小。")
+                .defineInRange("mainThreadLimit", 256, 16, 256);
         P3_FORK_JOIN_RECIPES = b
                 .comment("Max recipes per ForkJoin task.",
                         "每个 ForkJoin 任务最大配方数。")
                 .defineInRange("fjMaxRecipes", 16, 4, 256);
+        P3_BATCH_THRESHOLD = b
+                .comment("Pending input units above this switch the machine to batch mode; at or below stays on the light completionTick path.",
+                        "待处理单元数超过此值切批处理模式；不超过则走 completionTick 轻路径。")
+                .defineInRange("batchThreshold", 16, 1, 16384);
+        P3_ENERGY_ENABLED = b
+                .comment("Enable recipe energy consumption (Ω drawn from energy input hatches).",
+                        "启用配方能量消耗（从能源输入仓扣 Ω）。")
+                .define("energyEnabled", false);
+        P3_VANILLA_ENERGY_PER_TICK = b
+                .comment("Ω/t for vanilla recipes (furnace etc.) run in machines, treated as ELV tier. Default 0 = vanilla free; overclock speed still applies.",
+                        "机器跑原版配方（熔炉等）的功率 Ω/t，按 ELV 电压计。默认 0 = 原版配方免费，但超频加速仍然生效。")
+                .defineInRange("vanillaEnergyPerTick", 0L, 0L, Long.MAX_VALUE);
+        P3_MAX_OVERCLOCK = b
+                .comment("Max overclock tiers above requiredTier: each tier = speed x2, energy x4.",
+                        "最大超频级数：每高一级速度×2、能耗×4。")
+                .defineInRange("maxOverclock", 8, 0, 11);
+        P3_BASE_PARALLEL = b
+                .comment("Base parallel operations per machine (before parallel hatches).",
+                        "每台机器的基础并行数（并行仓加成之前）。")
+                .defineInRange("baseParallel", 1, 1, 16384);
+        P3_MAX_PARALLEL_PER_MACHINE = b
+                .comment("Hard cap on parallel operations per machine, including hatch bonus.",
+                        "单机并行数硬上限（含并行仓加成）。")
+                .defineInRange("maxParallelPerMachine", 16384, 1, 16384);
+        P3_GLOBAL_MAX_SHARDS = b
+                .comment("Global concurrent active shard cap. Clamped to [1024, 16384] — MAX_VALUE forbidden.",
+                        "全局活跃分片并发上限，钳位 [1024, 16384]，禁止 MAX_VALUE。")
+                .defineInRange("globalMaxShards", 16384, 1024, 16384);
+        P3_SINGLE_MACHINE_SHARD_LIMIT = b
+                .comment("Max concurrent shards per machine (should stay <= globalMaxShards / 3).",
+                        "单机最大并行分片数（应 ≤ 全局并发/3）。")
+                .defineInRange("singleMachineShardLimit", 5461, 16, 5461);
+        P3_SEGMENT_MERGE_COUNT = b
+                .comment("Shards merged into one segment before main-thread delivery. 128 low-end / 512 large servers. Zero forbidden.",
+                        "多少分片合并为一段后投递主线程。低配 128 / 大服 512，禁止 0。")
+                .defineInRange("segmentMergeCount", 256, 128, 512);
+        P3_OVERLOAD_WARN_THRESHOLD = b
+                .comment("Pending shards per machine above this log a WARN.",
+                        "单机待处理分片超过此数输出 WARN。")
+                .defineInRange("overloadWarnThreshold", 3000, 100, 100000);
+        P3_TPS_FULL_THRESHOLD = b
+                .comment("TPS above this = full concurrency.",
+                        "TPS 高于此值 → 并发全开。")
+                .defineInRange("tpsFullThreshold", 19.5, 10.0, 20.0);
+        P3_TPS_REDUCED_THRESHOLD = b
+                .comment("TPS at or below this = emergency mode (single serial only). Between the two thresholds concurrency shrinks 20%.",
+                        "TPS 低于等于此值 → 紧急模式仅单条串行；两阈值之间并发缩 20%。")
+                .defineInRange("tpsReducedThreshold", 16.5, 5.0, 20.0);
+        P3_CPU_WARN_THRESHOLD = b
+                .comment("CPU load above this shrinks concurrency by 30%.",
+                        "CPU 超过此值并发缩减 30%。")
+                .defineInRange("cpuWarnThreshold", 0.80, 0.5, 1.0);
+        P3_CPU_HIGH_THRESHOLD = b
+                .comment("CPU load above this shrinks concurrency by 60%.",
+                        "CPU 超过此值并发缩减 60%。")
+                .defineInRange("cpuHighThreshold", 0.90, 0.5, 1.0);
+        P3_CPU_CRITICAL_THRESHOLD = b
+                .comment("CPU load above this keeps only 20% lightweight shards.",
+                        "CPU 超过此值仅保留 20% 轻量分片。")
+                .defineInRange("cpuCriticalThreshold", 0.95, 0.5, 1.0);
+        P3_PRIME_OFFSET_MODE = b
+                .comment("Prime offset scheduling mode: PERFORMANCE (primes 11/19/41), SPEED (no offset), COMPROMISE (primes 3/7).",
+                        "质数偏移模式：PERFORMANCE（11/19/41 错峰）、SPEED（关闭偏移）、COMPROMISE（3/7 折中）。")
+                .define("primeOffsetMode", "PERFORMANCE",
+                        v -> v instanceof String s
+                                && (s.equals("PERFORMANCE") || s.equals("SPEED") || s.equals("COMPROMISE")));
         b.pop();
 
         // ── Debug / 调试 ──
@@ -203,6 +313,32 @@ public class Config {
         heatSpeedBoostMax = HEAT_SPEED_BOOST_MAX.get();
         ebDebugLog = EB_DEBUG_LOG.get();
         ebDebugInterval = EB_DEBUG_INTERVAL.get();
+        ebWindowNanos = EB_WINDOW_NANOS.get();
+        ebMaxBatch = EB_MAX_BATCH.get();
+        ebStaleTicks = EB_STALE_TICKS.get();
+        ebBufferCapacity = EB_BUFFER_CAPACITY.get();
+        ebBgThreads = EB_BG_THREADS.get();
+        ebFjParallelism = EB_FJ_PARALLELISM.get();
+        ebSegmentCount = EB_SEGMENT_COUNT.get();
+        // Phase 3 hot cache / Phase 3 热缓存
+        p3ParallelBatching = P3_PARALLEL_BATCHING.get();
+        p3BatchThreshold = P3_BATCH_THRESHOLD.get();
+        p3EnergyEnabled = P3_ENERGY_ENABLED.get();
+        p3VanillaEnergyPerTick = P3_VANILLA_ENERGY_PER_TICK.get();
+        p3MaxOverclock = P3_MAX_OVERCLOCK.get();
+        p3BaseParallel = P3_BASE_PARALLEL.get();
+        p3MaxParallelPerMachine = P3_MAX_PARALLEL_PER_MACHINE.get();
+        p3GlobalMaxShards = P3_GLOBAL_MAX_SHARDS.get();
+        p3SingleMachineShardLimit = P3_SINGLE_MACHINE_SHARD_LIMIT.get();
+        p3SegmentMergeCount = P3_SEGMENT_MERGE_COUNT.get();
+        p3MainThreadLimit = P3_MAIN_THREAD_LIMIT.get();
+        p3OverloadWarnThreshold = P3_OVERLOAD_WARN_THRESHOLD.get();
+        p3TpsFullThreshold = P3_TPS_FULL_THRESHOLD.get();
+        p3TpsReducedThreshold = P3_TPS_REDUCED_THRESHOLD.get();
+        p3CpuWarnThreshold = P3_CPU_WARN_THRESHOLD.get();
+        p3CpuHighThreshold = P3_CPU_HIGH_THRESHOLD.get();
+        p3CpuCriticalThreshold = P3_CPU_CRITICAL_THRESHOLD.get();
+        p3PrimeOffsetMode = P3_PRIME_OFFSET_MODE.get();
 
         if (ebDebugLog) {
             EECore.LOGGER.info("[EB-Config] Debug logging enabled (interval: {} ticks)", ebDebugInterval);

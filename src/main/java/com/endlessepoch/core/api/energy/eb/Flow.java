@@ -32,6 +32,15 @@ public class Flow {
         buffer.flush(gameTick);
     }
 
+    /**
+     * Re-sync the buffer clock after dormancy (machine re-formed etc.) — drops leftovers
+     * and resets the stale timer. Call before publishing kick-off events.
+     * 休眠后对时（机器重新成型等）——清残留、重置过期计时器。发布启动事件前调用。
+     */
+    public void resync(long gameTick) {
+        buffer.resync(gameTick);
+    }
+
     /** Cancel subscription and clean up. / 取消订阅并清理。 */
     public void dispose() {
         subscriber.onComplete();

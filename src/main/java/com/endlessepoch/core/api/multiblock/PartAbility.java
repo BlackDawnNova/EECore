@@ -19,6 +19,7 @@ public final class PartAbility {
     public static final PartAbility FLUID_OUTPUT = register("fluid_output");
     public static final PartAbility ENERGY_INPUT = register("energy_input");
     public static final PartAbility ENERGY_OUTPUT = register("energy_output");
+    public static final PartAbility PARALLEL = register("parallel");
     public static final PartAbility STRUCTURAL = register("structural");
 
     private final ResourceLocation id;

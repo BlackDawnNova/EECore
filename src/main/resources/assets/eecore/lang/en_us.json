@@ -125,6 +125,8 @@
   "eecore.gui.status.paused": "Paused",
   "eecore.gui.status.idle": "Idle",
   "eecore.gui.status.output_full": "No Output Space",
+  "eecore.gui.status.voltage_low": "Insufficient voltage — requires %s, please upgrade",
+  "eecore.gui.status.energy_low": "Insufficient energy — please power the energy input hatch",
   "eecore.gui.retry_formation": "Retry Formation",
   "eecore.gui.pause": "Pause",
   "eecore.gui.resume": "Resume",
@@ -239,5 +241,6 @@
   "item.eecore.nether_quartz_dust": "Nether Quartz Dust",
   "item.eecore.small_nether_quartz_dust": "Small Nether Quartz Dust",
   "item.eecore.tiny_nether_quartz_dust": "Tiny Nether Quartz Dust",
-  "block.eecore.nether_quartz_ore": "Nether Quartz Ore"
+  "block.eecore.nether_quartz_ore": "Nether Quartz Ore",
+  "block.eecore.parallel_hatch": "Parallel Control Hatch"
 }

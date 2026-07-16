@@ -23,7 +23,7 @@ public class MachineMenu extends AbstractContainerMenu {
         super(Menus.MACHINE.get(), id);
         this.mc = mc; this.pos = mc.getBlockPos();
         this.nameEn = ""; this.nameZh = "";
-        this.data = new SimpleContainerData(10);
+        this.data = new SimpleContainerData(12);
         addDataSlots(data);
         addSlots(inv);
         syncFromBE();
@@ -38,7 +38,7 @@ public class MachineMenu extends AbstractContainerMenu {
         for (int i = 0; i < count; i++)
             types.add(net.minecraft.resources.ResourceLocation.parse(buf.readUtf()));
         this.clientSupported = java.util.List.copyOf(types);
-        this.data = new SimpleContainerData(10);
+        this.data = new SimpleContainerData(12);
         addDataSlots(data);
         addSlots(inv);
     }
@@ -58,6 +58,10 @@ public class MachineMenu extends AbstractContainerMenu {
     public int getHeatMille() { return data.get(8); }
     /** Speed multiplier ×100. 100 = 1.0x, 150 = 1.5x. / 速度倍率×100 */
     public int getSpeedMultiplier() { return Math.max(100, data.get(9)); }
+    /** Voltage-gate rejected tier ordinal, -1 = none. / 电压门槛拒绝的需求电压序数，-1=无 */
+    public int getVoltageBlockedTier() { return data.get(10) - 1; }
+    /** Matched recipe waiting for energy. / 配方已匹配但在等能量 */
+    public boolean isEnergyBlocked() { return data.get(11) != 0; }
 
     @Override public void broadcastChanges() {
         super.broadcastChanges();
@@ -111,8 +115,11 @@ public class MachineMenu extends AbstractContainerMenu {
         } else {
             if (data.get(8) != 0) data.set(8, 0);
         }
-        int boost = mc.getCurrentHeatBoost() * 100;
+        // getCurrentHeatBoost is already ×100 (overclock × heat combined) / 已是×100（超频×热机综合倍率）
+        int boost = mc.getCurrentHeatBoost();
         if (boost != data.get(9)) data.set(9, boost);
+        data.set(10, mc.getVoltageBlockedTier() + 1);
+        data.set(11, mc.isEnergyBlocked() ? 1 : 0);
     }
 
     private void addSlots(Inventory inv) {

@@ -20,6 +20,7 @@ public final class PartType {
     public static final PartType ENERGY_OUTPUT = registerEe("energy_output", "eecore.part.energy_output");
     public static final PartType INPUT_ASSEMBLY  = registerEe("input_assembly",  "eecore.part.input_assembly");
     public static final PartType OUTPUT_ASSEMBLY = registerEe("output_assembly", "eecore.part.output_assembly");
+    public static final PartType PARALLEL_HATCH = registerEe("parallel_hatch", "eecore.part.parallel_hatch");
     public static final PartType CASING = registerEe("casing", "eecore.part.casing");
 
     private final ResourceLocation id;

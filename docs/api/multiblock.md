@@ -121,6 +121,65 @@ MultiblockLoader.load(ResourceLocation.parse("mymod:my_machine"))
 
 ---
 
+## Recipe Processing / 配方加工
+
+Machine controllers process recipes fully event-driven — no per-tick polling. Triggers: item insertion, recipe completion, (re-)formation, world load, energy arrival.
+机器控制器全事件驱动加工，无逐 tick 轮询。触发源：物品进总线、完工续投、（重新）成型、读档恢复、能源仓收电唤醒。
+
+### Recipe JSON / 配方定义
+
+`data/<namespace>/recipe/*.json`, type `eecore:machine`:
+
+```json
+{
+  "type": "eecore:machine",
+  "ingredient": { "item": "minecraft:iron_ore" },
+  "results": [{ "id": "minecraft:iron_ingot", "count": 1 }],
+  "processingTime": 200,
+  "requiredTier": "LV",
+  "maxHeat": 10.0,
+  "energyPerTick": 32,
+  "maxParallel": 1
+}
+```
+
+| Field / 字段 | Default / 默认 | Meaning / 含义 |
+|---|---|---|
+| `processingTime` | 200 | Base duration in ticks / 基础耗时 |
+| `requiredTier` | ELV | Minimum machine voltage / 最低机器电压 |
+| `maxHeat` | 10.0 | Heat ceiling for the heat-boost system / 热机系统热量天花板 |
+| `energyPerTick` | 0 | Ω/t at base tier, 0 = free / 基础电压功率，0=免费 |
+| `maxParallel` | 1 | Recipe-level parallel cap / 配方级并行上限 |
+
+When multiple recipes match one input, selection is deterministic: among voltage-eligible candidates the **highest requiredTier wins** — same ore yields better recipes on higher-tier machines.
+同一输入匹配多条配方时确定性选择：电压达标者中**最高 requiredTier 优先**——机器电压越高，同样的矿出更好的配方。
+
+### Machine Voltage / 机器电压
+
+```
+Effective tier = highest energy-input-hatch tier in the structure
+                 +1 if ≥2 hatches share that tier (dual-hatch boost, capped at QV)
+有效电压 = 结构内能源输入仓最高等级；同级 ≥2 仓增压 +1（封顶 QV）
+```
+
+Below `requiredTier` the machine refuses the recipe and the GUI shows "Insufficient voltage — requires X".
+低于 `requiredTier` 时拒绝加工，GUI 显示「电压不足 — 需要 X 级电压」。
+
+### Overclock & Energy / 超频与能耗
+
+Each tier above `requiredTier` → **speed ×2, total energy ×2** (`duration >> n`, `energy × 2^n`), stacking multiplicatively with the heat boost. Vanilla recipes (furnace profiles) run as ELV — they overclock too; their power comes from the `vanillaEnergyPerTick` config (default 0 = free).
+超频：每超一级速度×2、总能耗×2，与热机倍率叠乘。原版配方按 ELV 处理，同样吃超频；功率由 `vanillaEnergyPerTick` 配置（默认 0=免费）。
+
+Energy is deducted from energy input hatches as a lump sum when the recipe commits (`energyEnabled` config, default off). Insufficient energy shows "Insufficient energy" and the machine retries automatically when the hatch receives power.
+能量在配方启动时从能源输入仓一次性划扣（`energyEnabled` 配置，默认关）。能量不足显示提示，能源仓收到电后自动重试。
+
+### Parallel Hatch / 并行控制仓
+
+Each parallel hatch adds `4^(tier+1)` parallel operations (LV=16, MV=64, HV=256…), on top of the `baseParallel` config, capped by `maxParallelPerMachine`. Consumed by the batch pipeline (Phase 3).
+每个并行仓提供 `4^(tier+1)` 并行数加成（LV=16、MV=64、HV=256…），叠加 `baseParallel` 配置，受 `maxParallelPerMachine` 封顶。由批处理管线（Phase 3）消费。
+
+---
+
 ## Textures / 贴图
 
 ### Machine Textures / 机器贴图
@@ -297,7 +356,7 @@ boolean isFormed();
 
 #### PartType & PartAbility / 部件类型与能力
 
-9 built-in PartTypes. Each has exactly ONE functional role. / 9 种内置部件类型，每种独立单一功能：
+10 built-in PartTypes. Each has exactly ONE functional role. / 10 种内置部件类型，每种独立单一功能：
 
 | PartType | Abilities / 能力 | BE Storage / 存储 |
 |----------|-----------------|-------------------|
@@ -305,11 +364,15 @@ boolean isFormed();
 | `output_bus` | ITEM_OUTPUT | ItemStackHandler (1-81 slots) / 1-81格 |
 | `fluid_input` | FLUID_INPUT | FluidTank (configurable mB) / 可配mB |
 | `fluid_output` | FLUID_OUTPUT | FluidTank (configurable mB) / 可配mB |
-| `energy_input` | ENERGY_INPUT | OmegaStorage (configurable Ω) / 可配Ω |
-| `energy_output` | ENERGY_OUTPUT | OmegaStorage (configurable Ω) / 可配Ω |
+| `energy_input` | ENERGY_INPUT | OmegaStorage — charge in at V×A, machine drains freely / 充入限速V×A，机器划扣不限 |
+| `energy_output` | ENERGY_OUTPUT | OmegaStorage — machine fills freely, discharge out at V×A / 机器灌入不限，对外放电限速V×A |
 | `input_assembly` | ITEM_INPUT + FLUID_INPUT | ItemStackHandler + FluidTank |
 | `output_assembly` | ITEM_OUTPUT + FLUID_OUTPUT | ItemStackHandler + FluidTank |
+| `parallel_hatch` | PARALLEL | — (adds 4^(tier+1) parallel ops / 并行加成) |
 | `casing` | STRUCTURAL | — |
+
+Unknown PartTypes are **auto-registered** on part registration; abilities resolve by **path suffix** — an addon's `hv_energy_input` behaves like the built-in `energy_input`.
+未知 PartType 在部件注册时**自动注册**；能力按**路径后缀**识别——附属 Mod 的 `hv_energy_input` 与内置 `energy_input` 行为一致。
 
 Addon mods register custom types / 附属 mod 注册自定义类型:
 ```java
@@ -335,9 +398,14 @@ new PartBlock(Properties, type, tier, slotCount, fluidCapacity)
 // Energy hatch (energy capacity) / 能源仓（容量）
 new PartBlock(Properties, type, tier, 0, 0, energyCapacity)
 
+// Energy hatch amperage — only 1/2/4/8/16, invalid values throw at registration
+// 能源仓安培数——仅允许 1/2/4/8/16，非法值注册期抛异常
+new PartBlock(...).amperage(4)   // charge/discharge rate = tier voltage × 4 / 速率 = 电压×4
+
 // Static utilities / 静态工具
 PartBlock.tieredProperties(int tier)   // h=3+tier*3, blast=6+tier*3
 PartBlock.toolTagForTier(int tier)     // needs_stone/iron/diamond/netherite_tool
+PartBlock.VALID_AMPERAGES              // {1, 2, 4, 8, 16}
 PartBlock.DEFAULT_BUS_SLOTS            // 2
 PartBlock.DEFAULT_ASSEMBLY_SLOTS       // 4
 PartBlock.MAX_SLOTS                    // 81
@@ -347,8 +415,11 @@ PartBlock.MAX_SLOTS                    // 81
 
 ```java
 // EECore internal — one line in Blocks.java / EECore 内部一行
-INPUT_BUS = registerPartBlock("input_bus", 1, 2, 0, 0, "Input Bus", "输入总线");
-//           path, tier, slots, fluidCap, energyCap, nameEn, nameZh
+INPUT_BUS = registerPartBlock("input_bus", 1, 2, 0, 0, 0, "Input Bus", "输入总线");
+//           path, tier, slots, fluidCap, fluidSlots, energyCap, nameEn, nameZh
+// Tiered energy hatch with amperage / 分级多安培能源仓
+registerPartBlock("hv_energy_input", 3, 0, 0, 0, 4_000_000, 4, "HV Energy Hatch", "HV能源仓");
+//                 path, tier, slots, fluidCap, fluidSlots, energyCap, amperage, nameEn, nameZh
 // Item + model + translation auto-registered via flushPartItems() on startup.
 // 物品+模型+翻译由 flushPartItems() 启动时自动注册。
 

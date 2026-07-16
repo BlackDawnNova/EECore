@@ -38,14 +38,16 @@ public final class EECoreMachines {
                 .or(com.endlessepoch.core.registry.Blocks.FLUID_OUTPUT)
                 .or(com.endlessepoch.core.registry.Blocks.ENERGY_INPUT)
                 .or(com.endlessepoch.core.registry.Blocks.ENERGY_OUTPUT)
+                .or(com.endlessepoch.core.registry.Blocks.PARALLEL_HATCH)
             .limit("EE-3", com.endlessepoch.core.registry.Blocks.INPUT_BUS, 2)
             .limit("EE-3", com.endlessepoch.core.registry.Blocks.OUTPUT_BUS, 1)
             .limit("EE-3", com.endlessepoch.core.registry.Blocks.INPUT_ASSEMBLY, 1)
             .limit("EE-3", com.endlessepoch.core.registry.Blocks.OUTPUT_ASSEMBLY, 1)
             .limit("EE-3", com.endlessepoch.core.registry.Blocks.FLUID_INPUT, 1)
             .limit("EE-3", com.endlessepoch.core.registry.Blocks.FLUID_OUTPUT, 1)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.ENERGY_INPUT, 1)
+            .limit("EE-3", com.endlessepoch.core.registry.Blocks.ENERGY_INPUT, 2)
             .limit("EE-3", com.endlessepoch.core.registry.Blocks.ENERGY_OUTPUT, 1)
+            .limit("EE-3", com.endlessepoch.core.registry.Blocks.PARALLEL_HATCH, 1)
             .out("eecore:creative_test");
 
     // Internal helper / 内部辅助

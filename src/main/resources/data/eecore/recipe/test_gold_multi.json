@@ -5,5 +5,7 @@
     { "id": "minecraft:gold_ingot", "count": 1 },
     { "id": "minecraft:gold_nugget", "count": 3 }
   ],
-  "processingTime": 300
+  "processingTime": 300,
+  "requiredTier": "HV",
+  "energyPerTick": 128
 }
