@@ -65,8 +65,87 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             new com.endlessepoch.core.api.energy.OmegaStorage(10000, 128, 128,
                     com.endlessepoch.core.api.tier.VoltageTier.LV);
 
+    // EB event pipeline / EB事件管线
+    private final com.endlessepoch.core.api.energy.eb.Flow ebFlow;
+
+    // Heat tracking / 热量追踪
+    private final com.endlessepoch.core.api.energy.eb.HeatComponent heatComponent =
+            new com.endlessepoch.core.api.energy.eb.HeatComponent();
+    private int currentHeatBoost = 1;
+    // Event-driven processing / 事件驱动加工
+    private long completionTick;
+    private long recipeStartedTick;
+    private double pendingMaxHeat;
+    private volatile boolean bgReady;
+    private volatile int bgDuration;
+    private volatile java.util.List<net.minecraft.world.item.ItemStack> bgResults;
+    private volatile net.minecraft.world.item.ItemStack bgInput;
+
     public MachineControllerBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntities.MACHINE_CONTROLLER.get(), pos, state);
+        this.ebFlow = com.endlessepoch.core.api.energy.eb.Flow.create(
+                com.endlessepoch.core.api.energy.eb.Subscriber.machine(this,
+                        batch -> {
+                            if (completionTick > 0) return;
+                            for (var ev : batch) {
+                                var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.byId((int)ev.itemId());
+                                if (item == net.minecraft.world.item.Items.AIR) continue;
+                                var input = new net.minecraft.world.item.ItemStack(item, 1);
+                                var opt = level.getRecipeManager().getRecipeFor(getRecipeType(),
+                                        new net.minecraft.world.item.crafting.SingleRecipeInput(input), level);
+                                if (opt.isEmpty()) continue;
+                                var val = opt.get().value();
+                                java.util.List<net.minecraft.world.item.ItemStack> results;
+                                int base;
+                                if (val instanceof com.endlessepoch.core.api.recipe.MachineRecipe mr) {
+                                    results = mr.getResults(); base = mr.getProcessingTime();
+                                    pendingMaxHeat = mr.getMaxHeat();
+                                } else {
+                                    results = java.util.List.of(val.assemble(
+                                            new net.minecraft.world.item.crafting.SingleRecipeInput(input), level.registryAccess()));
+                                    base = val instanceof net.minecraft.world.item.crafting.AbstractCookingRecipe ac ? ac.getCookingTime() : 200;
+                                    var def = com.endlessepoch.core.api.energy.eb.HeatMapCache.get(currentProfileId);
+                                    pendingMaxHeat = def != null ? def.maxHeat() : 10.0;
+                                }
+                                int adj = base;
+                                if (com.endlessepoch.core.Config.heatEnabled) {
+                                    double heat = heatComponent.getHeat(currentProfileId, level.getGameTime());
+                                    double factor = 1.0 + (heat / Math.max(1.0, pendingMaxHeat)) * (com.endlessepoch.core.Config.heatSpeedBoostMax - 1.0);
+                                    adj = Math.max(1, (int)(base / factor));
+                                    currentHeatBoost = Math.max(1, (int)Math.round(factor));
+                                } else currentHeatBoost = 1;
+                                bgDuration = adj; bgResults = results; bgInput = input; bgReady = true;
+                                break;
+                            }
+                        },
+                        () -> {
+                            if (!bgReady || completionTick > 0) return;
+                            bgReady = false;
+                            boolean ex = false;
+                            for (var ip : inputBusPos) {
+                                var be = level.getBlockEntity(ip);
+                                if (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
+                                    for (int s = 0; s < bus.getInventory().getSlots(); s++) {
+                                        if (!bus.getInventory().getStackInSlot(s).isEmpty()
+                                                && bus.getInventory().getStackInSlot(s).getItem() == bgInput.getItem()) {
+                                            bus.getInventory().extractItem(s, 1, false); ex = true; break;
+                                        }
+                                    }
+                                }
+                                if (ex) break;
+                            }
+                            if (!ex) {
+                                return;
+                            }
+                            processingInput = bgInput; cachedResults = bgResults;
+                            maxProgress = bgDuration;
+                            recipeStartedTick = level.getGameTime();
+                            completionTick = recipeStartedTick + bgDuration;
+                            progress = 1;
+                            setChanged();
+                        }));
+        com.endlessepoch.core.api.energy.eb.EventLifecycleManager.register(
+                com.endlessepoch.core.api.energy.eb.HashUtil.hash(pos), ebFlow);
     }
 
     @Override
@@ -82,6 +161,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         super.setRemoved();
         wasEverFormed = false;
         if (level != null && !level.isClientSide()) {
+            com.endlessepoch.core.api.energy.eb.EventLifecycleManager.unregister(
+                    com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition));
             com.endlessepoch.core.event.BlockPlaceHandler.unregisterController(worldPosition);
         }
     }
@@ -122,6 +203,11 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         formed = true; wasEverFormed = true; partsScanned = false;
         setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        // Event-driven kick-off: scan parts + check for items / 事件驱动启动
+        if (level != null && !level.isClientSide()) {
+            scanParts();
+            publishProcessEvent();
+        }
     }
 
     @Override
@@ -134,6 +220,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         energyInputPos.clear(); energyOutputPos.clear();
         fluidInputPos.clear(); fluidOutputPos.clear();
         partsScanned = false;
+        completionTick = 0;
+        heatComponent.reset();
         setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
     }
@@ -165,6 +253,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     /** Get the machine's energy storage. / 获取机器能源存储。 */
     public com.endlessepoch.core.api.energy.OmegaStorage getEnergyStorage() { return energyStorage; }
+    public com.endlessepoch.core.api.energy.eb.HeatComponent getHeatComponent() { return heatComponent; }
+    public int getCurrentHeatBoost() { return currentHeatBoost; }
 
     public void togglePause() { paused = !paused; setChanged(); }
 
@@ -233,10 +323,15 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             tryFormation();
         }
 
-        if (!formed || machineId == null) return;
+        if (!formed || machineId == null) {
+            return;
+        }
 
-        if (!partsScanned) scanParts();
-        if (!paused) processRecipe();
+        // Tick EB pipeline + completion check / 推进EB管线+完工检查
+        long tick = level.getGameTime();
+        int flushed = ebFlow.buffer().size();
+        ebFlow.flush(tick);
+        if (completionTick > 0 && tick >= completionTick) completeRecipe(tick);
 
         if (++breakCheckTick >= 100) {
             breakCheckTick = 0;
@@ -256,8 +351,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
     }
 
-    private int debugTick;
-
     @SuppressWarnings("unchecked")
     private <C extends net.minecraft.world.item.crafting.RecipeInput,
              T extends net.minecraft.world.item.crafting.Recipe<C>>
@@ -268,126 +361,66 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                         .orElse(net.minecraft.world.item.crafting.RecipeType.SMELTING);
     }
 
-    private void processRecipe() {
-        if (inputBusPos.isEmpty() || outputBusPos.isEmpty()) {
-            if (++debugTick % 100 == 0)
-                LOGGER.debug("[MachineController] in={} out={} formed={} paused={}",
-                        inputBusPos.size(), outputBusPos.size(), formed, paused);
+    // ── Event-driven recipe processing / 事件驱动配方处理 ──
+
+    /** Called by InputBus when items arrive. Publishes EB event. / 物品进总线时发布事件 */
+    public void publishProcessEvent() {
+        if (level == null || level.isClientSide() || !formed) {
             return;
         }
-        // Drain energy from input hatches / 从能源仓吸电
-        drainEnergy();
-        if (!processingInput.isEmpty()) {
-            if (++progress >= maxProgress) {
-                var recipeType = getRecipeType();
-                var recipe = level.getRecipeManager().getRecipeFor(
-                        recipeType,
-                        new net.minecraft.world.item.crafting.SingleRecipeInput(processingInput), level);
-                if (recipe.isPresent()) {
-                    for (var result : cachedResults) {
-                        boolean placed = false;
-                        for (BlockPos op : outputBusPos) {
-                            var be = level.getBlockEntity(op);
-                            if (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
-                                var inv = bus.getInventory();
-                                for (int si = 0; si < inv.getSlots(); si++) {
-                                    if (inv.insertItem(si, result.copy(), true).isEmpty()) {
-                                        inv.insertItem(si, result.copy(), false);
-                                        LOGGER.debug("[MachineController] output: → {}",
-                                                result.getHoverName().getString());
-                                        placed = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if (placed) break;
-                        }
-                    }
-                    processingInput = net.minecraft.world.item.ItemStack.EMPTY;
-                    progress = 0; maxProgress = 0;
-                    setChanged(); return;
-                }
-            }
-            setChanged(); return;
+        if (inputBusPos.isEmpty()) scanParts(); // re-scan if parts unknown / 未扫描则自动扫描
+        if (inputBusPos.isEmpty()) {
+            return;
         }
-        for (BlockPos ip : inputBusPos) {
+        for (var ip : inputBusPos) {
             var be = level.getBlockEntity(ip);
             if (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
-                var inv = bus.getInventory();
-                for (int s = 0; s < inv.getSlots(); s++) {
-                    var stack = inv.getStackInSlot(s);
+                for (int s = 0; s < bus.getInventory().getSlots(); s++) {
+                    var stack = bus.getInventory().getStackInSlot(s);
                     if (stack.isEmpty()) continue;
-                    var recipe = level.getRecipeManager().getRecipeFor(
-                            getRecipeType(),
-                            new net.minecraft.world.item.crafting.SingleRecipeInput(stack), level);
-                    if (recipe.isPresent()) {
-                        var val = recipe.get().value();
-                        java.util.List<net.minecraft.world.item.ItemStack> needed;
-                        if (val instanceof com.endlessepoch.core.api.recipe.MachineRecipe mr) {
-                            needed = mr.getResults();
-                            maxProgress = mr.getProcessingTime();
-                        } else {
-                            needed = java.util.List.of(val.assemble(
-                                    new net.minecraft.world.item.crafting.SingleRecipeInput(stack),
-                                    level.registryAccess()));
-                            if (val instanceof net.minecraft.world.item.crafting.AbstractCookingRecipe ac)
-                                maxProgress = ac.getCookingTime();
-                            else maxProgress = 200;
-                        }
-                        if (!canFitOutputs(needed)) {
-                            outputBlocked = true;
-                            continue;
-                        }
-                        outputBlocked = false;
-                        cachedResults = new java.util.ArrayList<>(needed);
-                        processingInput = stack.copyWithCount(1);
-                        progress = 0;
-                        inv.extractItem(s, 1, false);
-                        LOGGER.debug("[MachineController] started recipe: {} → {} ({} ticks)",
-                                stack.getHoverName().getString(),
-                                val.getResultItem(level.registryAccess()).getHoverName().getString(),
-                                maxProgress);
-                        setChanged(); return;
-                    }
+                    long h = com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition);
+                    var ev = new com.endlessepoch.core.api.energy.eb.EeEvent(
+                            com.endlessepoch.core.api.energy.eb.EeEvent.EventType.ITEM_IN,
+                            System.nanoTime(), level.getGameTime(), h,
+                            com.endlessepoch.core.api.energy.eb.ItemSnapshotUtil.itemId(stack), 1,
+                            com.endlessepoch.core.api.energy.eb.ItemSnapshotUtil.nbtHash(stack),
+                            energyStorage.getTier().getMinVoltage().longValue(),
+                            com.endlessepoch.core.Config.heatEnabled
+                                    ? heatComponent.getHeat(currentProfileId, level.getGameTime()) : 0.0);
+                    ebFlow.publish(ev);
+                    return;
                 }
             }
         }
     }
 
-    /** Check if all results fit in output slots. / 检查输出槽是否有空间。 */
-    private boolean canFitOutputs(java.util.List<net.minecraft.world.item.ItemStack> results) {
-        if (results.isEmpty()) return true;
-        record SlotState(BlockPos busPos, int slotIdx, net.minecraft.world.item.ItemStack content) {}
-        var slots = new java.util.ArrayList<SlotState>();
-        for (BlockPos op : outputBusPos) {
-            var be = level.getBlockEntity(op);
-            if (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
-                var inv = bus.getInventory();
-                for (int s = 0; s < inv.getSlots(); s++)
-                    slots.add(new SlotState(op, s, inv.getStackInSlot(s).copy()));
-            }
-        }
-        // 每次结果都要找到能放的槽（计入前面已占的）/ Find a slot for each result
-        var occupied = new boolean[slots.size()];
-        for (var item : results) {
-            boolean placed = false;
-            for (int i = 0; i < slots.size(); i++) {
-                if (occupied[i]) continue;
-                var ss = slots.get(i);
-                var current = ss.content().copy(); // 模拟检验 / simulate fit
-                int maxStack = current.isEmpty() ? item.getMaxStackSize()
-                        : current.getMaxStackSize();
-                if (current.isEmpty() || (current.getItem() == item.getItem()
-                        && current.getCount() + item.getCount() <= maxStack
-                        && net.minecraft.world.item.ItemStack.isSameItemSameComponents(current, item))) {
-                    occupied[i] = true;
-                    placed = true;
-                    break;
+    /** Completion tick arrived: output + heat + auto-continue. / 完工: 出货+热量+续投 */
+    private void completeRecipe(long tick) {
+        for (var result : cachedResults) {
+            for (var op : outputBusPos) {
+                var be = level.getBlockEntity(op);
+                if (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
+                    for (int si = 0; si < bus.getInventory().getSlots(); si++) {
+                        if (bus.getInventory().insertItem(si, result.copy(), true).isEmpty()) {
+                            bus.getInventory().insertItem(si, result.copy(), false);
+                            break;
+                        }
+                    }
                 }
             }
-            if (!placed) return false;
         }
-        return true;
+        if (com.endlessepoch.core.Config.heatEnabled && currentProfileId != null)
+            heatComponent.bulkHeat(currentProfileId, pendingMaxHeat, recipeStartedTick, tick);
+        processingInput = net.minecraft.world.item.ItemStack.EMPTY;
+        progress = 0; maxProgress = 0; completionTick = 0; outputBlocked = false;
+        setChanged();
+        publishProcessEvent();
+    }
+
+    private int breakCheckTick;
+
+    private void processRecipe() {
+        // replaced by publishProcessEvent() + completeRecipe() / 已被事件驱动模型替代
     }
 
     private void tryFormation() {
@@ -398,7 +431,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.tryForm(
                     this, pattern.get(), getFacing(), null);
             if (formed) {
-                scanParts();
+                // scanParts + publishProcessEvent are now in onMultiblockFormed()
                 if (ownerUUID != null) {
                     var player = level.getPlayerByUUID(ownerUUID);
                     if (player instanceof net.minecraft.server.level.ServerPlayer sp) {
@@ -408,25 +441,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, clearPkt);
                     }
                 }
-            }
-        }
-    }
-
-    private int breakCheckTick;
-
-    /** Pull energy from input hatches into internal storage. / 从能源输入仓吸电到内部存储。 */
-    private void drainEnergy() {
-        if (level == null || level.isClientSide()) return;
-        for (BlockPos ep : energyInputPos) {
-            var be = level.getBlockEntity(ep);
-            if (be instanceof com.endlessepoch.core.nova.block.part.PartBlockEntity pe) {
-                var src = pe.getEnergyStorage();
-                if (src == null) continue;
-                // Drain up to the hatch's max output / 从仓吸电
-                var tier = src.getTier();
-                var pkt = src.extractPacket(tier, false);
-                if (pkt != null && !pkt.isEmpty())
-                    energyStorage.receivePacket(pkt, false);
             }
         }
     }
@@ -501,10 +515,14 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         tag.putBoolean("paused", paused);
         tag.putBoolean("outputBlocked", outputBlocked);
         energyStorage.saveToNBT(tag);
+        heatComponent.saveToNBT(tag);
         if (!processingInput.isEmpty()) {
             tag.put("procInput", processingInput.saveOptional(provider));
             tag.putInt("progress", progress);
             tag.putInt("maxProgress", maxProgress);
+            tag.putLong("completionTick", completionTick);
+            tag.putLong("recipeStartedTick", recipeStartedTick);
+            tag.putDouble("pendingMaxHeat", pendingMaxHeat);
         }
     }
 
@@ -529,10 +547,14 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         paused = tag.getBoolean("paused");
         outputBlocked = tag.getBoolean("outputBlocked");
         energyStorage.loadFromNBT(tag);
+        heatComponent.loadFromNBT(tag);
         if (tag.contains("procInput")) {
             processingInput = net.minecraft.world.item.ItemStack.parseOptional(provider, tag.getCompound("procInput"));
             progress = tag.getInt("progress");
             maxProgress = tag.getInt("maxProgress");
+            completionTick = tag.getLong("completionTick");
+            recipeStartedTick = tag.getLong("recipeStartedTick");
+            pendingMaxHeat = tag.getDouble("pendingMaxHeat");
         }
     }
 

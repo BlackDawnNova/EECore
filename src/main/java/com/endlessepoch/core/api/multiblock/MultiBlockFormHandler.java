@@ -26,14 +26,13 @@ public class MultiBlockFormHandler {
             if (player != null) {
                 controller.stampOwner(player.getUUID(), player.getName().getString());
             }
-            controller.onMultiblockFormed();
 
             // Get machineId for part binding / 获取 machineId
             ResourceLocation machineId = null;
             if (controllerBE instanceof MachineControllerBlockEntity mcbe)
                 machineId = mcbe.getMachineId();
 
-            // Bind part blocks to controller & stamp positions / 绑定部件 + 标记位置
+            // Bind parts BEFORE onMultiblockFormed so scanParts finds them / 先绑部件再成型
             for (int y = 0; y < pattern.height; y++)
                 for (int z = 0; z < pattern.depth; z++)
                     for (int x = 0; x < pattern.width; x++) {
@@ -52,6 +51,8 @@ public class MultiBlockFormHandler {
                     }
             if (level instanceof net.minecraft.server.level.ServerLevel sl)
                 MultiBlockBreakDetector.stamp(sl, pattern, pos, facing);
+
+            controller.onMultiblockFormed(); // after parts are formed / 部件就绪后再成型
         }
         return true;
     }

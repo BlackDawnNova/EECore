@@ -1,6 +1,6 @@
 {
   "type": "eecore:machine",
   "ingredient": { "item": "minecraft:iron_ore" },
-  "result": { "id": "minecraft:iron_ingot", "count": 1 },
+  "results": [{ "id": "minecraft:iron_ingot", "count": 1 }],
   "processingTime": 200
 }

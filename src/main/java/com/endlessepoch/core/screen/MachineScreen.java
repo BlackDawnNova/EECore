@@ -106,6 +106,7 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
                     g.renderItem(item.getDefaultInstance(), sx, py + 14);
                     g.drawString(font, item.getDescription().getString(), sx + 18, py + 18, 0xFF_CCCCCC);
                 }
+                // Progress bar / 进度条
                 float frac = (float) mm.getProgress() / mm.getMaxProgress();
                 int total = 50, filled = Math.max(1, (int)(total * frac));
                 String bar = "|".repeat(filled);
@@ -113,6 +114,22 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
                 String empty = "|".repeat(total - filled);
                 if (!empty.isEmpty())
                     g.drawString(font, empty, sx + font.width(bar), py + 36, 0xFF_444444);
+
+                // Countdown / 倒计时
+                int remaining = mm.getMaxProgress() - mm.getProgress();
+                float secs = remaining / 20.0f;
+                String countdown = String.format("⏱ %.1fs", secs);
+                g.drawString(font, countdown, sx, py + 48, 0xFF_FFCC44);
+
+                // Speed multiplier / 倍率
+                int mul = mm.getSpeedMultiplier();
+                if (mul > 100) {
+                    String mulStr = String.format("⚡ %.1fx", mul / 100.0f);
+                    g.drawString(font, mulStr, sx + 80, py + 48, 0xFF_44CCFF);
+                }
+
+                // Heat bar / 热量条
+                drawHeatBar(g, sx, py + 62, mm);
             }
         }
 
@@ -209,6 +226,44 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
 
     private boolean overBtn(int mx, int my, int bx, int by, int bw, int bh) {
         return mx >= bx && mx < bx + bw && my >= by && my < by + bh;
+    }
+
+    /** Draw heat bar: 🔥 [████████░░░░] 65%. Color shifts blue→green→orange→red. / 热量条 */
+    private void drawHeatBar(GuiGraphics g, int sx, int sy, MachineMenu mm) {
+        int heat = mm.getHeatMille(); // 0-1000
+        if (heat <= 0) return;
+        String label = "🔥 " + (heat / 10) + "%";
+        g.drawString(font, label, sx, sy, 0xFF_FFAA00);
+
+        int barX = sx + font.width(label) + 4;
+        int barW = 60, barH = 10;
+        int filled = Math.max(1, barW * heat / 1000);
+
+        // Color gradient: cold (0x4488FF blue) → warm (0x44CC44 green) → hot (0xFF8800 orange) → max (0xFF2222 red)
+        int color;
+        if (heat < 333) {
+            float t = heat / 333f;
+            color = lerpColor(0xFF_4488FF, 0xFF_44CC44, t); // blue → green
+        } else if (heat < 666) {
+            float t = (heat - 333) / 333f;
+            color = lerpColor(0xFF_44CC44, 0xFF_FF8800, t); // green → orange
+        } else {
+            float t = (heat - 666) / 334f;
+            color = lerpColor(0xFF_FF8800, 0xFF_FF2222, t); // orange → red
+        }
+        g.fill(barX, sy, barX + filled, sy + barH, color);
+        g.fill(barX, sy, barX + barW, sy + barH, 0x44_FFFFFF); // outline / 外框
+        g.fill(barX + filled, sy, barX + barW, sy + barH, 0xFF_333333); // empty / 空区域
+    }
+
+    /** Linear interpolate two ARGB colors / 两色线性插值 */
+    private static int lerpColor(int a, int b, float t) {
+        int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        int rr = (int)(ar + (br - ar) * t);
+        int rg = (int)(ag + (bg - ag) * t);
+        int rb = (int)(ab + (bb - ab) * t);
+        return 0xFF_000000 | (rr << 16) | (rg << 8) | rb;
     }
 
     private int left() { return (width - imageWidth) / 2; }

@@ -23,7 +23,7 @@ public class MachineMenu extends AbstractContainerMenu {
         super(Menus.MACHINE.get(), id);
         this.mc = mc; this.pos = mc.getBlockPos();
         this.nameEn = ""; this.nameZh = "";
-        this.data = new SimpleContainerData(8);
+        this.data = new SimpleContainerData(10);
         addDataSlots(data);
         addSlots(inv);
         syncFromBE();
@@ -38,7 +38,7 @@ public class MachineMenu extends AbstractContainerMenu {
         for (int i = 0; i < count; i++)
             types.add(net.minecraft.resources.ResourceLocation.parse(buf.readUtf()));
         this.clientSupported = java.util.List.copyOf(types);
-        this.data = new SimpleContainerData(8);
+        this.data = new SimpleContainerData(10);
         addDataSlots(data);
         addSlots(inv);
     }
@@ -54,6 +54,10 @@ public class MachineMenu extends AbstractContainerMenu {
     public boolean hasMultipleProfiles() { return data.get(5) > 1; }
     public int getProfileIndex() { return data.get(6); }
     public boolean isOutputBlocked() { return data.get(7) != 0; }
+    /** Heat as permille of maxHeat (0-1000). 0 = cold, 1000 = max heat. / 热量千分比(0-1000) */
+    public int getHeatMille() { return data.get(8); }
+    /** Speed multiplier ×100. 100 = 1.0x, 150 = 1.5x. / 速度倍率×100 */
+    public int getSpeedMultiplier() { return Math.max(100, data.get(9)); }
 
     @Override public void broadcastChanges() {
         super.broadcastChanges();
@@ -97,6 +101,18 @@ public class MachineMenu extends AbstractContainerMenu {
         data.set(5, supported.size());
         data.set(6, supported.indexOf(mc.getCurrentProfileId()));
         data.set(7, mc.isOutputBlocked() ? 1 : 0);
+        // Heat: only update when changed (lazy, not per-tick) / 热量仅在变化时更新
+        var hc = mc.getHeatComponent();
+        var hConfig = com.endlessepoch.core.api.energy.eb.HeatMapCache.get(mc.getCurrentProfileId());
+        if (hConfig != null && com.endlessepoch.core.Config.heatEnabled) {
+            double heat = hc.getHeatRaw(mc.getCurrentProfileId());
+            int mille = Math.min(1000, (int)(heat / Math.max(1.0, hConfig.maxHeat()) * 1000));
+            if (mille != data.get(8)) data.set(8, mille); // only sync on change / 仅变化时同步
+        } else {
+            if (data.get(8) != 0) data.set(8, 0);
+        }
+        int boost = mc.getCurrentHeatBoost() * 100;
+        if (boost != data.get(9)) data.set(9, boost);
     }
 
     private void addSlots(Inventory inv) {

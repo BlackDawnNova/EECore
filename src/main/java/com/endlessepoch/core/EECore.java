@@ -144,6 +144,8 @@ public class EECore {
 
     public EECore(IEventBus modEventBus, ModContainer container) {
         LOGGER.info(MOD_NAME + " v" + VERSION + " 加载中...");
+        // Register config so ModConfigEvent fires and values are baked / 注册配置使事件触发并烘焙值
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, Config.SPEC);
         EmissiveHelper.registerEmissiveModel(
                 "eecore:scanner_controller",
                 "eecore:block/scanner_controller_front_e"
@@ -197,6 +199,8 @@ public class EECore {
         // Anti-xray proximity reveal & cleanup / 反矿透靠近揭示+离开清理
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.antixray.ProximityRevealer::onServerTick);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.antixray.ProximityRevealer::onPlayerLeave);
+        // Recipe snapshot cache preload / 配方快照缓存预热
+        NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.recipe.RecipeSnapshotCache::onServerStarted);
         // Ghost preview for validation failures / 成形失败幽灵预览
         NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.WorldPreviewManager.get());
         // Celestial halo effect for formed controllers / 日月星辰特效

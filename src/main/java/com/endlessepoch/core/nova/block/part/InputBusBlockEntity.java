@@ -3,6 +3,7 @@ package com.endlessepoch.core.nova.block.part;
 import com.endlessepoch.core.api.multiblock.PartAbility;
 import com.endlessepoch.core.api.multiblock.PartType;
 import com.endlessepoch.core.menu.BusMenu;
+import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
 import com.endlessepoch.core.registry.BlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -34,7 +35,17 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
         super(pos, state, type, tier);
         this.output = getAbilities().contains(PartAbility.ITEM_OUTPUT);
         this.inventory = new ItemStackHandler(slotCount) {
-            @Override protected void onContentsChanged(int slot) { setChanged(); }
+            @Override protected void onContentsChanged(int slot) {
+                setChanged();
+                // Notify controller if items were added (not removed) to input bus / 通知控制器
+                if (!output && level != null && !level.isClientSide() && getControllerPos() != null) {
+                    var stack = getStackInSlot(slot);
+                    if (!stack.isEmpty()) {
+                        var be = level.getBlockEntity(getControllerPos());
+                        if (be instanceof MachineControllerBlockEntity mc) mc.publishProcessEvent();
+                    }
+                }
+            }
             @Override public synchronized ItemStack extractItem(int slot, int amount, boolean simulate) { return super.extractItem(slot, amount, simulate); }
             @Override public synchronized ItemStack insertItem(int slot, ItemStack stack, boolean simulate) { return super.insertItem(slot, stack, simulate); }
             @Override public synchronized ItemStack getStackInSlot(int slot) { return super.getStackInSlot(slot); }

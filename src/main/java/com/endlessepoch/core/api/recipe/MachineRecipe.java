@@ -1,5 +1,6 @@
 package com.endlessepoch.core.api.recipe;
 
+import com.endlessepoch.core.api.tier.VoltageTier;
 import com.endlessepoch.core.registry.EECoreRecipeTypes;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.world.item.ItemStack;
@@ -25,13 +26,24 @@ public class MachineRecipe implements Recipe<SingleRecipeInput> {
     private final Ingredient ingredient;
     private final List<ItemStack> results;
     private final int processingTime;
+    private final VoltageTier requiredTier;
+    private final double maxHeat; // heat ceiling for this recipe / 该配方热量天花板
 
-    public MachineRecipe(String group, Ingredient ingredient, List<ItemStack> results, int processingTime) {
+    public MachineRecipe(String group, Ingredient ingredient, List<ItemStack> results, int processingTime,
+                         VoltageTier requiredTier, double maxHeat) {
         this.group = group;
         this.ingredient = ingredient;
         this.results = List.copyOf(results);
         this.processingTime = processingTime;
+        this.requiredTier = requiredTier;
+        this.maxHeat = maxHeat;
     }
+
+    /** Heat ceiling — heat never exceeds this. / 热量天花板 */
+    public double getMaxHeat() { return maxHeat; }
+
+    /** Minimum voltage required, or ELV if unset. / 最低需求电压，未设置时默认 ELV。 */
+    public VoltageTier getRequiredTier() { return requiredTier; }
 
     @Override
     public boolean matches(SingleRecipeInput input, Level level) {

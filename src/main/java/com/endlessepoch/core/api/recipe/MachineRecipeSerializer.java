@@ -1,5 +1,6 @@
 package com.endlessepoch.core.api.recipe;
 
+import com.endlessepoch.core.api.tier.VoltageTier;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -27,6 +28,14 @@ public class MachineRecipeSerializer implements RecipeSerializer<MachineRecipe> 
     private static final MapCodec<List<ItemStack>> RESULTS_MAP_CODEC =
             RESULTS_CODEC.fieldOf("results");
 
+    private static final Codec<VoltageTier> TIER_CODEC = Codec.STRING.xmap(
+            s -> {
+                VoltageTier t = VoltageTier.fromShortName(s);
+                return t != null ? t : VoltageTier.ELV;
+            },
+            VoltageTier::getShortName
+    );
+
     private final MapCodec<MachineRecipe> codec;
     private final StreamCodec<RegistryFriendlyByteBuf, MachineRecipe> streamCodec;
 
@@ -35,7 +44,9 @@ public class MachineRecipeSerializer implements RecipeSerializer<MachineRecipe> 
                 Codec.STRING.optionalFieldOf("group", "").forGetter(MachineRecipe::getGroup),
                 Ingredient.CODEC_NONEMPTY.fieldOf("ingredient").forGetter(MachineRecipe::getIngredient),
                 RESULTS_MAP_CODEC.forGetter(MachineRecipe::results),
-                Codec.INT.optionalFieldOf("processingTime", 200).forGetter(MachineRecipe::getProcessingTime)
+                Codec.INT.optionalFieldOf("processingTime", 200).forGetter(MachineRecipe::getProcessingTime),
+                TIER_CODEC.optionalFieldOf("requiredTier", VoltageTier.ELV).forGetter(MachineRecipe::getRequiredTier),
+                Codec.DOUBLE.optionalFieldOf("maxHeat", 10.0).forGetter(MachineRecipe::getMaxHeat)
         ).apply(instance, MachineRecipe::new));
 
         this.streamCodec = StreamCodec.composite(
@@ -43,6 +54,11 @@ public class MachineRecipeSerializer implements RecipeSerializer<MachineRecipe> 
                 Ingredient.CONTENTS_STREAM_CODEC, MachineRecipe::getIngredient,
                 ItemStack.STREAM_CODEC.apply(ByteBufCodecs.list()), MachineRecipe::results,
                 ByteBufCodecs.VAR_INT, MachineRecipe::getProcessingTime,
+                ByteBufCodecs.STRING_UTF8.map(
+                        s -> { VoltageTier t = VoltageTier.fromShortName(s); return t != null ? t : VoltageTier.ELV; },
+                        VoltageTier::getShortName
+                ), MachineRecipe::getRequiredTier,
+                ByteBufCodecs.DOUBLE, MachineRecipe::getMaxHeat,
                 MachineRecipe::new
         );
     }
