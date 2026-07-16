@@ -52,6 +52,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     // Recipe processing / 配方处理
     private boolean paused;
+    private boolean batchEnabled;
+    private boolean heatEnabled;
+    private boolean overclockEnabled = true;
     private boolean outputBlocked;
     private int progress, maxProgress;
     private java.util.List<net.minecraft.world.item.ItemStack> cachedResults = java.util.List.of();
@@ -84,6 +87,15 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private volatile boolean energyBlocked; // matched recipe but hatches can't pay / 配方已匹配但能源仓付不起
     private volatile java.util.List<net.minecraft.world.item.ItemStack> bgResults;
     private volatile net.minecraft.world.item.ItemStack bgInput;
+
+    // Batch mode (Phase 3) / 批处理模式
+    private boolean batchActive;
+    private volatile boolean batchComputing;
+    private long batchTotal, batchProcessed;
+    private double batchQuotaAcc;
+    private boolean batchUnitExhausted;
+    private final java.util.ArrayDeque<com.endlessepoch.core.api.energy.eb.batch.ShardResultUnit>
+            batchPending = new java.util.ArrayDeque<>();
 
     public MachineControllerBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntities.MACHINE_CONTROLLER.get(), pos, state);
@@ -133,8 +145,10 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                                 if (bestMr != null) {
                                     // Overclock: speed ×2 / energy ×4 per tier above required
                                     // 超频：每超一级速度×2、能耗×4（总能耗×2）
-                                    ocCount = com.endlessepoch.core.api.energy.eb.batch.OverclockUtil.overclockCount(
-                                            machineTier, bestMr.getRequiredTier().ordinal(), com.endlessepoch.core.Config.p3MaxOverclock);
+                                    ocCount = overclockEnabled
+                                            ? com.endlessepoch.core.api.energy.eb.batch.OverclockUtil.overclockCount(
+                                                    machineTier, bestMr.getRequiredTier().ordinal(), com.endlessepoch.core.Config.p3MaxOverclock)
+                                            : 0;
                                     results = bestMr.getResults();
                                     base = (int) com.endlessepoch.core.api.energy.eb.batch.OverclockUtil.computeDuration(
                                             bestMr.getProcessingTime(), ocCount);
@@ -147,8 +161,10 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                                     // Vanilla recipes run as ELV: same overclock + default energy cost
                                     // 原版配方按 ELV 电压处理：同样超频 + 默认能耗，杜绝免费加工
                                     int cook = vanillaMatch instanceof net.minecraft.world.item.crafting.AbstractCookingRecipe ac ? ac.getCookingTime() : 200;
-                                    ocCount = com.endlessepoch.core.api.energy.eb.batch.OverclockUtil.overclockCount(
-                                            machineTier, 0, com.endlessepoch.core.Config.p3MaxOverclock);
+                                    ocCount = overclockEnabled
+                                            ? com.endlessepoch.core.api.energy.eb.batch.OverclockUtil.overclockCount(
+                                                    machineTier, 0, com.endlessepoch.core.Config.p3MaxOverclock)
+                                            : 0;
                                     results = java.util.List.of(vanillaMatch.assemble(recipeInput, level.registryAccess()));
                                     base = (int) com.endlessepoch.core.api.energy.eb.batch.OverclockUtil.computeDuration(cook, ocCount);
                                     var def = com.endlessepoch.core.api.energy.eb.HeatMapCache.get(currentProfileId);
@@ -160,7 +176,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                                 }
                                 int adj = base;
                                 double heatFactor = 1.0;
-                                if (com.endlessepoch.core.Config.heatEnabled) {
+                                if (com.endlessepoch.core.Config.heatEnabled && heatEnabled) {
                                     double heat = heatComponent.getHeat(currentProfileId, level.getGameTime());
                                     heatFactor = com.endlessepoch.core.api.energy.eb.batch.OverclockUtil.heatFactor(
                                             heat, pendingMaxHeat, com.endlessepoch.core.Config.heatSpeedBoostMax);
@@ -224,10 +240,22 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         super.setRemoved();
         wasEverFormed = false;
         if (level != null && !level.isClientSide()) {
+            clearBatchState();
             com.endlessepoch.core.api.energy.eb.EventLifecycleManager.unregister(
                     com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition));
             com.endlessepoch.core.event.BlockPlaceHandler.unregisterController(worldPosition);
         }
+    }
+
+    private void clearBatchState() {
+        batchActive = false;
+        batchComputing = false;
+        batchPending.clear();
+        batchTotal = 0;
+        batchProcessed = 0;
+        batchQuotaAcc = 0;
+        com.endlessepoch.core.api.energy.eb.batch.SegmentMergeManager.clear(
+                com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition));
     }
 
     // IMultiBlockController / 控制器接口
@@ -288,6 +316,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         completionTick = 0;
         voltageBlockedTier = -1;
         energyBlocked = false;
+        clearBatchState();
         heatComponent.reset();
         setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
@@ -308,10 +337,17 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     public boolean isPaused() { return paused; }
     public boolean isOutputBlocked() { return outputBlocked; }
-    public boolean hasWork() { return !processingInput.isEmpty(); }
-    public int getProgress() { return progress; }
-    public int getMaxProgress() { return maxProgress; }
+    public boolean hasWork() { return batchActive || !processingInput.isEmpty(); }
+    public int getProgress() {
+        if (batchActive) return batchTotal <= 0 ? 0 : (int) (batchProcessed * 1000 / Math.max(1, batchTotal));
+        return progress;
+    }
+    public int getMaxProgress() { return batchActive ? 1000 : maxProgress; }
     public int getProcessingItemId() {
+        if (batchActive) {
+            var head = batchPending.peekFirst();
+            return head != null ? (int) head.inputItemId() : 0;
+        }
         return processingInput.isEmpty() ? 0
                 : net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(processingInput.getItem());
     }
@@ -361,6 +397,12 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     public int getCurrentHeatBoost() { return currentHeatBoost; }
 
     public void togglePause() { paused = !paused; setChanged(); }
+    public void toggleBatch() { batchEnabled = !batchEnabled; setChanged(); }
+    public void toggleHeat() { heatEnabled = !heatEnabled; setChanged(); }
+    public void toggleOverclock() { overclockEnabled = !overclockEnabled; setChanged(); }
+    public boolean isBatchEnabled() { return batchEnabled; }
+    public boolean isHeatEnabled() { return heatEnabled; }
+    public boolean isOverclockEnabled() { return overclockEnabled; }
 
     public java.util.List<ResourceLocation> getSupportedTypes() { return supportedTypes; }
 
@@ -442,7 +484,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             publishProcessEvent();
         }
         ebFlow.flush(tick);
-        if (completionTick > 0 && tick >= completionTick) completeRecipe(tick);
+        if (batchActive) tickBatch(tick);
+        else if (completionTick > 0 && tick >= completionTick) completeRecipe(tick);
 
         if (++breakCheckTick >= 100) {
             breakCheckTick = 0;
@@ -500,17 +543,43 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
      * 单机并行上限 = 基础并行 + Σ 并行仓加成（每仓 4^(tier+1)），受配置硬上限钳制。
      */
     public int getParallelCap() {
-        long cap = com.endlessepoch.core.Config.p3BaseParallel;
-        if (level != null) {
-            for (var pp : parallelHatchPos) {
-                var be = level.getBlockEntity(pp);
-                if (be instanceof com.endlessepoch.core.nova.block.part.PartBlockEntity pe) {
-                    int t = Math.min(pe.getTier(), 11); // clamp to QV / 钳位至 QV
-                    cap += 1L << (2L * (t + 1)); // 4^(tier+1)
-                }
+        if (level == null) return com.endlessepoch.core.Config.p3BaseParallel;
+        long cap = 0;
+        for (var pp : parallelHatchPos) {
+            var be = level.getBlockEntity(pp);
+            if (be instanceof com.endlessepoch.core.nova.block.part.PartBlockEntity pe) {
+                int t = Math.max(1, Math.min(pe.getTier(), 11));
+                cap += 1L << (t + 3); // LV=16, …, QV=16384
             }
         }
-        return (int) Math.min(cap, com.endlessepoch.core.Config.p3MaxParallelPerMachine);
+        if (cap > 0) return (int) Math.min(cap, com.endlessepoch.core.Config.p3MaxParallelPerMachine);
+        return com.endlessepoch.core.Config.p3BaseParallel;
+    }
+
+    /**
+     * Effective parallel: hardware cap auto-scaled by sustained energy input rate,
+     * so under-powered machines slow down instead of oscillating start-stop-start.
+     * 有效并行：硬件上限按持续能量输入速率自动缩放，发电不足时降速而非振荡停启。
+     */
+    public int getEffectiveParallelCap(long energyPerOp, long duration) {
+        int hardware = getParallelCap();
+        if (energyPerOp <= 0 || duration <= 0) return hardware;
+        // Sustained energy rate = Σ (voltage × amperage) across all input hatches
+        // 持续能量输入速率 = Σ 各能源输入仓的 电压×安培
+        long totalRate = 0;
+        for (var ep : energyInputPos) {
+            if (level.getBlockEntity(ep) instanceof com.endlessepoch.core.nova.block.part.PartBlockEntity pe
+                    && pe.getEnergyStorage() != null) {
+                var tv = pe.getEnergyStorage().getTier().getMinVoltage();
+                totalRate += tv.bitLength() >= 63 ? Long.MAX_VALUE
+                        : tv.longValue() * pe.getAmperage();
+            }
+        }
+        if (totalRate <= 0) return 1; // no energy hatch → single, won't starve / 无能源仓=单条，不饿死
+        // ops/sec that can be sustained: rate / (energy/op / dur) = rate * dur / energy/op
+        // 可持续的操作率：速率 × 耗时 / 单次能耗
+        long sustained = Math.max(1, totalRate * duration / energyPerOp);
+        return (int) Math.min(hardware, Math.min(sustained, com.endlessepoch.core.Config.p3MaxParallelPerMachine));
     }
 
     /** Called by InputBus when items arrive. Publishes EB event. / 物品进总线时发布事件 */
@@ -520,6 +589,16 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
         if (inputBusPos.isEmpty()) scanParts(); // re-scan if parts unknown / 未扫描则自动扫描
         if (inputBusPos.isEmpty()) {
+            return;
+        }
+        if (batchActive) return; // in-flight batch handles the backlog at completion / 批处理完成时自会续投
+        // Dual mode: above threshold → ForkJoin batch; otherwise light completionTick path
+        // 双模式：超过阈值切 ForkJoin 批处理，否则走 completionTick 轻路径
+        if (com.endlessepoch.core.Config.p3ParallelBatching && batchEnabled
+                && completionTick == 0 && !paused
+                && isMachineProfile()
+                && countPendingItems() > com.endlessepoch.core.Config.p3BatchThreshold
+                && startBatch()) {
             return;
         }
         for (var ip : inputBusPos) {
@@ -551,9 +630,198 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         energyBlocked = false;
     }
 
+    // ── Batch pipeline (Phase 3) / 批处理管线 ──
+
+    /** Whether the active profile runs eecore:machine recipes (snapshot cache scope). / 当前档位是否为机器配方（快照缓存仅覆盖此类型）。 */
+    private boolean isMachineProfile() {
+        return (Object) getRecipeType() == com.endlessepoch.core.registry.EECoreRecipeTypes.MACHINE.get();
+    }
+
+    /** Total items across input buses. / 输入总线物品总数。 */
+    private long countPendingItems() {
+        long total = 0;
+        for (var ip : inputBusPos) {
+            if (level.getBlockEntity(ip) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
+                for (int s = 0; s < bus.getInventory().getSlots(); s++)
+                    total += bus.getInventory().getStackInSlot(s).getCount();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Snapshot inputs → submit to ForkJoin. Main thread only. Returns false when the
+     * global shard budget is saturated (caller falls back to the light path).
+     * 拍输入快照→提交 ForkJoin。仅主线程。全局分片额度耗尽返回 false（回退轻路径）。
+     */
+    private boolean startBatch() {
+        var units = new java.util.ArrayList<com.endlessepoch.core.api.energy.eb.batch.InputUnit>();
+        long totalItems = 0;
+        for (int bi = 0; bi < inputBusPos.size(); bi++) {
+            if (level.getBlockEntity(inputBusPos.get(bi))
+                    instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
+                for (int s = 0; s < bus.getInventory().getSlots(); s++) {
+                    var stack = bus.getInventory().getStackInSlot(s);
+                    if (stack.isEmpty()) continue;
+                    units.add(new com.endlessepoch.core.api.energy.eb.batch.InputUnit(
+                            com.endlessepoch.core.api.energy.eb.ItemSnapshotUtil.itemId(stack),
+                            stack.getCount(),
+                            com.endlessepoch.core.api.energy.eb.ItemSnapshotUtil.nbtHash(stack),
+                            bi, s));
+                    totalItems += stack.getCount();
+                }
+            }
+        }
+        if (units.isEmpty()) return false;
+        double heat = (com.endlessepoch.core.Config.heatEnabled && heatEnabled)
+                ? heatComponent.getHeat(currentProfileId, level.getGameTime()) : 0.0;
+        var task = new com.endlessepoch.core.api.energy.eb.batch.BatchTask(
+                com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition),
+                getEffectiveTier(), heat,
+                com.endlessepoch.core.Config.heatSpeedBoostMax,
+                overclockEnabled ? com.endlessepoch.core.Config.p3MaxOverclock : 0,
+                com.endlessepoch.core.Config.p3EnergyEnabled,
+                java.util.List.copyOf(units));
+        long ph = task.posHash();
+        if (!com.endlessepoch.core.api.energy.eb.batch.BatchExecutor.trySubmit(task,
+                results -> com.endlessepoch.core.api.energy.eb.batch.SegmentMergeManager.deliver(ph, results)))
+            return false;
+        batchActive = true;
+        batchComputing = true;
+        batchTotal = totalItems; // provisional until compute completes / 计算完成前的预估值
+        batchProcessed = 0;
+        batchQuotaAcc = 0;
+        batchPending.clear();
+        setChanged();
+        return true;
+    }
+
+    /**
+     * Batch tick: drain delivered segments, pace write-back by parallelCap/duration,
+     * hard-capped at mainThreadLimit (≤256) ops per tick.
+     * 批处理 tick：取回结果分段，按 并行上限/耗时 节拍写回，主线程硬限 ≤256 单元/tick。
+     */
+    private void tickBatch(long tick) {
+        long ph = com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition);
+        com.endlessepoch.core.api.energy.eb.batch.MergedSegment seg;
+        while ((seg = com.endlessepoch.core.api.energy.eb.batch.SegmentMergeManager.poll(ph)) != null) {
+            batchComputing = false;
+            batchPending.addAll(seg.results());
+            long remaining = 0;
+            for (var u : batchPending) remaining += u.ops();
+            batchTotal = batchProcessed + remaining; // snap to matched ops / 校正为实际匹配数
+        }
+        if (batchPending.isEmpty()) {
+            if (!batchComputing) {
+                batchActive = false;
+                batchQuotaAcc = 0;
+                setChanged();
+                publishProcessEvent(); // backlog re-check: next batch or light path / 续投
+            }
+            return;
+        }
+        if (paused) return;
+        var head = batchPending.peekFirst();
+        // Effective parallel auto-scales to sustained energy rate — no oscillation
+        // 有效并行随能量输入速率自动缩放——不振荡
+        int effParallel = getEffectiveParallelCap(head.energyPerOp(), head.finalDuration());
+        batchQuotaAcc += (double) effParallel / Math.max(1, head.finalDuration());
+        int budget = (int) Math.min(Math.min(batchQuotaAcc, com.endlessepoch.core.Config.p3MainThreadLimit),
+                head.ops());
+        if (budget <= 0) return;
+        batchUnitExhausted = false;
+        int done = writeBackOps(head, budget, tick);
+        if (done > 0) {
+            batchQuotaAcc -= done;
+            batchProcessed += done;
+        }
+        if (batchUnitExhausted) {
+            // Inputs vanished (player/pipe) — drop the unit's remainder / 输入被取走，丢弃该单元剩余
+            batchPending.pollFirst();
+            batchTotal -= (head.ops() - done);
+        } else if (done >= head.ops()) {
+            batchPending.pollFirst();
+        } else if (done > 0) {
+            batchPending.pollFirst();
+            batchPending.addFirst(head.withOps(head.ops() - done));
+        }
+        if (done > 0) setChanged();
+    }
+
+    /**
+     * Apply up to budget ops of one result on the main thread. Order per op:
+     * output space (simulate) → energy (simulate) → extract input → deduct → insert → heat.
+     * Stalls set outputBlocked/energyBlocked and stop the loop; nothing is half-consumed.
+     * 主线程写回单个结果最多 budget 次。单次顺序：输出空间预验→能量预验→消耗输入→实扣→写出→热量。
+     * 阻塞置位并中断循环，绝不半消耗。
+     */
+    private int writeBackOps(com.endlessepoch.core.api.energy.eb.batch.ShardResultUnit r,
+                             int budget, long tick) {
+        var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.byId((int) r.inputItemId());
+        if (item == net.minecraft.world.item.Items.AIR) {
+            batchUnitExhausted = true;
+            return 0;
+        }
+        int done = 0;
+        while (done < budget) {
+            if (!insertOutputs(r, true)) { outputBlocked = true; break; }
+            if (r.energyPerOp() > 0 && !consumeEnergy(r.energyPerOp(), true)) { energyBlocked = true; break; }
+            if (!extractOneInput(item)) { batchUnitExhausted = true; break; }
+            if (r.energyPerOp() > 0) consumeEnergy(r.energyPerOp(), false);
+            insertOutputs(r, false);
+            if (com.endlessepoch.core.Config.heatEnabled && heatEnabled && currentProfileId != null)
+                heatComponent.bulkHeat(currentProfileId, r.maxHeat(), tick, tick);
+            outputBlocked = false;
+            energyBlocked = false;
+            done++;
+        }
+        return done;
+    }
+
+    /** Extract one matching item from any input bus. / 从任一输入总线取出 1 个匹配物品。 */
+    private boolean extractOneInput(net.minecraft.world.item.Item item) {
+        for (var ip : inputBusPos) {
+            if (level.getBlockEntity(ip) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
+                for (int s = 0; s < bus.getInventory().getSlots(); s++) {
+                    var stack = bus.getInventory().getStackInSlot(s);
+                    if (!stack.isEmpty() && stack.getItem() == item
+                            && !bus.getInventory().extractItem(s, 1, false).isEmpty())
+                        return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Insert one op's outputs into output buses. / 将单次加工的全部产物写入输出总线。 */
+    private boolean insertOutputs(com.endlessepoch.core.api.energy.eb.batch.ShardResultUnit r,
+                                  boolean simulate) {
+        for (int i = 0; i < r.outputItemIds().length; i++) {
+            var out = net.minecraft.core.registries.BuiltInRegistries.ITEM.byId((int) r.outputItemIds()[i]);
+            if (out == net.minecraft.world.item.Items.AIR) continue;
+            var stack = new net.minecraft.world.item.ItemStack(out, (int) r.outputCounts()[i]);
+            if (!insertStack(stack, simulate)) return false;
+        }
+        return true;
+    }
+
+    /** Insert a stack fully into any output bus slot. / 将整叠完整塞进任一输出总线槽位。 */
+    private boolean insertStack(net.minecraft.world.item.ItemStack stack, boolean simulate) {
+        for (var op : outputBusPos) {
+            if (level.getBlockEntity(op) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
+                for (int si = 0; si < bus.getInventory().getSlots(); si++) {
+                    if (bus.getInventory().insertItem(si, stack.copy(), true).isEmpty()) {
+                        if (!simulate) bus.getInventory().insertItem(si, stack.copy(), false);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     /** Completion tick arrived: output + heat + auto-continue. / 完工: 出货+热量+续投 */
-    private void completeRecipe(long tick) {
-        for (var result : cachedResults) {
+    private void completeRecipe(long tick) {        for (var result : cachedResults) {
             for (var op : outputBusPos) {
                 var be = level.getBlockEntity(op);
                 if (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
@@ -566,7 +834,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 }
             }
         }
-        if (com.endlessepoch.core.Config.heatEnabled && currentProfileId != null)
+        if (com.endlessepoch.core.Config.heatEnabled && heatEnabled && currentProfileId != null)
             heatComponent.bulkHeat(currentProfileId, pendingMaxHeat, recipeStartedTick, tick);
         processingInput = net.minecraft.world.item.ItemStack.EMPTY;
         progress = 0; maxProgress = 0; completionTick = 0; outputBlocked = false;
@@ -670,6 +938,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         for (var t : supportedTypes) st.add(net.minecraft.nbt.StringTag.valueOf(t.toString()));
         tag.put("supportedTypes", st);
         tag.putBoolean("paused", paused);
+        tag.putBoolean("batchEnabled", batchEnabled);
+        tag.putBoolean("heatEnabled", heatEnabled);
+        tag.putBoolean("overclockEnabled", overclockEnabled);
         tag.putBoolean("outputBlocked", outputBlocked);
         energyStorage.saveToNBT(tag);
         heatComponent.saveToNBT(tag);
@@ -702,6 +973,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             supportedTypes = java.util.List.copyOf(list);
         }
         paused = tag.getBoolean("paused");
+        if (tag.contains("batchEnabled")) batchEnabled = tag.getBoolean("batchEnabled");
+        if (tag.contains("heatEnabled")) heatEnabled = tag.getBoolean("heatEnabled");
+        if (tag.contains("overclockEnabled")) overclockEnabled = tag.getBoolean("overclockEnabled");
         outputBlocked = tag.getBoolean("outputBlocked");
         if (formed) needsKickoff = true; // resume idle machines with items in buses / 唤醒总线有料的空闲机器
         energyStorage.loadFromNBT(tag);

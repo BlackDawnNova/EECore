@@ -82,7 +82,7 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
             if (isInput) {
                 // Ping controller on real energy arrival — wakes "insufficient energy" machines
                 // 收到实际能量时唤醒「能量不足」等待中的控制器
-                energyStorage = new OmegaStorage(ec, maxIn, maxOut, tierV) {
+                energyStorage = new OmegaStorage(ec, maxIn, maxOut, tierV, amperage) {
                     @Override
                     public com.endlessepoch.core.api.energy.EnergyPacket receivePacket(
                             com.endlessepoch.core.api.energy.EnergyPacket packet, boolean simulate) {
@@ -92,7 +92,7 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
                     }
                 };
             } else {
-                energyStorage = new OmegaStorage(ec, maxIn, maxOut, tierV);
+                energyStorage = new OmegaStorage(ec, maxIn, maxOut, tierV, amperage);
             }
         }
         if (abilities.contains(PartAbility.FLUID_INPUT) || abilities.contains(PartAbility.FLUID_OUTPUT)) {

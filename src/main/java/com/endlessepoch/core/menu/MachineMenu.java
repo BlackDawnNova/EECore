@@ -23,7 +23,7 @@ public class MachineMenu extends AbstractContainerMenu {
         super(Menus.MACHINE.get(), id);
         this.mc = mc; this.pos = mc.getBlockPos();
         this.nameEn = ""; this.nameZh = "";
-        this.data = new SimpleContainerData(12);
+        this.data = new SimpleContainerData(16);
         addDataSlots(data);
         addSlots(inv);
         syncFromBE();
@@ -38,7 +38,7 @@ public class MachineMenu extends AbstractContainerMenu {
         for (int i = 0; i < count; i++)
             types.add(net.minecraft.resources.ResourceLocation.parse(buf.readUtf()));
         this.clientSupported = java.util.List.copyOf(types);
-        this.data = new SimpleContainerData(12);
+        this.data = new SimpleContainerData(16);
         addDataSlots(data);
         addSlots(inv);
     }
@@ -62,6 +62,10 @@ public class MachineMenu extends AbstractContainerMenu {
     public int getVoltageBlockedTier() { return data.get(10) - 1; }
     /** Matched recipe waiting for energy. / 配方已匹配但在等能量 */
     public boolean isEnergyBlocked() { return data.get(11) != 0; }
+    public boolean isBatchEnabled() { return data.get(12) != 0; }
+    public boolean isHeatEnabled() { return data.get(13) != 0; }
+    public boolean isOverclockEnabled() { return data.get(14) != 0; }
+    public int getEffectiveTier() { return data.get(15); }
 
     @Override public void broadcastChanges() {
         super.broadcastChanges();
@@ -81,7 +85,9 @@ public class MachineMenu extends AbstractContainerMenu {
     @Override public boolean clickMenuButton(Player p, int id) {
         if (mc == null) return false;
         if (id == 0) { mc.togglePause(); syncFromBE(); return true; }
-        if (id == 1) { mc.retryFormation(); return true; }
+        if (id == 2) { mc.toggleOverclock(); syncFromBE(); return true; }
+        if (id == 10) { mc.toggleBatch(); syncFromBE(); return true; }
+        if (id == 11) { mc.toggleHeat();  syncFromBE(); return true; }
         if (id >= 3) {
             var types = getSupportedProfiles();
             int idx = id - 3;
@@ -120,6 +126,10 @@ public class MachineMenu extends AbstractContainerMenu {
         if (boost != data.get(9)) data.set(9, boost);
         data.set(10, mc.getVoltageBlockedTier() + 1);
         data.set(11, mc.isEnergyBlocked() ? 1 : 0);
+        data.set(12, mc.isBatchEnabled() ? 1 : 0);
+        data.set(13, mc.isHeatEnabled() ? 1 : 0);
+        data.set(14, mc.isOverclockEnabled() ? 1 : 0);
+        data.set(15, mc.getEffectiveTier());
     }
 
     private void addSlots(Inventory inv) {

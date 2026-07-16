@@ -22,11 +22,21 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             ResourceLocation.parse("eecore:textures/gui/container/bus.png");
     private static final ResourceLocation PANEL_BG =
             ResourceLocation.parse("eecore:textures/gui/container/button_panel.png");
+    // Sidebar button sprites — PNGs under textures/gui/sprites/ / 侧边栏按钮贴图——PNG 放入 sprites/
+    private static final ResourceLocation
+            TEX_B    = ResourceLocation.fromNamespaceAndPath("eecore", "btn_b"),
+            TEX_B_ON = ResourceLocation.fromNamespaceAndPath("eecore", "btn_b_on"),
+            TEX_H    = ResourceLocation.fromNamespaceAndPath("eecore", "btn_h"),
+            TEX_H_ON = ResourceLocation.fromNamespaceAndPath("eecore", "btn_h_on"),
+            TEX_O    = ResourceLocation.fromNamespaceAndPath("eecore", "btn_o"),
+            TEX_O_ON = ResourceLocation.fromNamespaceAndPath("eecore", "btn_o_on"),
+            TEX_PAUSE = ResourceLocation.fromNamespaceAndPath("eecore", "btn_pause"),
+            TEX_PLAY  = ResourceLocation.fromNamespaceAndPath("eecore", "btn_play");
     private static final int SX = 170;
     private static final int[] SY = {11, 45, 79, 113, 147, 181};
-    private static final int IDX_PROFILE = 0, IDX_FORM = 3, IDX_PAUSE = 5;
+    private static final int IDX_PROFILE = 0, IDX_OC = 1, IDX_HEAT = 3, IDX_BATCH = 4, IDX_PAUSE = 5;
 
-    private boolean dropdownOpen, hoverProfile, hoverForm, hoverPause;
+    private boolean dropdownOpen, hoverProfile, hoverPause, hoverBatch, hoverHeat, hoverOc;
     private int hoverDropIdx = -1;
     private int pressedBtn = -1;
 
@@ -40,14 +50,51 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         this.titleLabelX = 10; this.titleLabelY = 14; this.inventoryLabelY = -99;
     }
 
+    @Override protected void renderLabels(GuiGraphics g, int mx, int my) {
+        // Voltage-colored title + batch suffix / 电压色标题 + 批处理后缀
+        boolean cn = "zh_cn".equals(
+                net.minecraft.client.Minecraft.getInstance().getLanguageManager().getSelected());
+        String name = menu instanceof MachineMenu mm
+                ? (cn ? mm.getNameZh() : mm.getNameEn()) : "";
+        int tierIdx = menu instanceof MachineMenu mm ? mm.getEffectiveTier() : 0;
+        boolean b = menu instanceof MachineMenu mm && mm.isBatchEnabled();
+        String title = name.isEmpty() ? this.title.getString() : name;
+        String suffix = b ? (cn ? " (批处理)" : " (Batch)") : "";
+        int maxW = SX - 22 - font.width(suffix);
+        if (font.width(title) > maxW)
+            title = font.plainSubstrByWidth(title, maxW - font.width("…")) + "…";
+        title += suffix;
+        int color = parseHex(
+                com.endlessepoch.core.api.tier.VoltageTier.values()[tierIdx].getHexColor());
+        g.drawString(font, title, titleLabelX, titleLabelY, color);
+        // Player inventory label / 玩家背包
+        g.drawString(font, this.playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFF_404040);
+    }
+
+    private static int parseHex(String hex) {
+        try { return (int) Long.parseLong(hex.substring(1), 16) | 0xFF000000; }
+        catch (Exception e) { return 0xFF_888888; }
+    }
+
     @Override public void render(GuiGraphics g, int mx, int my, float p) {
         super.render(g, mx, my, p);
         this.renderTooltip(g, mx, my);
         if (hoverProfile) g.renderTooltip(font, Component.translatable("eecore.gui.switch_profile"), mx, my);
-        if (hoverForm) g.renderTooltip(font, Component.translatable("eecore.gui.retry_formation"), mx, my);
         if (hoverPause) {
             boolean p2 = menu instanceof MachineMenu mm && mm.isPaused();
             g.renderTooltip(font, Component.translatable(p2 ? "eecore.gui.resume" : "eecore.gui.pause"), mx, my);
+        }
+        if (hoverBatch) {
+            boolean on = menu instanceof MachineMenu mm && mm.isBatchEnabled();
+            g.renderTooltip(font, Component.translatable(on ? "eecore.gui.batch_on" : "eecore.gui.batch_off"), mx, my);
+        }
+        if (hoverHeat) {
+            boolean on = menu instanceof MachineMenu mm && mm.isHeatEnabled();
+            g.renderTooltip(font, Component.translatable(on ? "eecore.gui.heat_on" : "eecore.gui.heat_off"), mx, my);
+        }
+        if (hoverOc) {
+            boolean on = menu instanceof MachineMenu mm && mm.isOverclockEnabled();
+            g.renderTooltip(font, Component.translatable(on ? "eecore.gui.oc_on" : "eecore.gui.oc_off"), mx, my);
         }
         if (dropdownOpen) {
             drawDropdown(g, left(), top(), mx, my);
@@ -63,25 +110,33 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         int x = left(), y = top();
         g.blit(BG, x, y, 0, 0, imageWidth, imageHeight, imageWidth, imageHeight);
 
-        hoverProfile = false; hoverForm = false; hoverPause = false; hoverDropIdx = -1;
+        hoverProfile = false; hoverPause = false;
+        hoverBatch = false; hoverHeat = false; hoverOc = false; hoverDropIdx = -1;
 
         // Sidebar slots / 侧边栏槽位
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < SY.length; i++) {
             int bx = x + SX, by = y + SY[i];
             ScreenUtil.drawSlot(g, bx, by);
 
             if (i == IDX_PROFILE && menu instanceof MachineMenu mm && mm.hasMultipleProfiles()) {
                 drawButton(g, bx + 1, by + 1, "▾", 0xFF_6699CC, overBtn(mx, my, bx + 1, by + 1, 14, 14), pressedBtn == IDX_PROFILE);
                 if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverProfile = true;
-            } else if (i == IDX_FORM) {
-                drawButton(g, bx + 1, by + 1, "⟳", 0xFF_CCAA33, overBtn(mx, my, bx + 1, by + 1, 14, 14), pressedBtn == IDX_FORM);
-                if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverForm = true;
             } else if (i == IDX_PAUSE) {
                 boolean paused = menu instanceof MachineMenu mm && mm.isPaused();
-                String icon = paused ? "▶" : "⏸";
-                int color = paused ? 0xFF_44CC44 : 0xFF_CC4444;
-                drawButton(g, bx + 1, by + 1, icon, color, overBtn(mx, my, bx + 1, by + 1, 14, 14), pressedBtn == IDX_PAUSE);
+                g.blitSprite(paused ? TEX_PLAY : TEX_PAUSE, bx + 1, by + 1, 12, 12);
                 if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverPause = true;
+            } else if (i == IDX_BATCH) {
+                boolean on = menu instanceof MachineMenu mm && mm.isBatchEnabled();
+                g.blitSprite(on ? TEX_B_ON : TEX_B, bx + 1, by + 1, 12, 12);
+                if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverBatch = true;
+            } else if (i == IDX_HEAT) {
+                boolean on = menu instanceof MachineMenu mm && mm.isHeatEnabled();
+                g.blitSprite(on ? TEX_H_ON : TEX_H, bx + 1, by + 1, 12, 12);
+                if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverHeat = true;
+            } else if (i == IDX_OC) {
+                boolean on = menu instanceof MachineMenu mm && mm.isOverclockEnabled();
+                g.blitSprite(on ? TEX_O_ON : TEX_O, bx + 1, by + 1, 12, 12);
+                if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverOc = true;
             }
         }
 
@@ -135,15 +190,16 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
                 String countdown = String.format("⏱ %.1fs", secs);
                 g.drawString(font, countdown, sx, py + 48, 0xFF_FFCC44);
 
-                // Speed multiplier / 倍率
+                // Speed multiplier — only when oc/heat active / 倍率——仅超频/热量开启时显示
                 int mul = mm.getSpeedMultiplier();
-                if (mul > 100) {
+                if (mul > 100 && (mm.isOverclockEnabled() || mm.isHeatEnabled())) {
                     String mulStr = String.format("⚡ %.1fx", mul / 100.0f);
                     g.drawString(font, mulStr, sx + 80, py + 48, 0xFF_44CCFF);
                 }
 
-                // Heat bar / 热量条
-                drawHeatBar(g, sx, py + 62, mm);
+                // Heat bar — only when heat active / 热量条——仅热量开启时显示
+                if (mm.isHeatEnabled())
+                    drawHeatBar(g, sx, py + 62, mm);
             }
         }
 
@@ -213,8 +269,10 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             }
             dropdownOpen = false;
             // Other buttons / 其他按钮
-            if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_FORM] + 1, 14, 14)) { pressedBtn = IDX_FORM; sendClick(1); return true; }
             if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_PAUSE] + 1, 14, 14)) { pressedBtn = IDX_PAUSE; sendClick(0); return true; }
+            if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_OC] + 1, 14, 14)) { pressedBtn = IDX_OC; sendClick(2); return true; }
+            if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_BATCH] + 1, 14, 14)) { pressedBtn = IDX_BATCH; sendClick(10); return true; }
+            if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_HEAT] + 1, 14, 14)) { pressedBtn = IDX_HEAT; sendClick(11); return true; }
         }
         return super.mouseClicked(mx, my, btn);
     }

@@ -175,8 +175,8 @@ Energy is deducted from energy input hatches as a lump sum when the recipe commi
 
 ### Parallel Hatch / 并行控制仓
 
-Each parallel hatch adds `4^(tier+1)` parallel operations (LV=16, MV=64, HV=256…), on top of the `baseParallel` config, capped by `maxParallelPerMachine`. Consumed by the batch pipeline (Phase 3).
-每个并行仓提供 `4^(tier+1)` 并行数加成（LV=16、MV=64、HV=256…），叠加 `baseParallel` 配置，受 `maxParallelPerMachine` 封顶。由批处理管线（Phase 3）消费。
+Each parallel hatch directly defines the machine's parallel count: LV=16, MV=32, HV=64… (2× per tier). With no hatch the `baseParallel` config applies. `maxParallelPerMachine` caps the total. Effective parallel auto-scales to the sustained energy input rate to avoid oscillation.
+并行仓直接指定机器的并行数：LV=16、MV=32、HV=64…（每级翻倍）。无仓时使用 `baseParallel` 配置。`maxParallelPerMachine` 封顶。有效并行按持续能量输入速率自动缩放，避免停启振荡。
 
 ---
 
@@ -368,7 +368,7 @@ boolean isFormed();
 | `energy_output` | ENERGY_OUTPUT | OmegaStorage — machine fills freely, discharge out at V×A / 机器灌入不限，对外放电限速V×A |
 | `input_assembly` | ITEM_INPUT + FLUID_INPUT | ItemStackHandler + FluidTank |
 | `output_assembly` | ITEM_OUTPUT + FLUID_OUTPUT | ItemStackHandler + FluidTank |
-| `parallel_hatch` | PARALLEL | — (adds 4^(tier+1) parallel ops / 并行加成) |
+| `parallel_hatch` | PARALLEL | — (LV=16, MV=32, HV=64… / 每级翻倍) |
 | `casing` | STRUCTURAL | — |
 
 Unknown PartTypes are **auto-registered** on part registration; abilities resolve by **path suffix** — an addon's `hv_energy_input` behaves like the built-in `energy_input`.

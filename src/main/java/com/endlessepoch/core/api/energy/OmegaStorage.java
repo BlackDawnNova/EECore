@@ -31,21 +31,32 @@ public class OmegaStorage implements IOmegaEnergyStorage {
     private final BigInteger maxInput;
     private final BigInteger maxOutput;
     private final VoltageTier tier;
+    private final int amperage;
     private OmegaValue energy = OmegaValue.zero();
 
     public OmegaStorage(long capacity, long maxIO, VoltageTier tier) {
-        this(BigInteger.valueOf(capacity), BigInteger.valueOf(maxIO), BigInteger.valueOf(maxIO), tier);
+        this(capacity, maxIO, maxIO, tier);
     }
 
     public OmegaStorage(long capacity, long maxInput, long maxOutput, VoltageTier tier) {
-        this(BigInteger.valueOf(capacity), BigInteger.valueOf(maxInput), BigInteger.valueOf(maxOutput), tier);
+        this(BigInteger.valueOf(capacity), BigInteger.valueOf(maxInput), BigInteger.valueOf(maxOutput), tier, 1);
     }
 
     public OmegaStorage(BigInteger capacity, BigInteger maxInput, BigInteger maxOutput, VoltageTier tier) {
+        this(capacity, maxInput, maxOutput, tier, 1);
+    }
+
+    /** Multi-amp version — gate scales with min(hatchAmps, packetAmps). / 多A版——限速随安培缩放。 */
+    public OmegaStorage(long capacity, long maxInput, long maxOutput, VoltageTier tier, int amperage) {
+        this(BigInteger.valueOf(capacity), BigInteger.valueOf(maxInput), BigInteger.valueOf(maxOutput), tier, amperage);
+    }
+
+    public OmegaStorage(BigInteger capacity, BigInteger maxInput, BigInteger maxOutput, VoltageTier tier, int amperage) {
         this.capacity = Objects.requireNonNull(capacity, "capacity must not be null");
         this.maxInput = Objects.requireNonNull(maxInput, "maxInput must not be null");
         this.maxOutput = Objects.requireNonNull(maxOutput, "maxOutput must not be null");
         this.tier = Objects.requireNonNull(tier, "tier must not be null");
+        this.amperage = amperage;
         for (VoltageTier vt : VoltageTier.values()) tieredEnergy.put(vt, OmegaValue.zero());
         this.energy = OmegaValue.zero();
     }
@@ -54,6 +65,7 @@ public class OmegaStorage implements IOmegaEnergyStorage {
         this.capacity = Objects.requireNonNull(capacity, "capacity must not be null").toBigInteger();
         this.maxInput = Objects.requireNonNull(maxInput, "maxInput must not be null").toBigInteger();
         this.maxOutput = Objects.requireNonNull(maxOutput, "maxOutput must not be null").toBigInteger();
+        this.amperage = 1;
         this.tier = Objects.requireNonNull(tier, "tier must not be null");
         for (VoltageTier vt : VoltageTier.values()) tieredEnergy.put(vt, OmegaValue.zero());
         this.energy = OmegaValue.zero();
@@ -155,20 +167,29 @@ public class OmegaStorage implements IOmegaEnergyStorage {
             if (!canInput(packet.getTier())) {
                 EnergyPacket stepped = packet.stepDownTo(tier);
                 if (stepped.isEmpty()) return null;
-                return receivePacketLocked(stepped, simulate);
+                return receivePacketLocked(stepped, simulate, packet.getAmperage());
             }
-            return receivePacketLocked(packet, simulate);
+            return receivePacketLocked(packet, simulate, packet.getAmperage());
         } finally { lock.writeLock().unlock(); }
     }
 
-    private EnergyPacket receivePacketLocked(EnergyPacket packet, boolean simulate) {
+    /** Per-packet gate: min(hatch amps, original packet amps) × hatch tier voltage. / 每包限速：min(仓安培, 原始包安培) × 仓电压。 */
+    private BigInteger computeGate(BigInteger origAmps) {
+        BigInteger effectiveAmps = origAmps.compareTo(BigInteger.valueOf(amperage)) < 0
+                ? origAmps : BigInteger.valueOf(amperage);
+        return tier.getMinVoltage().multiply(effectiveAmps);
+    }
+
+    private EnergyPacket receivePacketLocked(EnergyPacket packet, boolean simulate, BigInteger origAmps) {
         OmegaValue available = OmegaValue.of(capacity).subtract(energy);
         if (available.isZero()) return null;
 
         BigInteger packetEnergy = packet.getEnergy().toBigInteger();
-        if (maxInput.compareTo(BigInteger.ZERO) > 0) {
-            if (packetEnergy.compareTo(maxInput) > 0) {
-                BigInteger limitedEnergy = maxInput.min(available.toBigInteger());
+        BigInteger gate = computeGate(origAmps);
+        if (gate.compareTo(BigInteger.ZERO) > 0) {
+            if (packetEnergy.compareTo(gate) > 0) {
+                OmegaValue gateVal = OmegaValue.of(gate);
+                BigInteger limitedEnergy = OmegaValue.min(available, gateVal).toBigInteger();
                 if (!simulate) {
                     OmegaValue toStore = OmegaValue.of(limitedEnergy);
                     tieredEnergy.put(packet.getTier(), tieredEnergy.getOrDefault(packet.getTier(), OmegaValue.zero()).add(toStore));
