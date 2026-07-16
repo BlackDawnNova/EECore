@@ -542,6 +542,6 @@ See [Emissive API](emissive.md) for client extension setup.
 
 ## License / 许可
 
-**GNU GPL v3.0**
-Addon mods using EECore API must comply with GPL 3.0.
-附属 mod 使用 EECore API 需遵守 GPL 3.0。
+**GNU LGPL v3.0**
+Addon mods may use EECore API without open-sourcing their own code.
+附属 mod 使用 EECore API 无需开源自身代码。

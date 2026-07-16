@@ -2,7 +2,7 @@
 
 **无尽纪元核心模组**
 
-[![许可证](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![许可证](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
 [![NeoForge](https://img.shields.io/badge/NeoForge-21.1.234-green)](https://neoforged.net/)
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.21.1-orange)](https://minecraft.net/)
 
@@ -99,4 +99,4 @@ if (cap != null) cap.receivePacket(new EnergyPacket(VoltageTier.MV, 1, 128), fal
 
 ## 许可 / License
 
-[GNU GPL v3.0](LICENSE) © 2026 ForiLusa
+[GNU LGPL v3.0](LICENSE) © 2026 ForiLusa
