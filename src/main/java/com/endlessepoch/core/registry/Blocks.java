@@ -161,7 +161,7 @@ public class Blocks {
                                                                 long energyCap, int amperage, String en, String zh) {
         ResourceLocation rl = ResourceLocation.fromNamespaceAndPath("eecore", path);
         PartType type = PartType.get(rl);
-        if (type == null) type = PartType.register(rl, "block.eecore." + path); // auto-register / 自动注册
+        if (type == null) type = PartType.register(rl, "block.eecore." + path);
         final PartType fType = type;
         var sup = BLOCKS.register(path,
                 () -> new PartBlock(PartBlock.tieredProperties(tier), fType, tier, slots, fluidCap, energyCap, fluidSlots)

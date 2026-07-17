@@ -68,7 +68,12 @@ public final class MachineLoadLimiter {
     public static boolean submit(BatchTask task) {
         if (task.units().isEmpty()) return false;
         var q = QUEUES.computeIfAbsent(task.posHash(), k -> new MachineQueue());
-        q.chunks.addAll(chunk(task, Config.p3BatchSize));
+        var chunks = chunk(task, Config.p3BatchSize);
+        q.chunks.addAll(chunks);
+        if (Config.ebDebugLog)
+            EECore.LOGGER.debug("[EB-DBG] limiter @{}: {} chunks queued ({} units → {} shards)",
+                    task.posHash(), chunks.size(), task.units().size(),
+                    pendingShards(chunks, 0));
         warnIfOverloaded(task.posHash(), q);
         pump(task.posHash(), q);
         return true;

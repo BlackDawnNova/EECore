@@ -44,6 +44,12 @@ public final class BatchExecutor {
         if (ACTIVE_SHARDS.get() + shards > effectiveCap()) return false;
         ACTIVE_SHARDS.addAndGet(shards);
         Schedulers.forkJoin().submit(() -> {
+            // Log carries the worker thread name — direct proof compute left the main thread
+            // 日志行首自带线程名——计算离开主线程的直接证据
+            if (com.endlessepoch.core.Config.ebDebugLog)
+                com.endlessepoch.core.EECore.LOGGER.debug(
+                        "[EB-DBG] computing {} shard(s), {} units @{}",
+                        shards, task.units().size(), task.posHash());
             List<ShardResultUnit> out;
             try {
                 out = new ShardTask(task, 0, task.units().size(), RecipeSnapshotCache::get).invoke();

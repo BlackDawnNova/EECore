@@ -125,7 +125,7 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
                 var s = inventory.getStackInSlot(i);
                 if (!s.isEmpty()) kept.add(s);
             }
-            inventory.setSize(configured); // resets to empty at new size / 重设尺寸并清空
+            inventory.setSize(configured);
             for (int i = 0; i < kept.size() && i < configured; i++)
                 inventory.setStackInSlot(i, kept.get(i));
         }

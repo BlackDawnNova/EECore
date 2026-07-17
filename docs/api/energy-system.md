@@ -267,4 +267,34 @@ After 4 steps: × 0.8 = 40.96%
 Total loss: 59.04%
 ```
 
-	
+---
+
+## Machine Effective Voltage / 机器有效电压
+
+A formed machine's tier is decided by its **energy input hatches**, not the controller.
+成形机器的电压由**能源输入仓**决定，与控制器无关。
+
+```
+effective tier = highest hatch tier
+               + 1 if ≥2 hatches share that tier (dual-hatch boost, capped at QV)
+fallback: controller storage tier when no hatches
+有效电压 = 仓最高电压；同级 ≥2 仓增压 +1（封顶 QV）；无仓回退控制器
+```
+
+The effective tier drives the overclock: each tier above a recipe's `requiredTier` halves duration and doubles total energy.
+有效电压决定超频：每高出配方 `requiredTier` 一级，耗时减半、总能耗翻倍。
+
+---
+
+## Energy-Adaptive Parallel / 能量自适应并行
+
+Batch write-back speed auto-scales to the sustained energy input rate — under-powered machines slow down instead of oscillating start-stop.
+批处理写回速度按持续供电率自动缩放——供电不足时降速而非振荡停启。
+
+```
+sustained rate  = Σ (hatch tier voltage × amperage)     // saturating math, QV-safe / 饱和运算防 QV 溢出
+effective parallel = min(hardware parallel, rate × duration ÷ energyPerOp)
+```
+
+The machine GUI shows `Parallel eff/hw` during batching — orange when energy-limited, green at full.
+批处理时机器 GUI 显示 `并行 有效/硬件`——供电受限橙色，满额绿色。

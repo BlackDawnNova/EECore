@@ -30,9 +30,17 @@ public final class Phase3Driver {
         double cpuScale = CpuLoadGuard.scale(CpuMonitor.usage(),
                 Config.p3CpuWarnThreshold, Config.p3CpuHighThreshold, Config.p3CpuCriticalThreshold);
 
-        BatchExecutor.setConcurrencyScale(Math.min(tpsScale, cpuScale));
+        double scale = Math.min(tpsScale, cpuScale);
+        BatchExecutor.setConcurrencyScale(scale);
         MainThreadRateLimiter.newTick(Config.p3MainThreadLimit);
         MachineLoadLimiter.pumpAll();
+
+        if (Config.ebDebugLog && event.getServer().getTickCount() % Config.ebDebugInterval == 0)
+            EECore.LOGGER.debug("[EB-DBG] throttle: scale={}, TPS={}, CPU={}%, shards={}",
+                    String.format("%.2f", scale),
+                    String.format("%.1f", TpsQuotaManager.GLOBAL.tps(event.getServer().tickRateManager().tickrate())),
+                    String.format("%.0f", CpuMonitor.usage() * 100),
+                    BatchExecutor.activeShards());
 
         logTierChanges(tpsScale, cpuScale);
     }

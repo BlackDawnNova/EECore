@@ -146,7 +146,7 @@ public class CreativeHatchBlockEntity extends PartBlockEntity implements VoidSta
     private void recordVoidedFluid(FluidStack stack) {
         int id = net.minecraft.core.registries.BuiltInRegistries.FLUID.getId(stack.getFluid());
         synchronized (voidedFluids) {
-            if (!voidedFluids.containsKey(id) && voidedFluids.size() >= MAX_TRACKED) return; // cap types / 种类封顶
+            if (!voidedFluids.containsKey(id) && voidedFluids.size() >= MAX_TRACKED) return;
             voidedFluids.merge(id, (long) stack.getAmount(), Long::sum);
         }
         setChanged();

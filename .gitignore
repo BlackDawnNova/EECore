@@ -93,3 +93,6 @@ run/
 runs/
 tools/
 src/generated/
+
+# Gradle Kotlin daemon session files / Gradle Kotlin 守护进程会话文件
+.kotlin/

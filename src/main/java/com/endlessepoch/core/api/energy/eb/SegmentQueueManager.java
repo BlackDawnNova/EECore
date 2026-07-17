@@ -14,7 +14,7 @@ public final class SegmentQueueManager {
     // Config value read once at lazy class init (0 = auto CPU×2) / 懒加载时读取一次配置（0=自动 CPU×2）
     private static final int SEGMENT_COUNT = com.endlessepoch.core.Config.ebSegmentCount > 0
             ? com.endlessepoch.core.Config.ebSegmentCount
-            : Math.max(4, Schedulers.CPU * 2);
+            : Math.max(4, Schedulers.LOGICAL_CPU * 2);
     private static final int LOCAL_FLUSH = 10;
     static final int MAX_QUEUE = 16384;
 

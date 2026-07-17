@@ -134,8 +134,8 @@ public class BusMenu extends AbstractContainerMenu {
         int firstBus=fluidSlots, lastBus=firstBus+slotCount-1;
         if(creative&&slotId>=firstBus&&slotId<=lastBus){
             if(bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb){
-                if(button==1) cb.setTemplate(slotId-firstBus,ItemStack.EMPTY);          // clear / 清除
-                else if(!getCarried().isEmpty()) cb.setTemplate(slotId-firstBus,getCarried()); // set / 设置
+                if(button==1) cb.setTemplate(slotId-firstBus,ItemStack.EMPTY);
+                else if(!getCarried().isEmpty()) cb.setTemplate(slotId-firstBus,getCarried());
             }
             return;
         }
@@ -186,7 +186,7 @@ public class BusMenu extends AbstractContainerMenu {
         if (creative) {
             if (bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb) {
                 if (idx >= firstBusSlot && idx <= lastBusSlot) {
-                    cb.setTemplate(idx - firstBusSlot, ItemStack.EMPTY); // clear / 清除
+                    cb.setTemplate(idx - firstBusSlot, ItemStack.EMPTY);
                 } else {
                     for (int i = 0; i < slotCount; i++) {
                         if (cb.getInventory().getStackInSlot(i).isEmpty()) { cb.setTemplate(i, src); break; }

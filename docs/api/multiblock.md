@@ -10,7 +10,7 @@ EECore 多方块框架：定义 → 自动注册 → 搭建 → 成形。
 - **Pattern**: Character-encoded 3D structure (layered grid + block mapping table) / 字符编码 3D 结构（多层网格 + 方块映射表）
 - **Character pool**: A=Air, K=Controller, #=Wildcard. Auto-expands to 65,000 chars in 16-bit mode / A=空气，K=控制器，#=通配符，自动扩展到 65000 字符（16-bit 模式）
 - **.ecs format**: EECore private binary format v3, deflate + CRC32 / EECore 私有二进制格式 v3，deflate + CRC32
-- **Tag**: Label a character (e.g. `"gregtech:input_hatch"`). Meaning defined by addon mods via `TagDefRegistry` / 给字符打标签名，含义由附属 mod 通过 `TagDefRegistry` 定义
+- **Tag**: Label a character (e.g. `"myaddon:input_hatch"`). Meaning defined by addon mods via `TagDefRegistry` / 给字符打标签名，含义由附属 mod 通过 `TagDefRegistry` 定义
 - **Controller**: Block implementing `IMultiBlockController` / 实现 `IMultiBlockController` 的方块
 - **Forming**: Shift+Right-click controller → match pattern → validate blocks and tag counts / Shift+右键控制器 → 匹配 Pattern → 验证方块和 tag 数量
 
@@ -293,7 +293,7 @@ new MultiBlockPattern(w, h, d, cx, cy, cz, layers, definitions);
 pattern.addAlternatives('B', ironBlock, steelBlock);
 pattern.getAlternatives('B');   // → {original, alternatives}
 pattern.getTags('C');           // → ["tag_name"]
-pattern.setTags('C', List.of("gregtech:input_hatch"));
+pattern.setTags('C', List.of("myaddon:input_hatch"));
 ```
 
 ### EECoreCodec
@@ -322,7 +322,7 @@ Tags define valid blocks for pattern characters. Limits use `MultiblockLoader.li
 标签定义 Pattern 字符的有效方块。上限用 `MultiblockLoader.limit()`。
 
 ```java
-TagDefRegistry.register("gregtech:input_hatch",
+TagDefRegistry.register("myaddon:input_hatch",
     Set.of(SLV_HATCH, LV_HATCH, HV_HATCH)
 );
 ```
@@ -368,7 +368,7 @@ boolean isFormed();
 | `energy_output` | ENERGY_OUTPUT | OmegaStorage — machine fills freely, discharge out at V×A / 机器灌入不限，对外放电限速V×A |
 | `input_assembly` | ITEM_INPUT + FLUID_INPUT | ItemStackHandler + FluidTank |
 | `output_assembly` | ITEM_OUTPUT + FLUID_OUTPUT | ItemStackHandler + FluidTank |
-| `parallel_hatch` | PARALLEL | — (LV=16, MV=32, HV=64… / 每级翻倍) |
+| `parallel_hatch` | PARALLEL | getParallelBonus(): 1 << (tier+3) (LV=16, MV=32… QV=16384) |
 | `casing` | STRUCTURAL | — |
 
 Unknown PartTypes are **auto-registered** on part registration; abilities resolve by **path suffix** — an addon's `hv_energy_input` behaves like the built-in `energy_input`.
@@ -406,16 +406,18 @@ new PartBlock(...).amperage(4)   // charge/discharge rate = tier voltage × 4 / 
 PartBlock.tieredProperties(int tier)   // h=3+tier*3, blast=6+tier*3
 PartBlock.toolTagForTier(int tier)     // needs_stone/iron/diamond/netherite_tool
 PartBlock.VALID_AMPERAGES              // {1, 2, 4, 8, 16}
-PartBlock.DEFAULT_BUS_SLOTS            // 2
+PartBlock.DEFAULT_BUS_SLOTS            // 2 (built-in test bus uses 16)
 PartBlock.DEFAULT_ASSEMBLY_SLOTS       // 4
 PartBlock.MAX_SLOTS                    // 81
+PartBlock.busSlotsForTier(tier)         // (1+min(9,tier))²: LV 4, MV 9, HV 16, ..., cap 100
+PartBlock.isCreativeBus(type)           // "creative_" prefix detection
 ```
 
 #### One-Click Part Registration / 部件一键注册
 
 ```java
 // EECore internal — one line in Blocks.java / EECore 内部一行
-INPUT_BUS = registerPartBlock("input_bus", 1, 2, 0, 0, 0, "Input Bus", "输入总线");
+INPUT_BUS = registerPartBlock("input_bus", 1, 16, 0, 0, 0, "Input Bus", "输入总线");
 //           path, tier, slots, fluidCap, fluidSlots, energyCap, nameEn, nameZh
 // Tiered energy hatch with amperage / 分级多安培能源仓
 registerPartBlock("hv_energy_input", 3, 0, 0, 0, 4_000_000, 4, "HV Energy Hatch", "HV能源仓");
@@ -448,6 +450,57 @@ bus.getInventory()     // IItemHandler (hopper/pipe compatible / 漏斗管道可
 bus.getSlotCount()     // configurable at construction time / 构造时可配
 bus.isOutput()         // true for output bus/assembly / 输出总线/总成为 true
 ```
+
+
+#### getAutomationHandler / 自动化方向限制
+
+Direction-restricted view for pipes/hoppers. Wraps `getInventory()`: input buses are insert-only, output buses extract-only. The controller and GUI keep full access via `getInventory()`.
+管道/漏斗的方向受限视图。包装 `getInventory()`：输入总线只进不出，输出总线只出不进。控制器和 GUI 通过 `getInventory()` 保持全权。
+
+```java
+bus.getAutomationHandler()  // IItemHandler — pipes use this via capability
+bus.getInventory()          // IItemHandler — controller & GUI full access
+bus.isCreative()            // true for creative_ prefixed parts
+```
+
+Creative parts (`creative_input_bus`, `creative_output_bus`) return their raw handler — directionality is built into the infinite source / void sink semantics.
+创造部件返回原句柄——无限源/虚空已内建方向语义。
+
+#### getParallelBonus / 并行加成
+
+Each parallel hatch contributes a parallel bonus. Controllers sum across all hatches. Creative hatches override with a GUI-set value.
+每个并行仓贡献并行加成。控制器跨全部仓求和。创造仓可覆写 GUI 设定值。
+
+```java
+pe.getParallelBonus()   // default: 1 << (tier+3) → LV=16, QV=16384
+                         // CreativeParallelHatch: user-set [16, 16384]
+```
+
+#### PartCategory / 部件类别绑定
+
+Define valid structural blocks for a multiblock by **category suffix** instead of enumerating blocks. Creative and addon variants are automatically included.
+定义多方块合法部件——**按类别后缀**替代逐个方块点名。创造与附属变体自动归入。
+
+```java
+.where("EE-3", PartCategory.ANY_FUNCTIONAL)            // bind all non-casing parts
+.limit("EE-3", PartCategory.ITEM_INPUT_BUS, 2)         // total input buses ≤ 2 (incl. creative variants)
+.limit("EE-3", PartCategory.ENERGY_INPUT, 2)           // energy hatches ≤ 2 (dual-boost, addon included)
+```
+
+#### Creative Test Parts / 创造测试件
+
+`creative_` prefixed parts for pipeline testing. Register one line, suffix-routed to creative behaviour.
+`creative_` 前缀用于管线测试——一行注册，后缀路由至创造行为。JEI 拖拽配置：
+
+| Part | Slot Count | Behaviour / 行为 |
+|------|-----------|-------------------|
+| creative_input_bus | 16 | Phantom templates → infinite full stacks (left-click count popup [1,1M], right-click clear) / 幻影模板→无限整叠(左键弹数量框[1,100万]，右键清除) |
+| creative_output_bus | — | Void sink + ingested-stats GUI (clear button) / 虚空+吞噬统计GUI(清空) |
+| creative_energy_input | — | Infinite Ω, GUI tier stepper (◀▶ + LV/HV/QV presets + amperage 1-16) / 无限Ω+GUI调档 |
+| creative_parallel_hatch | — | GUI number input [16, 16384] + confirm / GUI 数字输入+确定 |
+| creative_fluid_input | — | Bucket-click sets template (no consume), JEI drag fluid / 桶点设模板(不消耗)+JEI拖流体 |
+| creative_input_assembly | 16 item + 16 fluid | Double 4×4 grid (items left, fluids right) + JEI dual-target / 左4×4物品 右4×4流体+JEI双目标 |
+| creative_output_assembly | — | Void items + fluids, mixed stats GUI / 物品+流体全吞, 混合统计GUI |
 
 #### PartBlockEntity / 部件基类 BE
 

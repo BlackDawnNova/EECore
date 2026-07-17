@@ -174,8 +174,8 @@ public class Config {
                         "使用 ForkJoinPool 并行操作（Phase 3）。需重启生效。")
                 .define("forkJoin", false);
         EB_FJ_PARALLELISM = b
-                .comment("ForkJoinPool thread parallelism. 0 = auto: CPU−1 (pure-compute pool; shard concurrency is a separate cap). Requires restart.",
-                        "ForkJoin 线程并行度。0=自动：CPU−1（纯计算池；分片并发数是另一个上限）。需重启生效。")
+                .comment("ForkJoinPool thread parallelism. 0 = auto: physical-cores−1 (pure-compute pool; shard concurrency is a separate cap). Requires restart.",
+                        "ForkJoin 线程并行度。0=自动：物理核心−1（纯计算池；分片并发数是另一个上限）。需重启生效。")
                 .defineInRange("fjParallelism", 0, 0, 16384);
         EB_SEGMENT_COUNT = b
                 .comment("SegmentQueueManager shard count. 0 = auto: CPU × 2. Requires restart.",

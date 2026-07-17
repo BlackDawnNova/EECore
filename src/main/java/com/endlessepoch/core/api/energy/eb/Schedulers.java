@@ -16,7 +16,9 @@ import java.util.concurrent.TimeUnit;
  */
 public final class Schedulers {
 
-    static final int CPU = Runtime.getRuntime().availableProcessors();
+    static final int LOGICAL_CPU = Runtime.getRuntime().availableProcessors();
+    /** Physical cores (half of logical on x86 HT) — more accurate for pure-compute pool sizing. / 物理核心数——纯计算池配线程数更准。 */
+    static final int PHYSICAL_CPU = Math.max(1, LOGICAL_CPU / 2);
 
     private static volatile ExecutorService background;
     private static volatile ForkJoinPool forkJoin;
@@ -28,8 +30,7 @@ public final class Schedulers {
             synchronized (Schedulers.class) {
                 p = background;
                 if (p == null || p.isShutdown()) {
-                    // Auto: server CPU−1, small hosts CPU/2, min 2 / 自动：CPU−1，小机 CPU/2，至少 2
-                    int size = resolve(Config.ebBgThreads, Math.max(2, CPU >= 4 ? CPU - 1 : CPU / 2));
+                    int size = resolve(Config.ebBgThreads, Math.max(2, LOGICAL_CPU >= 4 ? LOGICAL_CPU - 1 : LOGICAL_CPU / 2));
                     background = p = Executors.newFixedThreadPool(size, r -> {
                         var t = new Thread(r, "EECore-EB-worker");
                         t.setDaemon(true);
@@ -48,12 +49,13 @@ public final class Schedulers {
             synchronized (Schedulers.class) {
                 p = forkJoin;
                 if (p == null || p.isShutdown()) {
-                    // Pure-compute pool: threads ≈ cores. Shard CONCURRENCY (queued tasks)
-                    // is a separate knob clamped to [1024, 16384] in BatchExecutor.
-                    // 纯计算池：线程数≈核心数。分片"并发数"是任务排队量，
-                    // 由 BatchExecutor 另行钳位 [1024, 16384]，与线程数无关。
+                    // Pure-compute threads ≈ physical cores − 1 (leave one for main thread).
+                    // Shard CONCURRENCY (queued tasks) is a separate knob clamped to [1024, 16384].
+                    // 纯计算线程 ≈ 物理核心 − 1（留一个给主线程）。
+                    // 分片"并发数"是任务排队量，独立于线程数，由 BatchExecutor 钳位 [1024, 16384]。
+                    int workers = resolve(Config.ebFjParallelism, Math.max(2, PHYSICAL_CPU - 1));
                     forkJoin = p = new ForkJoinPool(
-                            resolve(Config.ebFjParallelism, Math.max(2, CPU - 1)),
+                            workers,
                             ForkJoinPool.defaultForkJoinWorkerThreadFactory,
                             (t, e) -> System.err.println("[EB] ForkJoin uncaught: " + e.getMessage()),
                             false);

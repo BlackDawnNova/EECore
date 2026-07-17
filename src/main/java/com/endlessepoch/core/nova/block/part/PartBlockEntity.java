@@ -68,7 +68,6 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
         }
         if (abilities.contains(PartAbility.ENERGY_INPUT) || abilities.contains(PartAbility.ENERGY_OUTPUT)) {
             long ec = energyCap > 0 ? energyCap : 10000;
-            // Rate = tier voltage × amperage / 速率 = 电压 × 安培
             var tierV = VoltageTier.fromOrdinal(tier);
             java.math.BigInteger io = tierV.getMinVoltage()
                     .multiply(java.math.BigInteger.valueOf(Math.max(1, amperage)));
