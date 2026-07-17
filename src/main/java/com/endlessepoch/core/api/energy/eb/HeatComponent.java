@@ -28,7 +28,7 @@ public class HeatComponent {
     private final Map<ResourceLocation, Double> heatSlots = new ConcurrentHashMap<>();
 
     /** Last tick the machine was actively processing (any profile). / 机器最后活跃的 tick */
-    private long lastActiveTick;
+    private volatile long lastActiveTick;
 
     /** Currently active profile, or null if idle. For NBT only, not used in logic. / 当前活跃配方 */
     private ResourceLocation activeProfile;
@@ -44,23 +44,16 @@ public class HeatComponent {
      * 获取指定 profile 的当前热量（含惰性冷却衰减），纯读取不修改。
      */
     public double getHeat(ResourceLocation profileId, long currentTick) {
-        lock.readLock().lock();
-        try {
-            Double stored = heatSlots.get(profileId);
-            if (stored == null || stored <= 0) return 0.0;
-            long elapsed = currentTick - lastActiveTick;
-            if (elapsed <= 0 || Config.coolDownRate <= 0) return stored;
-            return Math.max(0.0, stored - elapsed * Config.coolDownRate);
-        } finally {
-            lock.readLock().unlock();
-        }
+        Double stored = heatSlots.get(profileId);
+        if (stored == null || stored <= 0) return 0.0;
+        long elapsed = currentTick - lastActiveTick;
+        if (elapsed <= 0 || Config.coolDownRate <= 0) return stored;
+        return Math.max(0.0, stored - elapsed * Config.coolDownRate);
     }
 
     /** Get stored heat without applying cooling. For GUI display. / 不带冷却的原始热量（GUI显示用） */
     public double getHeatRaw(ResourceLocation profileId) {
-        lock.readLock().lock();
-        try { return heatSlots.getOrDefault(profileId, 0.0); }
-        finally { lock.readLock().unlock(); }
+        return heatSlots.getOrDefault(profileId, 0.0);
     }
 
     /** Returns the active profile (for NBT). / 当前活跃配方 ID */
@@ -93,9 +86,15 @@ public class HeatComponent {
                 current *= Config.heatSwitchDecay;
             }
 
+            // Fallback maxHeat: recipe JSON may omit it → use HeatMapCache default
+            // 回退 maxHeat：配方 JSON 未定义时取 HeatMapCache 默认值
+            double cap = maxHeat > 0 ? maxHeat
+                    : java.util.Optional.ofNullable(HeatMapCache.get(profileId))
+                            .map(HeatConfig::maxHeat).orElse(10.0);
+
             // Gain heat for this recipe completion / 完成一次配方涨一次热量
             current += Config.heatUpRate;
-            current = Math.min(maxHeat, current);
+            current = Math.min(cap, current);
 
             heatSlots.put(profileId, current);
             activeProfile = profileId;

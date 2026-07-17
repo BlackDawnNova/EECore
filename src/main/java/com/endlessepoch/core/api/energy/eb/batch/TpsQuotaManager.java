@@ -1,12 +1,15 @@
 package com.endlessepoch.core.api.energy.eb.batch;
 
 /**
- * 20-tick sliding-average TPS sampler with dead-band tiering.
+ * 20-tick sliding-median TPS sampler with dead-band tiering.
+ * Median ignores outlier spikes (auto-save etc.) that would falsely trigger
+ * emergency mode with a mean-based window.
  * Tiers: above full threshold → 1.0 (full concurrency); between → 0.8 (reduced);
  * at or below reduced threshold → 0.0 (emergency: effectively single serial shard).
  * A ±0.1 TPS dead band keeps the tier from flapping at the boundaries.
  * Pure computation — nanoTime and thresholds are injected, unit-testable.
- * 20-tick 滑动平均 TPS 采样器 + 死区分档。
+ * 20-tick 滑动中位数 TPS 采样器 + 死区分档。中位数免疫异常尖峰（自动存档等），
+ * 避免基于均值的窗口误触发紧急模式。
  * 高于全开阈值→1.0；两阈值之间→0.8；低于等于紧急阈值→0.0（仅单条串行分片）。
  * ±0.1 TPS 死区防止档位在阈值边缘抖动。纯计算——时间与阈值参数注入，可单测。
  */
@@ -52,13 +55,24 @@ public final class TpsQuotaManager {
         return scaleOf(tier);
     }
 
-    /** Sliding-average TPS, clamped to the target tick rate. / 滑动平均 TPS，钳位到目标 tickrate。 */
+    /**
+     * Sliding-median TPS, clamped to the target tick rate.
+     * Median ignores auto-save spikes (a single 300ms tick in a 20-tick window
+     * drags the mean below 16.5; the median stays at 20.0).
+     * 滑动中位数 TPS，钳位到目标 tickrate。
+     * 中位数免疫自动存档尖峰（20 tick 窗口中单个 300ms 长 tick
+     * 会把均值拉到 16.5 以下；中位数保持 20.0）。
+     */
     public double tps(double targetTickRate) {
         if (filled == 0) return targetTickRate;
-        long sum = 0;
-        for (int i = 0; i < filled; i++) sum += intervals[i];
-        if (sum <= 0) return targetTickRate;
-        double raw = filled * 1_000_000_000.0 / sum;
+        long[] sorted = new long[filled];
+        System.arraycopy(intervals, 0, sorted, 0, filled);
+        java.util.Arrays.sort(sorted);
+        long median = (filled % 2 == 0)
+                ? (sorted[filled / 2 - 1] + sorted[filled / 2]) / 2
+                : sorted[filled / 2];
+        if (median <= 0) return targetTickRate;
+        double raw = 1_000_000_000.0 / median;
         return Math.min(targetTickRate, raw);
     }
 

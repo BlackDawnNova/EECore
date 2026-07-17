@@ -28,7 +28,7 @@ class BatchExecutorTest {
     }
 
     private static BatchTask task(int machineTier, List<InputUnit> units) {
-        return new BatchTask(1L, machineTier, 0.0, 1.5, 8, true, units);
+        return new BatchTask(1L, machineTier, 0.0, 1.5, 8, true, 16384, Long.MAX_VALUE, units);
     }
 
     private static final LongFunction<List<RecipeSnapshot>> LOOKUP = itemId -> {
@@ -86,10 +86,10 @@ class BatchExecutorTest {
 
     @Test
     void mergeResults_sumsOpsByKey() {
-        var a = List.of(new ShardResultUnit(1, IRON, 10, 0, 100, new long[]{INGOT}, new long[]{1}, 10.0));
+        var a = List.of(new ShardResultUnit(1, IRON, 10, 0, 100, new long[]{INGOT}, new long[]{1}, 10.0, 100, 100));
         var b = List.of(
-                new ShardResultUnit(1, IRON, 5, 0, 100, new long[]{INGOT}, new long[]{1}, 10.0),
-                new ShardResultUnit(3, GOLD, 2, 0, 150, new long[]{NUGGET}, new long[]{3}, 10.0));
+                new ShardResultUnit(1, IRON, 5, 0, 100, new long[]{INGOT}, new long[]{1}, 10.0, 100, 100),
+                new ShardResultUnit(3, GOLD, 2, 0, 150, new long[]{NUGGET}, new long[]{3}, 10.0, 100, 100));
         var merged = BatchExecutor.mergeResults(a, b);
         assertEquals(2, merged.size());
         assertEquals(15, merged.stream().filter(u -> u.recipeIdHash() == 1).findFirst().orElseThrow().ops());

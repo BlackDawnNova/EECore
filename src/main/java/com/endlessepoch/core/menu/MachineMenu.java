@@ -62,7 +62,6 @@ public class MachineMenu extends AbstractContainerMenu {
     public int getVoltageBlockedTier() { return data.get(10) - 1; }
     /** Matched recipe waiting for energy. / 配方已匹配但在等能量 */
     public boolean isEnergyBlocked() { return data.get(11) != 0; }
-    public boolean isBatchEnabled() { return data.get(12) != 0; }
     public boolean isHeatEnabled() { return data.get(13) != 0; }
     public boolean isOverclockEnabled() { return data.get(14) != 0; }
     public int getEffectiveTier() { return data.get(15); }
@@ -92,7 +91,6 @@ public class MachineMenu extends AbstractContainerMenu {
         if (mc == null) return false;
         if (id == 0) { mc.togglePause(); syncFromBE(); return true; }
         if (id == 2) { mc.toggleOverclock(); syncFromBE(); return true; }
-        if (id == 10) { mc.toggleBatch(); syncFromBE(); return true; }
         if (id == 11) { mc.toggleHeat();  syncFromBE(); return true; }
         if (id >= 3) {
             var types = getSupportedProfiles();
@@ -119,10 +117,12 @@ public class MachineMenu extends AbstractContainerMenu {
         data.set(7, mc.isOutputBlocked() ? 1 : 0);
         // Heat: only update when changed (lazy, not per-tick) / 热量仅在变化时更新
         var hc = mc.getHeatComponent();
-        var hConfig = com.endlessepoch.core.api.energy.eb.HeatMapCache.get(mc.getCurrentProfileId());
-        if (hConfig != null && com.endlessepoch.core.Config.heatEnabled) {
+        if (com.endlessepoch.core.Config.heatEnabled) {
             double heat = hc.getHeatRaw(mc.getCurrentProfileId());
-            int mille = Math.min(1000, (int)(heat / Math.max(1.0, hConfig.maxHeat()) * 1000));
+            double maxH = java.util.Optional.ofNullable(
+                            com.endlessepoch.core.api.energy.eb.HeatMapCache.get(mc.getCurrentProfileId()))
+                    .map(com.endlessepoch.core.api.energy.eb.HeatConfig::maxHeat).orElse(10.0);
+            int mille = heat > 0 ? Math.min(1000, (int)(heat / Math.max(1.0, maxH) * 1000)) : 0;
             if (mille != data.get(8)) data.set(8, mille); // only sync on change / 仅变化时同步
         } else {
             if (data.get(8) != 0) data.set(8, 0);
@@ -132,7 +132,7 @@ public class MachineMenu extends AbstractContainerMenu {
         if (boost != data.get(9)) data.set(9, boost);
         data.set(10, mc.getVoltageBlockedTier() + 1);
         data.set(11, mc.isEnergyBlocked() ? 1 : 0);
-        data.set(12, mc.isBatchEnabled() ? 1 : 0);
+        data.set(12, 0); // B button retired, always 0 / B 按钮已退役，恒为 0
         data.set(13, mc.isHeatEnabled() ? 1 : 0);
         data.set(14, mc.isOverclockEnabled() ? 1 : 0);
         data.set(15, mc.getEffectiveTier());

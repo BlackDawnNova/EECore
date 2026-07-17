@@ -95,4 +95,39 @@ class TpsQuotaManagerTest {
         assertEquals(2, m.tier());
         assertEquals(1.0, feed(m, 1, 5, 70_000_000L)); // warming up again / 重新预热
     }
+
+    /**
+     * Median TPS ignores a single auto-save spike (300ms) in a window of 19 normal 50ms ticks.
+     * Mean would be ~15.4 TPS (≈emergency); median stays at 20 TPS (full).
+     * 中位数 TPS 忽略窗口中单个自动存档尖峰（300ms）。均值会掉到 ~15.4（≈紧急），中位数保持 20。
+     */
+    @Test
+    void medianIgnoresSingleSpike() {
+        var m = new TpsQuotaManager();
+        long nano = 1;
+        // Fill window with 20 ticks at 50ms / 填 20 个 50ms tick
+        for (int i = 0; i < 20; i++) {
+            m.tick(nano, TARGET, FULL, REDUCED);
+            nano += 50_000_000L; // 50ms → 20 TPS
+        }
+        assertEquals(20.0, m.tps(TARGET), 0.01);
+        assertEquals(2, m.tier());
+
+        // Inject one 300ms spike (auto-save), keep others at 50ms
+        // 注入一个 300ms 尖峰（自动存档），其余保持 50ms
+        m.tick(nano, TARGET, FULL, REDUCED);
+        nano += 300_000_000L; // spike / 尖峰
+        for (int i = 0; i < 19; i++) {
+            m.tick(nano, TARGET, FULL, REDUCED);
+            nano += 50_000_000L;
+        }
+
+        // Median of 20 intervals: 19×50ms + 1×300ms → median is 50ms → TPS = 20
+        // 20 个间隔的中位数：19×50ms + 1×300ms → 中位 50ms → TPS=20
+        double tps = m.tps(TARGET);
+        assertTrue(tps >= 18.0, "median TPS should stay high despite spike, got " + tps);
+        // Tier still at 2 — spike didn't trigger emergency / 档位仍在全开——尖峰未触发紧急模式
+        m.tick(nano, TARGET, FULL, REDUCED);
+        assertEquals(2, m.tier());
+    }
 }

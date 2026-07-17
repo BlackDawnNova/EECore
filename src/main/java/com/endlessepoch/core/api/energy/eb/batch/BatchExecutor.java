@@ -54,7 +54,7 @@ public final class BatchExecutor {
             try {
                 out = new ShardTask(task, 0, task.units().size(), RecipeSnapshotCache::get).invoke();
             } catch (Throwable e) {
-                System.err.println("[EB-P3] batch compute failed @" + task.posHash() + ": " + e);
+                com.endlessepoch.core.EECore.LOGGER.error("[EB-P3] batch compute failed @{}", task.posHash(), e);
                 out = List.of();
             } finally {
                 ACTIVE_SHARDS.addAndGet(-shards);
@@ -70,6 +70,22 @@ public final class BatchExecutor {
     }
 
     public static int activeShards() { return ACTIVE_SHARDS.get(); }
+
+    /**
+     * Compute a batch inline on the calling thread — no ForkJoin overhead.
+     * Used by the Tier 1 (<8 units) and Tier 2 (8–31 units) dispatch paths.
+     * 在当前线程内联计算批次——无 ForkJoin 开销。供轻/中两档调用。
+     */
+    public static List<ShardResultUnit> computeInline(BatchTask task) {
+        if (task.units().isEmpty()) return List.of();
+        List<ShardResultUnit> out = null;
+        for (int i = 0; i < task.units().size(); i += SHARD_SIZE) {
+            int to = Math.min(i + SHARD_SIZE, task.units().size());
+            var leaf = computeLeaf(task, i, to, RecipeSnapshotCache::get);
+            out = (out == null) ? leaf : mergeResults(out, leaf);
+        }
+        return out != null ? out : List.of();
+    }
 
     /** ceil(units / 16) / 分片数 */
     static int shardCount(int units) {
@@ -105,14 +121,19 @@ public final class BatchExecutor {
                 if (best == null || s.requiredTierIndex() > best.requiredTierIndex()) best = s;
             }
             if (best == null) continue;
-            int oc = OverclockUtil.overclockCount(t.machineTier(), best.requiredTierIndex(), t.maxOverclock());
+            int ocRaw = OverclockUtil.overclockCount(t.machineTier(), best.requiredTierIndex(), t.maxOverclock());
+            int oc = OverclockUtil.optimalOverclock(t.hardwareCap(), t.totalRate(),
+                    best.durationTicks(), best.energyPerTick(), ocRaw);
             long energyPerOp = t.energyEnabled()
                     ? OverclockUtil.computeEnergyPerUnit(best.energyPerTick(), best.durationTicks(), oc)
                     : 0L;
             long duration = OverclockUtil.finalDuration(best.durationTicks(), oc,
                     t.heatValue(), best.maxHeat(), t.speedBoostMax());
+            double hf = OverclockUtil.heatFactor(t.heatValue(), best.maxHeat(), t.speedBoostMax());
+            int ocMul = Math.max(100, (int) ((1L << oc) * 100));
+            int speedMul = Math.max(100, (int) Math.round(ocMul * hf));
             var unit = new ShardResultUnit(best.recipeIdHash(), u.itemId(), u.count(),
-                    energyPerOp, duration, best.outputItemIds(), best.outputCounts(), best.maxHeat());
+                    energyPerOp, duration, best.outputItemIds(), best.outputCounts(), best.maxHeat(), speedMul, ocMul);
             agg.merge(new AggKey(best.recipeIdHash(), u.itemId()), unit,
                     (a, b) -> a.withOps(a.ops() + b.ops()));
         }

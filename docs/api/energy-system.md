@@ -298,3 +298,68 @@ effective parallel = min(hardware parallel, rate × duration ÷ energyPerOp)
 
 The machine GUI shows `Parallel eff/hw` during batching — orange when energy-limited, green at full.
 批处理时机器 GUI 显示 `并行 有效/硬件`——供电受限橙色，满额绿色。
+
+---
+
+## Auto-Batch Tiers / 智能批处理三档
+
+Recipe processing auto-dispatches into three tiers — no manual toggle needed:
+
+| Pending items | Computation | Write-back |
+|---|---|---|
+| < 32 | Main thread (inline) | Batched with parallel |
+| ≥ 32 | ForkJoin worker threads | Batched with parallel |
+
+Non-machine recipes (vanilla furnace etc.) keep the classic event-driven path.
+
+配方自动三档分发——无需手动开关：
+
+| 待处理数 | 计算 | 写回 |
+|---|---|---|
+| < 32 | 主线程内联 | 批量并行写回 |
+| ≥ 32 | ForkJoin 多线程 | 批量并行写回 |
+
+非机器配方（原版熔炉等）保留经典事件驱动路径。
+
+---
+
+## Optimal Overclock / 最优超频
+
+When overclock is enabled, the machine auto-selects the highest tier that actually increases throughput given current power input. If the energy supply cannot sustain even one tier of overclock, it falls back to 0 — preventing the counter-intuitive slowdown of "overclock ON but slower."
+
+超频开启时，机器自动取当前供电下吞吐量最大的级数。若供电连一级超频都撑不起，自动退回零级——杜绝"开了超频反而慢"的反直觉行为。
+
+`OverclockUtil.optimalOverclock(hardwareCap, totalRate, baseDuration, baseEnergy, maxOc)`
+
+---
+
+## Heat System / 热量系统
+
+Per-profile heat slots with lazy cooling. Heat builds per recipe completion and decays during idle ticks. Heat provides a pure speed bonus — it does not affect energy cost.
+
+每 profile 独立热量槽，惰性冷却。完成一次配方涨一次热量，闲置时衰减。热量只加速不增能耗。
+
+```
+heatFactor = 1.0 + (heat / maxHeat) × (speedBoostMax − 1.0)
+```
+Heat and overclock stack multiplicatively: `finalDuration = baseDuration ÷ 2^oc ÷ heatFactor`.
+热量与超频乘法叠加。
+
+Machine GUI shows `⚡ N.Nx` — combined overclock × heat multiplier, updated when heat actually changes.
+机器 GUI 显示 `⚡ N.Nx`——超频×热量综合倍率，仅在热量变化时更新。
+
+---
+
+## Backpressure States / 背压状态
+
+Five debounced states replace raw boolean flags, preventing UI flicker. Each transition requires 5 consecutive ticks (20 for recipe mismatch).
+
+5 状态防抖替代裸 boolean，消除 UI 抖动。每转换需连续 5 tick（配方未匹配 20 tick）。
+
+| State | Trigger |
+|-------|---------|
+| IDLE | Normal / 正常 |
+| OUTPUT_FULL | Output bus full / 输出总线满 |
+| VOLTAGE_LOW | Recipe demands higher tier or insufficient power / 配方超电压或供电不足 |
+| COLD_START | Recipe matched but heat is zero (one-shot) / 配方匹配但热量为零（仅首次） |
+| RECIPE_MISMATCH | Items present but no matching recipe / 有物品无配方 |

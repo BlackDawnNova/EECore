@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  * One-click part registration for EECore and addon mods.
  * Translations are stored per-namespace and flushed to the correct lang JSON on startup.
  * <p>
- * 部件一键注册工具，EECore 和附属 Mod 通用。
+ * 部件自动注册工具，EECore 和附属 Mod 通用。
  * 翻译按 namespace 分桶，启动时写入各 Mod 的语言 JSON。
  */
 public final class PartReg {
@@ -31,8 +31,8 @@ public final class PartReg {
     }
 
     /**
-     * One-click: Block + Item + model + tag + creative tab + translations.
-     * 一键注册：方块 + 物品 + 模型 + 标签 + 创造栏 + 翻译。
+     * Auto-registration: Block + Item + model + tag + creative tab + translations.
+     * 自动注册：方块 + 物品 + 模型 + 标签 + 创造栏 + 翻译。
      *
      * @param overlayTex  overlay texture path (e.g. "mymod:block/parts/hatch/overlay_front") / 覆面贴图路径
      */

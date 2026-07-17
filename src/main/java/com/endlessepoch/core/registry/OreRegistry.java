@@ -16,8 +16,8 @@ import java.nio.file.Path;
 import java.util.*;
 
 /**
- * One-click ore registration — define Material, everything auto-generated.
- * 一键矿石注册——定义Material，全自动生成贴图+模型+翻译+标签。
+ * Ore auto-registration — define Material, everything auto-generated.
+ * 矿石自动注册——定义Material，全自动生成贴图+模型+翻译+标签。
  */
 public class OreRegistry {
 
@@ -53,7 +53,7 @@ public class OreRegistry {
         "dull_ore", "dull_ore_small", "fine_ore", "flint_ore", "diamond_ore"
     };
 
-    /** 一键生成贴图+注册全部矿石 / Generate textures + register all ores */
+    /** 自动生成贴图+注册全部矿石 / Generate textures + register all ores */
     public static void registerAll(Material... materials) {
         String ns = EECore.MOD_ID;
         Path spotDir = ResourceGenerator.PROJECT_ROOT
@@ -233,7 +233,7 @@ public class OreRegistry {
 
     // 附属Mod API / Addon-mod API
 
-    /** 附属Mod一键注册：纹理写eecore目录，方块/物品注册到addon命名空间 / Textures in eecore assets, blocks/items in addon namespace */
+    /** 附属Mod自动注册：纹理写eecore目录，方块/物品注册到addon命名空间 / Textures in eecore assets, blocks/items in addon namespace */
     public static void registerAll(String namespace,
             DeferredRegister<Block> blockReg, DeferredRegister<Item> itemReg,
             List<java.util.function.Supplier<Item>> creativeTab, Material... materials) {

@@ -1,0 +1,9 @@
+{
+  "type": "eecore:machine",
+  "ingredient": { "item": "minecraft:diamond_ore" },
+  "results": [{ "id": "minecraft:diamond", "count": 1 }],
+  "processingTime": 2400,
+  "requiredTier": "ELV",
+  "energyPerTick": 16,
+  "maxHeat": 20.0
+}

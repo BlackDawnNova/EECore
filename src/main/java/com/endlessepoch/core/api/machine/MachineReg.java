@@ -24,7 +24,7 @@ import java.util.function.Supplier;
  * One-click single-block machine registration.
  * Registers Block + BlockEntity + BlockItem + model JSON + translation.
  * <p>
- * 单方块机器一键注册：方块+BE+物品+模型+翻译。
+ * 单方块机器自动注册：方块+BE+物品+模型+翻译。
  */
 public class MachineReg {
 

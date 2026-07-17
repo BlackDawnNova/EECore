@@ -35,8 +35,6 @@ public class Config {
     public static volatile int ebFjParallelism = 0;
     public static volatile int ebSegmentCount = 0;
     // Phase 3 hot cache / Phase 3 热缓存
-    public static volatile boolean p3ParallelBatching;
-    public static volatile int p3BatchThreshold = 16;
     public static volatile int p3BatchSize = 256;
     public static volatile boolean p3EnergyEnabled;
     public static volatile long p3VanillaEnergyPerTick = 0;
@@ -78,7 +76,6 @@ public class Config {
     public static final ModConfigSpec.IntValue EB_SEGMENT_COUNT;
 
     // ── Phase 3 — execution layer / Phase 3 执行层 ──
-    public static final ModConfigSpec.BooleanValue P3_PARALLEL_BATCHING;
     public static final ModConfigSpec.IntValue P3_BATCH_SIZE;
     public static final ModConfigSpec.BooleanValue P3_PREDICTIVE_HEAT;
     public static final ModConfigSpec.IntValue P3_PREDICT_WINDOW;
@@ -86,7 +83,6 @@ public class Config {
     public static final ModConfigSpec.DoubleValue P3_CPU_TARGET;
     public static final ModConfigSpec.IntValue P3_MAIN_THREAD_LIMIT;
     public static final ModConfigSpec.IntValue P3_FORK_JOIN_RECIPES;
-    public static final ModConfigSpec.IntValue P3_BATCH_THRESHOLD;
     public static final ModConfigSpec.BooleanValue P3_ENERGY_ENABLED;
     public static final ModConfigSpec.LongValue P3_VANILLA_ENERGY_PER_TICK;
     public static final ModConfigSpec.IntValue P3_MAX_OVERCLOCK;
@@ -187,10 +183,6 @@ public class Config {
         b.comment(
                 "Phase 3 — parallel batch execution layer.",
                 "Phase 3 — 并行批处理执行层。").push("phase3");
-        P3_PARALLEL_BATCHING = b
-                .comment("Enable ForkJoin parallel batch processing.",
-                        "启用 ForkJoin 并行批处理。")
-                .define("parallelBatching", false);
         P3_BATCH_SIZE = b
                 .comment("Local buffer submit chunk size per machine.",
                         "单机本地缓冲每次提交的分块大小。")
@@ -219,10 +211,6 @@ public class Config {
                 .comment("Max recipes per ForkJoin task.",
                         "每个 ForkJoin 任务最大配方数。")
                 .defineInRange("fjMaxRecipes", 16, 4, 256);
-        P3_BATCH_THRESHOLD = b
-                .comment("Pending input units above this switch the machine to batch mode; at or below stays on the light completionTick path.",
-                        "待处理单元数超过此值切批处理模式；不超过则走 completionTick 轻路径。")
-                .defineInRange("batchThreshold", 16, 1, 16384);
         P3_ENERGY_ENABLED = b
                 .comment("Enable recipe energy consumption (Ω drawn from energy input hatches).",
                         "启用配方能量消耗（从能源输入仓扣 Ω）。")
@@ -322,8 +310,6 @@ public class Config {
         ebFjParallelism = EB_FJ_PARALLELISM.get();
         ebSegmentCount = EB_SEGMENT_COUNT.get();
         // Phase 3 hot cache / Phase 3 热缓存
-        p3ParallelBatching = P3_PARALLEL_BATCHING.get();
-        p3BatchThreshold = P3_BATCH_THRESHOLD.get();
         p3BatchSize = P3_BATCH_SIZE.get();
         p3EnergyEnabled = P3_ENERGY_ENABLED.get();
         p3VanillaEnergyPerTick = P3_VANILLA_ENERGY_PER_TICK.get();

@@ -32,7 +32,7 @@ public class WindowBuffer {
             if (queue.poll() != null) count.decrementAndGet(); // drop oldest / 丢弃最早
             dropped++;
             if (dropped % 1000 == 1)
-                System.err.println("[EB] WindowBuffer overflow, dropped " + dropped + " events");
+                com.endlessepoch.core.EECore.LOGGER.warn("[EB] WindowBuffer overflow, dropped {} events", dropped);
             return;
         }
         queue.add(event);

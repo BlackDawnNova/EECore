@@ -13,7 +13,9 @@ public record BatchTask(
         int machineTier,       // effective voltage tier ordinal / 有效电压序数
         double heatValue,      // heat at submit time / 提交时热量
         double speedBoostMax,  // Config.heatSpeedBoostMax snapshot / 热机倍率上限快照
-        int maxOverclock,      // Config.p3MaxOverclock snapshot / 超频上限快照
+        int maxOverclock,      // Config.p3MaxOverclock snapshot (tier cap) / 超频上限快照（用作级数上限）
         boolean energyEnabled, // Config.p3EnergyEnabled snapshot / 能耗开关快照
+        int hardwareCap,       // machine parallel-hatch cap / 硬件并行上限
+        long totalRate,        // Σ voltage × amperage from energy inputs / 总供电速率
         List<InputUnit> units  // immutable input snapshot / 不可变输入快照
 ) {}

@@ -23,9 +23,11 @@ public final class EventLifecycleManager {
         if (flow != null) flow.dispose();
     }
 
-    /** Flush all active flows in a chunk region. / 排空某区块区域的全部活跃流。 */
-    public static void flushRegion(long gameTick, int chunkX, int chunkZ) {
-        // Flush all for now — per-chunk filtering when needed / 暂时全刷新
+    /** Flush every active flow. Called from the machine's own serverTick — chunk
+     *  granularity is moot because each machine owns its Flow and ticks it locally.
+     *  排空全部活跃流。由各机器的 serverTick 自发调用——区块粒度无意义：
+     *  每台机器都有自己的 Flow 且本地 tick。 */
+    public static void flushAll(long gameTick) {
         for (Flow f : REGISTRY.values())
             f.flush(gameTick);
     }

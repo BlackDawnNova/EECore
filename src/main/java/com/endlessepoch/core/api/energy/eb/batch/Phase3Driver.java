@@ -51,20 +51,20 @@ public final class Phase3Driver {
         if (tpsTier != lastTpsTier) {
             double tps = TpsQuotaManager.GLOBAL.tps(20.0);
             if (tpsTier == 0) {
-                EECore.LOGGER.warn("[EB-P3] TPS {} — emergency mode, single serial shard only",
+                EECore.LOGGER.warn("[EB-P3] TPS {} -> emergency mode, single serial shard only",
                         String.format("%.1f", tps));
             } else {
-                EECore.LOGGER.info("[EB-P3] TPS {} — concurrency scale {}",
+                EECore.LOGGER.info("[EB-P3] TPS {} -> concurrency scale {}",
                         String.format("%.1f", tps), tpsScale);
             }
             lastTpsTier = tpsTier;
         }
         if (cpuScale != lastCpuScale) {
             if (cpuScale < 1.0) {
-                EECore.LOGGER.warn("[EB-P3] CPU {}% — concurrency scale {}",
+                EECore.LOGGER.warn("[EB-P3] CPU {}% -> concurrency scale {}",
                         String.format("%.0f", CpuMonitor.usage() * 100), cpuScale);
             } else {
-                EECore.LOGGER.info("[EB-P3] CPU recovered — concurrency scale restored");
+                EECore.LOGGER.info("[EB-P3] CPU recovered -> concurrency scale restored");
             }
             lastCpuScale = cpuScale;
         }

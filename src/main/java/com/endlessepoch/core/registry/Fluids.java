@@ -14,7 +14,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-/** One-click fluid registration. / 流体一键注册。 */
+/** Fluid registration utility. / 流体自动注册。 */
 public class Fluids {
     public static final DeferredRegister<Fluid> FLUIDS = DeferredRegister.create(net.minecraft.core.registries.Registries.FLUID, EECore.MOD_ID);
     public static final DeferredRegister<FluidType> FLUID_TYPES = DeferredRegister.create(NeoForgeRegistries.FLUID_TYPES, EECore.MOD_ID);

@@ -24,8 +24,6 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             ResourceLocation.parse("eecore:textures/gui/container/button_panel.png");
     // Sidebar button sprites — PNGs under textures/gui/sprites/ / 侧边栏按钮贴图——PNG 放入 sprites/
     private static final ResourceLocation
-            TEX_B    = ResourceLocation.fromNamespaceAndPath("eecore", "btn_b"),
-            TEX_B_ON = ResourceLocation.fromNamespaceAndPath("eecore", "btn_b_on"),
             TEX_H    = ResourceLocation.fromNamespaceAndPath("eecore", "btn_h"),
             TEX_H_ON = ResourceLocation.fromNamespaceAndPath("eecore", "btn_h_on"),
             TEX_O    = ResourceLocation.fromNamespaceAndPath("eecore", "btn_o"),
@@ -34,9 +32,9 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             TEX_PLAY  = ResourceLocation.fromNamespaceAndPath("eecore", "btn_play");
     private static final int SX = 170;
     private static final int[] SY = {11, 45, 79, 113, 147, 181};
-    private static final int IDX_PROFILE = 0, IDX_OC = 1, IDX_HEAT = 3, IDX_BATCH = 4, IDX_PAUSE = 5;
+    private static final int IDX_PROFILE = 0, IDX_OC = 1, IDX_HEAT = 4, IDX_PAUSE = 5;
 
-    private boolean dropdownOpen, hoverProfile, hoverPause, hoverBatch, hoverHeat, hoverOc;
+    private boolean dropdownOpen, hoverProfile, hoverPause, hoverHeat, hoverOc;
     private int hoverDropIdx = -1;
     private int pressedBtn = -1;
 
@@ -51,19 +49,16 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
     }
 
     @Override protected void renderLabels(GuiGraphics g, int mx, int my) {
-        // Voltage-colored title + batch suffix / 电压色标题 + 批处理后缀
+        // Voltage-colored title / 电压色标题
         boolean cn = "zh_cn".equals(
                 net.minecraft.client.Minecraft.getInstance().getLanguageManager().getSelected());
         String name = menu instanceof MachineMenu mm
                 ? (cn ? mm.getNameZh() : mm.getNameEn()) : "";
         int tierIdx = menu instanceof MachineMenu mm ? mm.getEffectiveTier() : 0;
-        boolean b = menu instanceof MachineMenu mm && mm.isBatchEnabled();
         String title = name.isEmpty() ? this.title.getString() : name;
-        String suffix = b ? (cn ? " (批处理)" : " (Batch)") : "";
-        int maxW = SX - 22 - font.width(suffix);
+        int maxW = SX - 22;
         if (font.width(title) > maxW)
             title = font.plainSubstrByWidth(title, maxW - font.width("…")) + "…";
-        title += suffix;
         int color = parseHex(
                 com.endlessepoch.core.api.tier.VoltageTier.values()[tierIdx].getHexColor());
         g.drawString(font, title, titleLabelX, titleLabelY, color);
@@ -83,10 +78,6 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         if (hoverPause) {
             boolean p2 = menu instanceof MachineMenu mm && mm.isPaused();
             g.renderTooltip(font, Component.translatable(p2 ? "eecore.gui.resume" : "eecore.gui.pause"), mx, my);
-        }
-        if (hoverBatch) {
-            boolean on = menu instanceof MachineMenu mm && mm.isBatchEnabled();
-            g.renderTooltip(font, Component.translatable(on ? "eecore.gui.batch_on" : "eecore.gui.batch_off"), mx, my);
         }
         if (hoverHeat) {
             boolean on = menu instanceof MachineMenu mm && mm.isHeatEnabled();
@@ -111,7 +102,7 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         g.blit(BG, x, y, 0, 0, imageWidth, imageHeight, imageWidth, imageHeight);
 
         hoverProfile = false; hoverPause = false;
-        hoverBatch = false; hoverHeat = false; hoverOc = false; hoverDropIdx = -1;
+        hoverHeat = false; hoverOc = false; hoverDropIdx = -1;
 
         // Sidebar slots / 侧边栏槽位
         for (int i = 0; i < SY.length; i++) {
@@ -125,10 +116,6 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
                 boolean paused = menu instanceof MachineMenu mm && mm.isPaused();
                 g.blitSprite(paused ? TEX_PLAY : TEX_PAUSE, bx + 1, by + 1, 12, 12);
                 if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverPause = true;
-            } else if (i == IDX_BATCH) {
-                boolean on = menu instanceof MachineMenu mm && mm.isBatchEnabled();
-                g.blitSprite(on ? TEX_B_ON : TEX_B, bx + 1, by + 1, 12, 12);
-                if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverBatch = true;
             } else if (i == IDX_HEAT) {
                 boolean on = menu instanceof MachineMenu mm && mm.isHeatEnabled();
                 g.blitSprite(on ? TEX_H_ON : TEX_H, bx + 1, by + 1, 12, 12);
@@ -147,25 +134,35 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             boolean blocked = mm.isOutputBlocked();
             boolean running = mm.hasWork() && !paused2 && !blocked;
             int vTier = mm.getVoltageBlockedTier();
+            String statusText; int statusColor;
             if (blocked) {
-                g.drawString(font, Component.translatable("eecore.gui.status.output_full").getString(), sx, py, 0xFF_FFAA00);
+                statusText = Component.translatable("eecore.gui.status.output_full").getString();
+                statusColor = 0xFF_FFAA00;
             } else if (running) {
-                g.drawString(font, Component.translatable("eecore.gui.status.working").getString(), sx, py, 0xFF_55FF55);
+                statusText = Component.translatable("eecore.gui.status.working").getString();
+                statusColor = 0xFF_55FF55;
             } else if (paused2) {
-                g.drawString(font, Component.translatable("eecore.gui.status.paused").getString(), sx, py, 0xFF_FF5555);
+                statusText = Component.translatable("eecore.gui.status.paused").getString();
+                statusColor = 0xFF_FF5555;
             } else if (vTier >= 0) {
-                // Voltage gate hint: show required tier so the player knows to upgrade
-                // 电压不足提示：显示需求电压，引导玩家升级
                 var tiers = com.endlessepoch.core.api.tier.VoltageTier.values();
                 String tierName = vTier < tiers.length ? tiers[vTier].name() : "?";
-                g.drawString(font, Component.translatable("eecore.gui.status.voltage_low", tierName).getString(),
-                        sx, py, 0xFF_FF6644);
+                statusText = Component.translatable("eecore.gui.status.voltage_low", tierName).getString();
+                statusColor = 0xFF_FF6644;
             } else if (mm.isEnergyBlocked()) {
-                // Recipe matched but hatches have no power / 配方已匹配但能源仓没电
-                g.drawString(font, Component.translatable("eecore.gui.status.energy_low").getString(),
-                        sx, py, 0xFF_FFCC00);
+                statusText = Component.translatable("eecore.gui.status.energy_low").getString();
+                statusColor = 0xFF_FFCC00;
             } else {
-                g.drawString(font, Component.translatable("eecore.gui.status.idle").getString(), sx, py, 0xFF_888888);
+                statusText = Component.translatable("eecore.gui.status.idle").getString();
+                statusColor = 0xFF_888888;
+            }
+            int statusEndX = sx + font.width(statusText) + 4;
+            g.drawString(font, statusText, sx, py, statusColor);
+            // Speed multiplier after status / 倍率接在状态文字后面
+            int mul = mm.getSpeedMultiplier();
+            if (mul > 100 && (mm.isOverclockEnabled() || mm.isHeatEnabled())) {
+                String mulStr = String.format("⚡ %.1fx", mul / 100.0f);
+                g.drawString(font, mulStr, statusEndX, py, 0xFF_44CCFF);
             }
 
             if (mm.hasWork()) {
@@ -188,25 +185,15 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
                 // 批处理：倒计时无意义——改显示有效并行
                 if (mm.isBatchActive()) {
                     int eff = mm.getEffectiveParallel(), hw = mm.getHardwareParallel();
-                    // Orange when energy-limited below the hatch cap / 被供电压到仓上限以下时橙色
                     int pc = eff < hw ? 0xFF_FFAA00 : 0xFF_44CC44;
                     g.drawString(font, Component.translatable("eecore.gui.parallel.display", eff, hw).getString(),
                             sx, py + 48, pc);
                 } else {
-                    // Countdown / 倒计时
                     int remaining = mm.getMaxProgress() - mm.getProgress();
                     float secs = remaining / 20.0f;
                     String countdown = String.format("⏱ %.1fs", secs);
                     g.drawString(font, countdown, sx, py + 48, 0xFF_FFCC44);
                 }
-
-                // Speed multiplier — only when oc/heat active / 倍率——仅超频/热量开启时显示
-                int mul = mm.getSpeedMultiplier();
-                if (mul > 100 && (mm.isOverclockEnabled() || mm.isHeatEnabled())) {
-                    String mulStr = String.format("⚡ %.1fx", mul / 100.0f);
-                    g.drawString(font, mulStr, sx + 80, py + 48, 0xFF_44CCFF);
-                }
-
                 // Heat bar — only when heat active / 热量条——仅热量开启时显示
                 if (mm.isHeatEnabled())
                     drawHeatBar(g, sx, py + 62, mm);
@@ -281,7 +268,6 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             // Other buttons / 其他按钮
             if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_PAUSE] + 1, 14, 14)) { pressedBtn = IDX_PAUSE; sendClick(0); return true; }
             if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_OC] + 1, 14, 14)) { pressedBtn = IDX_OC; sendClick(2); return true; }
-            if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_BATCH] + 1, 14, 14)) { pressedBtn = IDX_BATCH; sendClick(10); return true; }
             if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_HEAT] + 1, 14, 14)) { pressedBtn = IDX_HEAT; sendClick(11); return true; }
         }
         return super.mouseClicked(mx, my, btn);

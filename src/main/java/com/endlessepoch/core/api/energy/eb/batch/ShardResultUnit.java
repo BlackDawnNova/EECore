@@ -13,12 +13,14 @@ public record ShardResultUnit(
         long finalDuration,    // ticks per op after overclock × heat / 超频×热机后单次耗时
         long[] outputItemIds,  // outputs per op / 单次产物ID
         long[] outputCounts,   // output counts per op / 单次产物数量
-        double maxHeat         // heat ceiling for bulkHeat / 热量天花板
+        double maxHeat,        // heat ceiling for bulkHeat / 热量天花板
+        int speedMulX100,      // overclock × heat speed multiplier ×100 (snapshot) / 超频×热机倍率×100（快照）
+        int ocMulX100          // overclock-only multiplier ×100 (no heat, for live calc) / 纯超频倍率×100（供实时计算）
 ) {
 
     /** Copy with a different op count. / 换 ops 的副本。 */
     public ShardResultUnit withOps(long newOps) {
         return new ShardResultUnit(recipeIdHash, inputItemId, newOps, energyPerOp,
-                finalDuration, outputItemIds, outputCounts, maxHeat);
+                finalDuration, outputItemIds, outputCounts, maxHeat, speedMulX100, ocMulX100);
     }
 }

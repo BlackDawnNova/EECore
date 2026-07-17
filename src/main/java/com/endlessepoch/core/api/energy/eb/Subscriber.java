@@ -44,11 +44,11 @@ final class MachineRecipeSubscriber implements Subscriber {
 
     @Override
     public void onNext(List<EeEvent> batch) {
-        if (unsubscribed.get() || machineRef.get() == null || machineRef.get().isRemoved()) {
+        var be = machineRef.get();
+        if (be == null || be.isRemoved() || unsubscribed.get()) {
             unsubscribe();
             return;
         }
-        var be = machineRef.get();
         if (be.getLevel() == null || be.getLevel().isClientSide()) return;
         // RecipeManager is not thread-safe — dispatch to main thread / RecipeManager非线程安全，转到主线程
         var server = be.getLevel().getServer();
@@ -62,7 +62,7 @@ final class MachineRecipeSubscriber implements Subscriber {
     public void onError(Throwable error) {
         var be = machineRef.get();
         String loc = be != null ? be.getBlockPos().toString() : "unknown";
-        EECore.LOGGER.error("[EB] Subscriber error at {}: {}", loc, error.getMessage());
+        EECore.LOGGER.error("[EB] Subscriber error at {}", loc, error); // stack trace auto-appended / 栈自动附加
         unsubscribe();
     }
 

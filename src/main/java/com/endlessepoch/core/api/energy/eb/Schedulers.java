@@ -57,7 +57,7 @@ public final class Schedulers {
                     forkJoin = p = new ForkJoinPool(
                             workers,
                             ForkJoinPool.defaultForkJoinWorkerThreadFactory,
-                            (t, e) -> System.err.println("[EB] ForkJoin uncaught: " + e.getMessage()),
+                            (t, e) -> com.endlessepoch.core.EECore.LOGGER.error("[EB] ForkJoin uncaught in {}", t.getName(), e),
                             false);
                 }
             }

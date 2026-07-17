@@ -87,4 +87,44 @@ public final class OverclockUtil {
         double factor = heatFactor(heat, maxHeat, speedBoostMax);
         return Math.max(1, (long) (ocDur / factor));
     }
+
+    /**
+     * Optimal overclock count: pick the tier (0..maxOc) that maximizes throughput
+     * given current energy rate and hardware cap. Each tier doubles speed and energy
+     * per op — when power is the bottleneck, sustained parallel drops by 4× per tier
+     * while speed only doubles, making overclock a net loss. This method auto-limits
+     * to the highest tier that actually improves throughput.
+     * 最优超频级数：在当前供电和硬件约束下，选吞吐量最大的级数（0..maxOc）。
+     * 每级速度×2、能耗×2 → 功率瓶颈时有效并行跌 4×、速度只涨 2×，越超越慢。
+     * 此方法自动取到最后一档"还有正面增益"的级数，避免反直觉降速。
+     *
+     * @param hardwareCap  machine parallel cap (parallel hatches) / 硬件并行上限
+     * @param totalRate    Σ voltage × amperage from all energy inputs / 总供电速率
+     * @param baseDuration recipe base processing time (ticks) / 配方基础耗时
+     * @param baseEnergyPerTick recipe base Ω/tick / 配方基础功率
+     * @param maxOc        config cap on overclock tiers / 允许的最大超频级数
+     * @return best overclock count (0 means stay at recipe tier) / 最优超频级数
+     */
+    public static int optimalOverclock(int hardwareCap, long totalRate,
+                                        long baseDuration, long baseEnergyPerTick, int maxOc) {
+        if (maxOc <= 0 || hardwareCap <= 0) return 0;
+        if (baseEnergyPerTick <= 0) return maxOc; // free energy: every tier helps / 零能耗配方，超频纯赚
+        int best = 0;
+        long bestScore = Math.min(hardwareCap,
+                sustainedParallel(totalRate, baseDuration,
+                        computeEnergyPerUnit(baseEnergyPerTick, baseDuration, 0)));
+        // score = effectiveParallel × 2^n (normalized throughput) / 吞吐量归一化值
+        for (int n = 1; n <= maxOc; n++) {
+            long dur = computeDuration(baseDuration, n);
+            long energy = computeEnergyPerUnit(baseEnergyPerTick, baseDuration, n);
+            long sust = sustainedParallel(totalRate, dur, energy);
+            long eff = Math.min(hardwareCap, sust);
+            long score = eff << n; // eff × 2^n / 有效并行 × 速度倍率
+            if (score > bestScore << best) {
+                best = n;
+                bestScore = eff;
+            }
+        }
+        return best;
+    }
 }
