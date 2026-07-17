@@ -6,7 +6,12 @@ import com.endlessepoch.core.Config;
 public final class TickTimer {
     private long lastTick;
 
-    public boolean isExpired(long currentTick) {
+    /**
+     * Advance the clock and report whether the gap since the last call is stale.
+     * Mutates internal state — call exactly once per tick.
+     * 推进时钟并报告距上次调用的间隔是否过期。有状态副作用——每 tick 恰好调用一次。
+     */
+    public boolean checkAndAdvance(long currentTick) {
         if (lastTick == 0) { lastTick = currentTick; return false; }
         long gap = currentTick - lastTick;
         lastTick = currentTick;

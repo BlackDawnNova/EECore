@@ -10,12 +10,24 @@ import net.neoforged.neoforge.items.SlotItemHandler;
 
 public class BusMenu extends AbstractContainerMenu {
     private final InputBusBlockEntity bus; private final int slotCount; private final boolean isOutput;
+    private final boolean creative;
     private final BlockPos pos; private final int fluidSlots; private final ContainerData data;
     final ResourceLocation[] fId; final int[] fAmt, fCap;
+    private net.minecraft.server.level.ServerPlayer viewer;
+    private ResourceLocation[] lastFid; private int[] lastFAmt;
+    /** Client-side template-count sync for creative buses: [i*2]=low 15 bits, [i*2+1]=high bits. */
+    private final ContainerData templateCountData;
+    private int[] clientTemplateCounts;
+
+    public void setViewer(net.minecraft.server.level.ServerPlayer p){this.viewer=p;}
 
     public BusMenu(int id, Inventory inv, InputBusBlockEntity bus) {
         super(Menus.BUS.get(), id); this.bus=bus; this.slotCount=bus.getSlotCount(); this.isOutput=bus.isOutput(); this.pos=bus.getBlockPos();
+        this.creative=bus.isCreative();
         this.data=new SimpleContainerData(2); addDataSlots(data);
+        this.templateCountData = creative && bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
+                ? templateCountData(cb) : new SimpleContainerData(0);
+        if (creative) addDataSlots(templateCountData);
         var ts=((PartBlockEntity)bus).getFluidTanks();
         int fs=0; if(!ts.isEmpty()&&bus.getBlockState().getBlock() instanceof PartBlock pb)fs=pb.fluidSlots;
         this.fluidSlots=fs;
@@ -24,33 +36,118 @@ public class BusMenu extends AbstractContainerMenu {
     }
     public BusMenu(int id, Inventory inv, FriendlyByteBuf buf) {
         super(Menus.BUS.get(), id); this.pos=buf.readBlockPos(); this.slotCount=buf.readVarInt();
-        this.isOutput=buf.readBoolean(); this.fluidSlots=buf.readVarInt(); this.bus=null;
+        this.isOutput=buf.readBoolean(); this.creative=buf.readBoolean(); this.fluidSlots=buf.readVarInt(); this.bus=null;
         this.data=new SimpleContainerData(2); addDataSlots(data);
+        this.clientTemplateCounts = new int[creative ? slotCount : 0];
+        this.templateCountData = creative ? clientTemplateCountData() : new SimpleContainerData(0);
+        if (creative) addDataSlots(templateCountData);
         this.fId=new ResourceLocation[Math.max(1,fluidSlots)];this.fAmt=new int[Math.max(1,fluidSlots)];this.fCap=new int[Math.max(1,fluidSlots)];
         for(int i=0;i<fluidSlots;i++){fId[i]=buf.readBoolean()?buf.readResourceLocation():null;fAmt[i]=buf.readVarInt();fCap[i]=buf.readVarInt();}
-        addBusSlots(new net.neoforged.neoforge.items.wrapper.InvWrapper(new net.minecraft.world.SimpleContainer(slotCount)));
+        // Client display backing — ItemStackHandler, NOT SimpleContainer: the latter's
+        // setItem clamps count to 64 and silently truncates big template counts.
+        // 客户端显示底座——用 ItemStackHandler 而非 SimpleContainer：后者 setItem 会把
+        // count 钳到 64，大模板数量被静默截断。
+        addBusSlots(new net.neoforged.neoforge.items.ItemStackHandler(slotCount));
         addPlayerSlots(inv);
     }
     @Override public void broadcastChanges(){super.broadcastChanges();if(bus!=null)syncFromBE();}
     private void syncFromBE(){if(bus==null)return;var ts=((PartBlockEntity)bus).getFluidTanks();
-        for(int i=0;i<fluidSlots&&i<ts.size();i++){var f=ts.get(i);fAmt[i]=f.getFluidAmount();fCap[i]=f.getCapacity();fId[i]=f.getFluid().isEmpty()?null:BuiltInRegistries.FLUID.getKey(f.getFluid().getFluid());}}
+        if(lastFid==null){lastFid=new ResourceLocation[Math.max(1,fluidSlots)];lastFAmt=new int[Math.max(1,fluidSlots)];}
+        for(int i=0;i<fluidSlots&&i<ts.size();i++){var f=ts.get(i);fAmt[i]=f.getFluidAmount();fCap[i]=f.getCapacity();fId[i]=f.getFluid().isEmpty()?null:BuiltInRegistries.FLUID.getKey(f.getFluid().getFluid());
+            // Push non-click changes too (JEI drag, pipes) / 非点击来源的变更也推送（JEI 拖拽、管道）
+            if(viewer!=null&&(fAmt[i]!=lastFAmt[i]||!java.util.Objects.equals(fId[i],lastFid[i]))){
+                lastFAmt[i]=fAmt[i];lastFid[i]=fId[i];
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(viewer,
+                    new com.endlessepoch.core.network.FluidSyncPacket(pos,i,fId[i],fAmt[i],fCap[i]));
+            }}}
     public int getFluidAmt(int i){return i<fluidSlots?fAmt[i]:0;} public int getFluidCap(int i){return i<fluidSlots?fCap[i]:0;}
     public void setFluidData(int i,ResourceLocation id,int amt,int cap){if(i<fluidSlots){fId[i]=id;fAmt[i]=amt;fCap[i]=cap;}}
     public ResourceLocation getFluidId(int i){return i<fluidSlots?fId[i]:null;}
     public int getFluidSlots(){return fluidSlots;} public InputBusBlockEntity getBus(){return bus;} public int getSlotCount(){return slotCount;}
+    /** Phantom infinite bus? / 是否为幻影无限总线。 */
+    public boolean isCreative(){return creative;}
+    /** Output-side bus? / 是否为输出侧总线。 */
+    public BlockPos getPos(){return pos;}
+    /** Client synced template count for slot i. / 客户端同步的第 i 槽模板数量。 */
+    public int templateCount(int i) {
+        if (!creative || templateCountData.getCount() == 0) return 64;
+        if (bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb)
+            return cb.getTemplateCount(i); // server / 服务端
+        if (clientTemplateCounts == null || i < 0 || i >= clientTemplateCounts.length) return 64;
+        return clientTemplateCounts[i]; // client / 客户端
+    }
+
+    /** Per-slot sync: split 28-bit count into two 14-bit DataSlot values to avoid short overflow. / 槽数量同步：拆成两个 14-bit 值防 short 溢出。 */
+    private static ContainerData templateCountData(com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb) {
+        return new ContainerData() {
+            @Override public int get(int i) {
+                int c = i / 2 < cb.getSlotCount() ? cb.getTemplateCount(i / 2) : 64;
+                return i % 2 == 0 ? c & 0x3FFF : (c >> 14) & 0x3FFF;
+            }
+            @Override public void set(int i, int v) {}
+            @Override public int getCount() { return cb.getSlotCount() * 2; }
+        };
+    }
+    private ContainerData clientTemplateCountData() {
+        return new ContainerData() {
+            @Override public int get(int i) { return 0; }
+            @Override public void set(int i, int v) {
+                if (clientTemplateCounts == null) return;
+                int slot = i / 2;
+                if (slot >= clientTemplateCounts.length) return;
+                if (i % 2 == 0) clientTemplateCounts[slot] = (clientTemplateCounts[slot] & ~0x3FFF) | (v & 0x3FFF);
+                else clientTemplateCounts[slot] = (clientTemplateCounts[slot] & 0x3FFF) | ((v & 0x3FFF) << 14);
+            }
+            @Override public int getCount() { return clientTemplateCounts != null ? clientTemplateCounts.length * 2 : 0; }
+        };
+    }
+    public boolean isOutputBus(){return isOutput;}
+    /** Side-by-side creative assembly: items left 4×4, fluids right 4×4. / 创造输入总成左右分栏：左物品 4×4、右流体 4×4。 */
+    public boolean sideBySide(){return creative&&!isOutput&&fluidSlots>0;}
+    /** Bus grid columns — creative uses a 4-wide AE-style grid. / 总线网格列数——创造总线用 4 列 AE 风格网格。 */
+    public int busCols(){return creative?Math.min(slotCount,4):Math.min(slotCount,9);}
+    /** Grid rows for height math (side-by-side takes the taller column). / 网格行数（分栏时取较高一侧）。 */
+    public int busRows(){int r=(slotCount+busCols()-1)/busCols();return sideBySide()?Math.max(r,(fluidSlots+3)/4):r;}
+    /** Fluid rows stacked above items — 0 when side-by-side. / 叠在物品上方的流体行数——分栏时为 0。 */
+    public int fluidRows(){return sideBySide()?0:(fluidSlots+8)/9;}
+    /** Item grid left edge. / 物品网格左缘。 */
+    public int busX(){return sideBySide()?12:8+(162-busCols()*18)/2;}
+    /** Fluid ghost slot position. / 虚拟流体槽坐标。 */
+    public int fluidSlotX(int i){return sideBySide()?92+(i%4)*18:8+(i%9)*18;}
+    public int fluidSlotY(int i){return sideBySide()?18+(i/4)*18:18+(i/9)*18;}
     private void addBusSlots(net.neoforged.neoforge.items.IItemHandler h){
         // Ghost fluid slots for click interaction / 虚拟流体槽
-        for(int i=0;i<fluidSlots;i++){final int ti=i;
-            this.addSlot(new Slot(new net.minecraft.world.SimpleContainer(1),0,8+(i%9)*18,18+(i/9)*18){
+        for(int i=0;i<fluidSlots;i++){
+            this.addSlot(new Slot(new net.minecraft.world.SimpleContainer(1),0,fluidSlotX(i),fluidSlotY(i)){
                 @Override public boolean mayPlace(ItemStack s){return false;}
                 @Override public int getMaxStackSize(){return 0;}
             });
         }
-        int c=Math.min(slotCount,9);int x=8+(9-c)*9;int fR=(fluidSlots+8)/9;
-        for(int i=0;i<slotCount;i++){int r=i/9,cl=i%9;this.addSlot(new SlotItemHandler(h,i,x+cl*18,18+fR*18+r*18){@Override public boolean mayPlace(ItemStack s){return !isOutput;}});}}
-    private void addPlayerSlots(Inventory inv){int rs=(slotCount+8)/9,fR=(fluidSlots+8)/9,g=(rs+fR)<=3?14:20;int iy=18+fR*18+rs*18+g,hy=iy+3*18+4;
+        int cols=busCols();int x=busX();int fR=fluidRows();
+        for(int i=0;i<slotCount;i++){int r=i/cols,cl=i%cols;this.addSlot(new SlotItemHandler(h,i,x+cl*18,18+fR*18+r*18){@Override public boolean mayPlace(ItemStack s){return !isOutput&&!creative;}});}}
+    private void addPlayerSlots(Inventory inv){int rs=busRows(),fR=fluidRows(),g=(rs+fR)<=3?14:20;int iy=18+fR*18+rs*18+g,hy=iy+3*18+4;
         for(int r=0;r<3;r++)for(int c=0;c<9;c++)this.addSlot(new Slot(inv,c+r*9+9,8+c*18,iy+r*18));for(int c=0;c<9;c++)this.addSlot(new Slot(inv,c,8+c*18,hy));}
     @Override public void clicked(int slotId,int button,ClickType type,Player player){
+        // Creative bus: left-click with item = set template, right-click = clear;
+        // left-click empty-handed is handled client-side (count popup), no server action.
+        // 创造总线：手持物品左键=设模板，右键=清除；空手左键由客户端处理（数量弹框），服务端不动作
+        int firstBus=fluidSlots, lastBus=firstBus+slotCount-1;
+        if(creative&&slotId>=firstBus&&slotId<=lastBus){
+            if(bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb){
+                if(button==1) cb.setTemplate(slotId-firstBus,ItemStack.EMPTY);          // clear / 清除
+                else if(!getCarried().isEmpty()) cb.setTemplate(slotId-firstBus,getCarried()); // set / 设置
+            }
+            return;
+        }
+        // Creative input assembly: fluid ghost slot clicks configure the template (container untouched)
+        // 创造输入总成：流体虚拟槽点击配置模板（容器不消耗），空容器走通用路径取液
+        if(creative&&!isOutput&&slotId>=0&&slotId<fluidSlots
+                &&bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb){
+            var held=player.containerMenu.getCarried();
+            if(held.isEmpty()){cb.setFluidTemplate(slotId,null);syncFromBE();return;}
+            var contained=FluidUtil.getFluidContained(held);
+            if(contained.isPresent()){cb.setFluidTemplate(slotId,contained.get().getFluid());syncFromBE();return;}
+        }
         if(slotId>=0&&slotId<fluidSlots&&bus!=null&&!player.containerMenu.getCarried().isEmpty()){
             var held=player.containerMenu.getCarried();
             if(FluidUtil.getFluidHandler(held).isPresent()){
@@ -83,6 +180,21 @@ public class BusMenu extends AbstractContainerMenu {
         int lastBusSlot = firstBusSlot + slotCount - 1;
         int firstPlayerSlot = lastBusSlot + 1;
         int lastPlayerSlot = this.slots.size() - 1;
+
+        // Creative bus: shift-click = clear template (bus slot) or set first empty (player slot)
+        // 创造总线：shift 点击 = 清除模板（总线槽）或设第一个空槽（背包槽）
+        if (creative) {
+            if (bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb) {
+                if (idx >= firstBusSlot && idx <= lastBusSlot) {
+                    cb.setTemplate(idx - firstBusSlot, ItemStack.EMPTY); // clear / 清除
+                } else {
+                    for (int i = 0; i < slotCount; i++) {
+                        if (cb.getInventory().getStackInSlot(i).isEmpty()) { cb.setTemplate(i, src); break; }
+                    }
+                }
+            }
+            return ItemStack.EMPTY;
+        }
 
         if (idx >= firstBusSlot && idx <= lastBusSlot) {
             // Bus → player

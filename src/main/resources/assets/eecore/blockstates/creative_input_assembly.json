@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"eecore:block/creative_input_assembly","y":0},"facing=east":{"model":"eecore:block/creative_input_assembly","y":90},"facing=south":{"model":"eecore:block/creative_input_assembly","y":180},"facing=west":{"model":"eecore:block/creative_input_assembly","y":270}}}

@@ -114,6 +114,24 @@ public class PartBlock extends Block implements EntityBlock {
                 || p.endsWith("input_assembly") || p.endsWith("output_assembly");
     }
 
+    /** "creative_" prefixed bus = phantom infinite bus. / creative_ 前缀总线=幻影无限总线。 */
+    public static boolean isCreativeBus(PartType type) {
+        return isBusType(type) && type.getId().getPath().startsWith("creative_");
+    }
+
+    /** "creative_" prefixed hatch (energy/fluid) = infinite/void hatch. / creative_ 前缀仓（能源/流体）=无限/虚空仓。 */
+    public static boolean isCreativeHatch(PartType type) {
+        String p = type.getId().getPath();
+        return p.startsWith("creative_") && (p.endsWith("energy_input") || p.endsWith("energy_output")
+                || p.endsWith("fluid_input") || p.endsWith("fluid_output"));
+    }
+
+    /** "creative_" prefixed parallel hatch = typed-value parallel. / creative_ 前缀并行仓=自由数值并行。 */
+    public static boolean isCreativeParallel(PartType type) {
+        String p = type.getId().getPath();
+        return p.startsWith("creative_") && p.endsWith("parallel_hatch");
+    }
+
     public PartType getPartType() { return partType; }
 
     @Override
@@ -133,8 +151,15 @@ public class PartBlock extends Block implements EntityBlock {
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        if (isBusType(partType))
+        if (isBusType(partType)) {
+            if (isCreativeBus(partType))
+                return new CreativeBusBlockEntity(pos, state, partType, tier, slotCount);
             return new InputBusBlockEntity(pos, state, partType, tier, slotCount);
+        }
+        if (isCreativeHatch(partType))
+            return new CreativeHatchBlockEntity(pos, state, partType, tier);
+        if (isCreativeParallel(partType))
+            return new CreativeParallelHatchBlockEntity(pos, state, partType, tier);
         return new PartBlockEntity(pos, state, partType, tier);
     }
 
@@ -143,11 +168,31 @@ public class PartBlock extends Block implements EntityBlock {
                                             Player player, BlockHitResult hit) {
         if (!level.isClientSide()) {
             BlockEntity be = level.getBlockEntity(pos);
+            // Creative energy source opens its tier-adjust GUI / 创造能源源打开调档 GUI
+            if (be instanceof CreativeHatchBlockEntity ch && ch.isEnergyInput()) {
+                player.openMenu(ch, buf -> buf.writeBlockPos(pos));
+                return InteractionResult.SUCCESS;
+            }
+            // Creative parallel hatch opens its number-input GUI / 创造并行仓打开数字输入 GUI
+            if (be instanceof CreativeParallelHatchBlockEntity ph) {
+                player.openMenu(ph, buf -> buf.writeBlockPos(pos));
+                return InteractionResult.SUCCESS;
+            }
+            // Void variants open the swallow-stats GUI / 虚空型打开吞噬统计 GUI
+            if (be instanceof CreativeBusBlockEntity cvb && cvb.isOutput()) {
+                player.openMenu(cvb, buf -> buf.writeBlockPos(pos));
+                return InteractionResult.SUCCESS;
+            }
+            if (be instanceof CreativeHatchBlockEntity cvh && cvh.isFluidVoid()) {
+                player.openMenu(cvh, buf -> buf.writeBlockPos(pos));
+                return InteractionResult.SUCCESS;
+            }
             if (be instanceof InputBusBlockEntity bus) {
                 var tanks = ((PartBlockEntity) bus).getFluidTanks();
                 int fs = tanks.isEmpty() ? 0 : this.fluidSlots;
                 player.openMenu(bus, buf -> {
                     buf.writeBlockPos(pos); buf.writeVarInt(bus.getSlotCount()); buf.writeBoolean(bus.isOutput());
+                    buf.writeBoolean(bus.isCreative());
                     buf.writeVarInt(fs);
                     for (int i = 0; i < fs && i < tanks.size(); i++) {
                         var s = tanks.get(i).getFluid();
@@ -193,7 +238,7 @@ public class PartBlock extends Block implements EntityBlock {
         if (!state.is(newState.getBlock())) {
             BlockEntity be = level.getBlockEntity(pos);
             if (be != null && !level.isClientSide()) {
-                if (be instanceof InputBusBlockEntity bus) {
+                if (be instanceof InputBusBlockEntity bus && !bus.isCreative()) {
                     for (int i = 0; i < bus.getSlotCount(); i++) {
                         var stack = bus.getInventory().getStackInSlot(i);
                         if (!stack.isEmpty())

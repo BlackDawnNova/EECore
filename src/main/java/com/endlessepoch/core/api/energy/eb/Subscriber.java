@@ -18,22 +18,28 @@ public interface Subscriber {
     void onComplete();
     default boolean isUnsubscribed() { return false; }
 
-    /** Factory for MachineRecipeSubscriber / 工厂方法 */
-    static Subscriber machine(BlockEntity machine, Consumer<List<EeEvent>> background, Runnable mainThread) {
-        return new MachineRecipeSubscriber(machine, background, mainThread);
+    /**
+     * Factory for MachineRecipeSubscriber. Both closures run on the MAIN thread
+     * (RecipeManager is not thread-safe) — true off-thread matching lives in the
+     * Phase 3 batch pipeline (BatchExecutor + RecipeSnapshotCache).
+     * 工厂方法。两个闭包都在主线程执行（RecipeManager 非线程安全）——
+     * 真正的后台匹配在 Phase 3 批管线（BatchExecutor + RecipeSnapshotCache）。
+     */
+    static Subscriber machine(BlockEntity machine, Consumer<List<EeEvent>> matchLogic, Runnable commitLogic) {
+        return new MachineRecipeSubscriber(machine, matchLogic, commitLogic);
     }
 }
 
 final class MachineRecipeSubscriber implements Subscriber {
     private final WeakReference<BlockEntity> machineRef;
-    private final Consumer<List<EeEvent>> backgroundLogic;
-    private final Runnable mainThreadLogic;
+    private final Consumer<List<EeEvent>> matchLogic;   // recipe matching, main thread / 配方匹配（主线程）
+    private final Runnable commitLogic;                 // consume + start work, main thread / 扣料开工（主线程）
     private final AtomicBoolean unsubscribed = new AtomicBoolean();
 
-    MachineRecipeSubscriber(BlockEntity machine, Consumer<List<EeEvent>> background, Runnable mainThread) {
+    MachineRecipeSubscriber(BlockEntity machine, Consumer<List<EeEvent>> matchLogic, Runnable commitLogic) {
         this.machineRef = new WeakReference<>(machine);
-        this.backgroundLogic = background;
-        this.mainThreadLogic = mainThread;
+        this.matchLogic = matchLogic;
+        this.commitLogic = commitLogic;
     }
 
     @Override
@@ -47,8 +53,8 @@ final class MachineRecipeSubscriber implements Subscriber {
         // RecipeManager is not thread-safe — dispatch to main thread / RecipeManager非线程安全，转到主线程
         var server = be.getLevel().getServer();
         if (server != null) server.execute(() -> {
-            backgroundLogic.accept(batch);
-            mainThreadLogic.run();
+            matchLogic.accept(batch);
+            commitLogic.run();
         });
     }
 

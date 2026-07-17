@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"eecore:block/creative_energy_output","y":0},"facing=east":{"model":"eecore:block/creative_energy_output","y":90},"facing=south":{"model":"eecore:block/creative_energy_output","y":180},"facing=west":{"model":"eecore:block/creative_energy_output","y":270}}}

@@ -59,6 +59,26 @@ public final class OverclockUtil {
     }
 
     /**
+     * Ops sustainable by an energy input rate: rate × duration ÷ energyPerOp,
+     * with saturation — near-QV rates overflow a naive multiply, which would
+     * wrap negative and clamp the machine to single-parallel at MAX voltage.
+     * 供电速率可维持的并行数：速率×耗时÷单次能耗，带饱和——QV 级速率会把朴素乘法
+     * 溢出成负数，反而让满压机器被钳到单并行。
+     */
+    public static long sustainedParallel(long totalRate, long duration, long energyPerOp) {
+        if (totalRate <= 0) return 0;
+        if (duration <= 0 || energyPerOp <= 0) return Long.MAX_VALUE;
+        if (totalRate > Long.MAX_VALUE / duration) return Long.MAX_VALUE; // saturate / 饱和
+        return Math.max(1, totalRate * duration / energyPerOp);
+    }
+
+    /** Saturating add for rate accumulation across hatches. / 多仓速率累加的饱和加法。 */
+    public static long saturatingAdd(long a, long b) {
+        long sum = a + b;
+        return ((a ^ sum) & (b ^ sum)) < 0 ? Long.MAX_VALUE : sum; // overflow → MAX / 溢出封顶
+    }
+
+    /**
      * Final duration after overclock × heat. / 超频 × 热机后的最终耗时。
      */
     public static long finalDuration(long baseDuration, int overclockCount,

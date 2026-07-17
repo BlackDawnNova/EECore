@@ -37,6 +37,7 @@ public class Config {
     // Phase 3 hot cache / Phase 3 热缓存
     public static volatile boolean p3ParallelBatching;
     public static volatile int p3BatchThreshold = 16;
+    public static volatile int p3BatchSize = 256;
     public static volatile boolean p3EnergyEnabled;
     public static volatile long p3VanillaEnergyPerTick = 0;
     public static volatile int p3MaxOverclock = 8;
@@ -173,8 +174,8 @@ public class Config {
                         "使用 ForkJoinPool 并行操作（Phase 3）。需重启生效。")
                 .define("forkJoin", false);
         EB_FJ_PARALLELISM = b
-                .comment("ForkJoinPool parallelism. 0 = auto: min(CPU × 16, 16384). Requires restart.",
-                        "ForkJoin 并行度。0=自动。需重启生效。")
+                .comment("ForkJoinPool thread parallelism. 0 = auto: CPU−1 (pure-compute pool; shard concurrency is a separate cap). Requires restart.",
+                        "ForkJoin 线程并行度。0=自动：CPU−1（纯计算池；分片并发数是另一个上限）。需重启生效。")
                 .defineInRange("fjParallelism", 0, 0, 16384);
         EB_SEGMENT_COUNT = b
                 .comment("SegmentQueueManager shard count. 0 = auto: CPU × 2. Requires restart.",
@@ -211,9 +212,9 @@ public class Config {
                         "自适应调度的目标 CPU 占用率。")
                 .defineInRange("cpuTarget", 0.8, 0.1, 0.95);
         P3_MAIN_THREAD_LIMIT = b
-                .comment("Max recipe units written per tick on the main thread — hard cap 256, may only be lowered.",
-                        "主线程每 tick 最大配方单元写入数 — 硬上限 256，只允许调小。")
-                .defineInRange("mainThreadLimit", 256, 16, 256);
+                .comment("Max recipe units written per tick on the main thread. Default 256, adjustable [16, 2048].",
+                        "主线程每 tick 最大配方单元写入数。默认 256，可调范围 [16, 2048]。")
+                .defineInRange("mainThreadLimit", 256, 16, 2048);
         P3_FORK_JOIN_RECIPES = b
                 .comment("Max recipes per ForkJoin task.",
                         "每个 ForkJoin 任务最大配方数。")
@@ -323,6 +324,7 @@ public class Config {
         // Phase 3 hot cache / Phase 3 热缓存
         p3ParallelBatching = P3_PARALLEL_BATCHING.get();
         p3BatchThreshold = P3_BATCH_THRESHOLD.get();
+        p3BatchSize = P3_BATCH_SIZE.get();
         p3EnergyEnabled = P3_ENERGY_ENABLED.get();
         p3VanillaEnergyPerTick = P3_VANILLA_ENERGY_PER_TICK.get();
         p3MaxOverclock = P3_MAX_OVERCLOCK.get();

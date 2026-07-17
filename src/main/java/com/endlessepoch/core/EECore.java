@@ -201,6 +201,10 @@ public class EECore {
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.antixray.ProximityRevealer::onPlayerLeave);
         // Recipe snapshot cache preload / 配方快照缓存预热
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.recipe.RecipeSnapshotCache::onServerStarted);
+        // Phase 3 global driver: CPU/TPS guards + write-back budget + machine pumps / Phase3 全局驱动点
+        NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.energy.eb.batch.Phase3Driver::onServerTickPost);
+        // Phase 3 clean shutdown: pools + batch queues / Phase3 干净关机
+        NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.energy.eb.batch.Phase3Shutdown::onServerStopping);
         // Ghost preview for validation failures / 成形失败幽灵预览
         NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.WorldPreviewManager.get());
         // Celestial halo effect for formed controllers / 日月星辰特效
@@ -307,21 +311,26 @@ public class EECore {
                 (be, side) -> be
         );
 
-        // Item handler for input/output buses / 物品能力（输入/输出总线 + 总成）
+        // Item handler for every bus-type part (creative & addon variants included) —
+        // automation gets the direction-restricted view: input insert-only, output extract-only.
+        // 全部总线类部件的物品能力（含创造与附属变体）——自动化侧走方向受限视图：
+        // 输入只进、输出只出。
         event.registerBlock(
                 net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK,
                 (level, pos, state, be, side) -> {
                     if (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity ib)
-                        return ib.getInventory();
+                        return ib.getAutomationHandler();
                     return null;
                 },
-                com.endlessepoch.core.registry.Blocks.INPUT_BUS.get(),
-                com.endlessepoch.core.registry.Blocks.OUTPUT_BUS.get(),
-                com.endlessepoch.core.registry.Blocks.INPUT_ASSEMBLY.get(),
-                com.endlessepoch.core.registry.Blocks.OUTPUT_ASSEMBLY.get()
+                com.endlessepoch.core.registry.Blocks.PART_BLOCKS.stream()
+                        .map(java.util.function.Supplier::get)
+                        .filter(b -> b instanceof com.endlessepoch.core.nova.block.part.PartBlock pb
+                                && com.endlessepoch.core.nova.block.part.PartBlock.isBusType(pb.getPartType()))
+                        .toArray(net.minecraft.world.level.block.Block[]::new)
         );
 
-        // Omega energy for energy hatches / 能源仓能量能力
+        // Omega energy for every energy hatch (creative & addon variants included)
+        // 全部能源仓的能量能力（含创造与附属变体）
         event.registerBlock(
                 com.endlessepoch.core.api.EECoreCapabilities.OMEGA_ENERGY,
                 (level, pos, state, be, side) -> {
@@ -329,8 +338,11 @@ public class EECore {
                         return pe.getEnergyStorage();
                     return null;
                 },
-                com.endlessepoch.core.registry.Blocks.ENERGY_INPUT.get(),
-                com.endlessepoch.core.registry.Blocks.ENERGY_OUTPUT.get()
+                com.endlessepoch.core.registry.Blocks.PART_BLOCKS.stream()
+                        .map(java.util.function.Supplier::get)
+                        .filter(b -> b instanceof com.endlessepoch.core.nova.block.part.PartBlock pb
+                                && energyCapablePart(pb.getPartType()))
+                        .toArray(net.minecraft.world.level.block.Block[]::new)
         );
 
         // Fluid handler for fluid hatches + assemblies / 流体仓/总成流体能力
@@ -341,11 +353,25 @@ public class EECore {
                         return pe.getFluidHandler();
                     return null;
                 },
-                com.endlessepoch.core.registry.Blocks.FLUID_INPUT.get(),
-                com.endlessepoch.core.registry.Blocks.FLUID_OUTPUT.get(),
-                com.endlessepoch.core.registry.Blocks.INPUT_ASSEMBLY.get(),
-                com.endlessepoch.core.registry.Blocks.OUTPUT_ASSEMBLY.get()
+                com.endlessepoch.core.registry.Blocks.PART_BLOCKS.stream()
+                        .map(java.util.function.Supplier::get)
+                        .filter(b -> b instanceof com.endlessepoch.core.nova.block.part.PartBlock pb
+                                && fluidCapablePart(pb.getPartType()))
+                        .toArray(net.minecraft.world.level.block.Block[]::new)
         );
+    }
+
+    /** Fluid-capable part suffixes (creative & addon variants included). / 具备流体能力的部件后缀（含创造与附属变体）。 */
+    private static boolean fluidCapablePart(com.endlessepoch.core.api.multiblock.PartType type) {
+        String p = type.getId().getPath();
+        return p.endsWith("fluid_input") || p.endsWith("fluid_output")
+                || p.endsWith("input_assembly") || p.endsWith("output_assembly");
+    }
+
+    /** Energy-capable part suffixes. / 具备能量能力的部件后缀。 */
+    private static boolean energyCapablePart(com.endlessepoch.core.api.multiblock.PartType type) {
+        String p = type.getId().getPath();
+        return p.endsWith("energy_input") || p.endsWith("energy_output");
     }
 
     /**
@@ -436,6 +462,38 @@ public class EECore {
                 com.endlessepoch.core.network.EnergySyncPacket.TYPE,
                 com.endlessepoch.core.network.EnergySyncPacket.CODEC,
                 (payload, context) -> com.endlessepoch.core.network.EnergySyncPacket.handle(payload, context)
+        );
+
+        // C2S: creative bus ghost template (JEI drag) / 创造总线幻影模板（JEI 拖拽）
+        registrar.playToServer(
+                com.endlessepoch.core.network.SetGhostSlotPacket.TYPE,
+                com.endlessepoch.core.network.SetGhostSlotPacket.CODEC,
+                (payload, context) -> context.enqueueWork(
+                        () -> com.endlessepoch.core.network.SetGhostSlotPacket.handle(payload, context))
+        );
+
+        // C2S: creative parallel hatch typed value / 创造并行仓输入数值
+        registrar.playToServer(
+                com.endlessepoch.core.network.SetParallelPacket.TYPE,
+                com.endlessepoch.core.network.SetParallelPacket.CODEC,
+                (payload, context) -> context.enqueueWork(
+                        () -> com.endlessepoch.core.network.SetParallelPacket.handle(payload, context))
+        );
+
+        // C2S: creative fluid hatch template (JEI drag) / 创造流体仓模板（JEI 拖拽）
+        registrar.playToServer(
+                com.endlessepoch.core.network.SetGhostFluidPacket.TYPE,
+                com.endlessepoch.core.network.SetGhostFluidPacket.CODEC,
+                (payload, context) -> context.enqueueWork(
+                        () -> com.endlessepoch.core.network.SetGhostFluidPacket.handle(payload, context))
+        );
+
+        // C2S: creative bus template count / 创造总线模板数量
+        registrar.playToServer(
+                com.endlessepoch.core.network.SetGhostCountPacket.TYPE,
+                com.endlessepoch.core.network.SetGhostCountPacket.CODEC,
+                (payload, context) -> context.enqueueWork(
+                        () -> com.endlessepoch.core.network.SetGhostCountPacket.handle(payload, context))
         );
     }
 }

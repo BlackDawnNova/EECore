@@ -1,5 +1,6 @@
 package com.endlessepoch.core;
 
+import com.endlessepoch.core.api.multiblock.PartCategory;
 import com.endlessepoch.core.api.multiblock.loader.MultiblockLoader;
 import net.minecraft.resources.ResourceLocation;
 
@@ -30,24 +31,20 @@ public final class EECoreMachines {
             .center(0, 49, 2)
             .effect("eecore:celestial")
             .supports("furnace", "blast_furnace", "machine", "boiler")
-            .where("EE-3", com.endlessepoch.core.registry.Blocks.INPUT_BUS)
-                .or(com.endlessepoch.core.registry.Blocks.OUTPUT_BUS)
-                .or(com.endlessepoch.core.registry.Blocks.INPUT_ASSEMBLY)
-                .or(com.endlessepoch.core.registry.Blocks.OUTPUT_ASSEMBLY)
-                .or(com.endlessepoch.core.registry.Blocks.FLUID_INPUT)
-                .or(com.endlessepoch.core.registry.Blocks.FLUID_OUTPUT)
-                .or(com.endlessepoch.core.registry.Blocks.ENERGY_INPUT)
-                .or(com.endlessepoch.core.registry.Blocks.ENERGY_OUTPUT)
-                .or(com.endlessepoch.core.registry.Blocks.PARALLEL_HATCH)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.INPUT_BUS, 2)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.OUTPUT_BUS, 1)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.INPUT_ASSEMBLY, 1)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.OUTPUT_ASSEMBLY, 1)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.FLUID_INPUT, 1)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.FLUID_OUTPUT, 1)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.ENERGY_INPUT, 2)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.ENERGY_OUTPUT, 1)
-            .limit("EE-3", com.endlessepoch.core.registry.Blocks.PARALLEL_HATCH, 1)
+            // Category binding: any functional part fits EE-3 — creative and addon
+            // variants included, no per-block enumeration.
+            // 类别绑定：任意功能部件都可放 EE-3——含创造与附属变体，无需逐个点名。
+            .where("EE-3", PartCategory.ANY_FUNCTIONAL)
+            // Category-total limits / 类别总量上限（同类别所有方块合计）
+            .limit("EE-3", PartCategory.ITEM_INPUT_BUS, 2)
+            .limit("EE-3", PartCategory.ITEM_OUTPUT_BUS, 2)
+            .limit("EE-3", PartCategory.INPUT_ASSEMBLY, 1)
+            .limit("EE-3", PartCategory.OUTPUT_ASSEMBLY, 1)
+            .limit("EE-3", PartCategory.FLUID_INPUT, 1)
+            .limit("EE-3", PartCategory.FLUID_OUTPUT, 1)
+            .limit("EE-3", PartCategory.ENERGY_INPUT, 2)
+            .limit("EE-3", PartCategory.ENERGY_OUTPUT, 1)
+            .limit("EE-3", PartCategory.PARALLEL_HATCH, 1)
             .out("eecore:creative_test");
 
     // Internal helper / 内部辅助
@@ -63,9 +60,14 @@ public final class EECoreMachines {
         private String lastTag;
         // Tag → block suppliers / 标签→方块供应器
         private final java.util.Map<String, java.util.List<Supplier<? extends net.minecraft.world.level.block.Block>>> tagSuppliers = new java.util.LinkedHashMap<>();
+        // Tag → part categories / 标签→部件类别
+        private final java.util.Map<String, java.util.Set<PartCategory>> tagCategories = new java.util.LinkedHashMap<>();
         // Tag → (block supplier → maxCount) / 标签→(供应器→上限)
         private final java.util.List<LimEntry> limits = new java.util.ArrayList<>();
         private record LimEntry(String tag, Supplier<? extends net.minecraft.world.level.block.Block> sup, int max) {}
+        // Tag → (category → maxCount) / 标签→(类别→总量上限)
+        private final java.util.List<CatLimEntry> catLimits = new java.util.ArrayList<>();
+        private record CatLimEntry(String tag, PartCategory cat, int max) {}
 
         MachineDef ecs(String ns, String path) { ecsNs = ns; ecsPath = path; return this; }
         MachineDef name(String en, String zh) { nameEn = en; nameZh = zh; return this; }
@@ -93,6 +95,24 @@ public final class EECoreMachines {
         }
         MachineDef limit(String tag, Supplier<? extends net.minecraft.world.level.block.Block> block, int maxCount) {
             limits.add(new LimEntry(tag, block, maxCount));
+            return this;
+        }
+        /** Category binding — every registered block in the category. / 类别绑定——该类别所有已注册方块。 */
+        MachineDef where(String tag, PartCategory... cats) {
+            lastTag = tag;
+            tagCategories.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>())
+                    .addAll(java.util.Arrays.asList(cats));
+            return this;
+        }
+        MachineDef or(PartCategory... cats) {
+            if (lastTag != null)
+                tagCategories.computeIfAbsent(lastTag, k -> new java.util.LinkedHashSet<>())
+                        .addAll(java.util.Arrays.asList(cats));
+            return this;
+        }
+        /** Category-total limit. / 类别总量上限。 */
+        MachineDef limit(String tag, PartCategory cat, int maxCount) {
+            catLimits.add(new CatLimEntry(tag, cat, maxCount));
             return this;
         }
 
@@ -127,8 +147,18 @@ public final class EECoreMachines {
                             pattern.addAlternatives(c, block.defaultBlockState());
                 }
             }
+            // Expand category bindings / 展开类别绑定
+            for (var e : tagCategories.entrySet()) {
+                for (var cat : e.getValue())
+                    for (var block : cat.resolve())
+                        for (char c : pattern.getDefinitions().keySet())
+                            if (pattern.getTags(c).contains(e.getKey()))
+                                pattern.addAlternatives(c, block.defaultBlockState());
+            }
             for (var le : limits)
                 pattern.setBlockLimit(le.tag, le.sup.get(), le.max);
+            for (var ce : catLimits)
+                pattern.setCategoryLimit(ce.tag, ce.cat, ce.max);
         }
     }
 }

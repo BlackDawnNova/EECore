@@ -100,11 +100,16 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
             int count = (state.getBlock() instanceof PartBlock pb && pb.fluidSlots > 0) ? pb.fluidSlots : 1;
             boolean output = abilities.contains(PartAbility.FLUID_OUTPUT);
             for (int i = 0; i < count; i++)
-                fluidTanks.add(new FluidTank(fc) {
-                    @Override protected void onContentsChanged() { setChanged(); }
-                    @Override public boolean isFluidValid(net.neoforged.neoforge.fluids.FluidStack s) { return !output; }
-                });
+                fluidTanks.add(createFluidTank(fc, output));
         }
+    }
+
+    /** Tank factory — creative subclass overrides with infinite/void tanks. / 流体罐工厂，创造子类覆写为无限/虚空罐。 */
+    protected FluidTank createFluidTank(int capacity, boolean output) {
+        return new FluidTank(capacity) {
+            @Override protected void onContentsChanged() { setChanged(); }
+            @Override public boolean isFluidValid(net.neoforged.neoforge.fluids.FluidStack s) { return !output; }
+        };
     }
 
     // IPart / 部件接口
@@ -136,6 +141,18 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
     public int getTier() { return tier; }
     /** Energy hatch amperage. / 能源仓安培数。 */
     public int getAmperage() { return amperage; }
+
+    /**
+     * Parallel bonus contributed by this part — tier formula 2×/tier: LV=16 … QV=16384.
+     * Zero for non-parallel parts. Creative/addon hatches override for custom values.
+     * 本部件提供的并行加成——按电压 2×/级：LV=16 … QV=16384。
+     * 非并行部件为 0。创造/附属仓可覆写自定义数值。
+     */
+    public long getParallelBonus() {
+        if (!abilities.contains(PartAbility.PARALLEL)) return 0;
+        int t = Math.max(1, Math.min(getTier(), 11));
+        return 1L << (t + 3);
+    }
 
     private long lastEnergyNotifyTick;
 

@@ -189,8 +189,48 @@ public class Blocks {
         throw new IllegalStateException("Part block not found: " + path);
     }
 
-    public static final Supplier<? extends Block> INPUT_BUS  = registerPartBlock("input_bus",  1, 2, 0, 0, 0, "Input Bus", "输入总线");
-    public static final Supplier<? extends Block> OUTPUT_BUS = registerPartBlock("output_bus", 1, 2, 0, 0, 0, "Output Bus", "输出总线");
+    /**
+     * Bus slot count by voltage tier — (1 + min(9, tier))², i.e. LV 2×2, MV 3×3, HV 4×4 …
+     * capped at 10×10. Addon mods pass this straight into registerPartBlock.
+     * 按电压等级的总线槽数公式——(1 + min(9, tier))²：LV 2×2、MV 3×3、HV 4×4……封顶 10×10。
+     * 附属 mod 可直接把返回值传给 registerPartBlock。
+     */
+    public static int busSlotsForTier(int tier) {
+        int root = 1 + Math.min(9, Math.max(0, tier));
+        return root * root;
+    }
+
+    // Built-in test buses hold 16 stacks (1024 items) so batch-pipeline tests can feed 1000+ inputs
+    // 内置测试总线 16 槽（1024 个）——批处理管线测试需要一次容纳 1000+ 输入
+    public static final Supplier<? extends Block> INPUT_BUS  = registerPartBlock("input_bus",  1, 16, 0, 0, 0, "Input Bus", "输入总线");
+    public static final Supplier<? extends Block> OUTPUT_BUS = registerPartBlock("output_bus", 1, 16, 0, 0, 0, "Output Bus", "输出总线");
+    /** Phantom infinite item source for pipeline tests (JEI-drag configurable). / 管线测试用幻影无限物品源（JEI 拖拽配置）。 */
+    public static final Supplier<? extends Block> CREATIVE_INPUT_BUS =
+            registerPartBlock("creative_input_bus", 1, 16, 0, 0, 0, "Creative Input Bus", "创造输入总线");
+    /** Void sink — accepts and destroys all outputs, for endless stress runs. / 虚空输出——无限吞噬产物，持续压测用。 */
+    public static final Supplier<? extends Block> CREATIVE_OUTPUT_BUS =
+            registerPartBlock("creative_output_bus", 1, 4, 0, 0, 0, "Creative Output Bus", "创造输出总线");
+    /** Infinite Ω source with GUI-adjustable tier — drives machine effective voltage. / 无限 Ω 源，GUI 调档，决定机器有效电压。 */
+    public static final Supplier<? extends Block> CREATIVE_ENERGY_INPUT =
+            registerPartBlock("creative_energy_input", 1, 0, 0, 0, 10000, 16, "Creative Energy Input Hatch", "创造能源输入仓");
+    /** Void Ω sink — swallows unlimited energy, for generator tests. / 虚空能源输出——无限吞 Ω，测发电机用。 */
+    public static final Supplier<? extends Block> CREATIVE_ENERGY_OUTPUT =
+            registerPartBlock("creative_energy_output", 1, 0, 0, 0, 10000, 16, "Creative Energy Output Hatch", "创造能源输出仓");
+    /** Infinite fluid source — bucket click sets the template. / 无限流体源——用桶灌入即设模板。 */
+    public static final Supplier<? extends Block> CREATIVE_FLUID_INPUT =
+            registerPartBlock("creative_fluid_input", 1, 0, 16000, 0, 0, "Creative Fluid Input Hatch", "创造流体输入仓");
+    /** Void fluid sink. / 虚空流体输出。 */
+    public static final Supplier<? extends Block> CREATIVE_FLUID_OUTPUT =
+            registerPartBlock("creative_fluid_output", 1, 0, 16000, 0, 0, "Creative Fluid Output Hatch", "创造流体输出仓");
+    /** Tier-11 parallel hatch → 16384 parallel via the standard formula, zero extra code. / QV 并行仓——标准公式直接得 16384 并行，零新代码。 */
+    public static final Supplier<? extends Block> CREATIVE_PARALLEL_HATCH =
+            registerPartBlock("creative_parallel_hatch", 11, 0, 0, 0, 0, "Creative Parallel Hatch", "创造并行仓");
+    /** Infinite items + fluid templates in one part — 4×4 items left, 4×4 fluids right. / 无限物品+流体模板二合一——左 4×4 物品、右 4×4 流体。 */
+    public static final Supplier<? extends Block> CREATIVE_INPUT_ASSEMBLY =
+            registerPartBlock("creative_input_assembly", 1, 16, 16000, 16, 0, "Creative Input Assembly", "创造输入总成");
+    /** Void items + fluids in one part. / 物品+流体全吞二合一。 */
+    public static final Supplier<? extends Block> CREATIVE_OUTPUT_ASSEMBLY =
+            registerPartBlock("creative_output_assembly", 1, 16, 16000, 16, 0, "Creative Output Assembly", "创造输出总成");
     public static final Supplier<? extends Block> FLUID_INPUT  = registerPartBlock("fluid_input",  1, 0, 8000, 0, 0, "Fluid Input Hatch", "流体输入仓");
     public static final Supplier<? extends Block> FLUID_OUTPUT = registerPartBlock("fluid_output", 1, 0, 8000, 0, 0, "Fluid Output Hatch", "流体输出仓");
     public static final Supplier<? extends Block> ENERGY_INPUT  = registerPartBlock("energy_input",  1, 0, 0, 0, 64000, "Energy Input Hatch", "能源输入仓");

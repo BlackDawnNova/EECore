@@ -20,6 +20,8 @@ public class HatchMenu extends AbstractContainerMenu {
     private OmegaValue energyCapacity = OmegaValue.zero();
     private String lastSyncedStored = "";
     private String lastSyncedCapacity = "";
+    private ResourceLocation[] lastSyncedFluidId;
+    private int[] lastSyncedFluidAmt;
     ServerPlayer viewer;
 
     public HatchMenu(int id, Inventory inv, PartBlockEntity hatch) {
@@ -58,10 +60,23 @@ public class HatchMenu extends AbstractContainerMenu {
     private void syncFromBE() {
         if (hatch == null) return;
         var ts = hatch.getFluidTanks();
+        if (lastSyncedFluidId == null) {
+            lastSyncedFluidId = new ResourceLocation[tankCount];
+            lastSyncedFluidAmt = new int[tankCount];
+        }
         for (int i = 0; i < tankCount && i < ts.size(); i++) {
             var f = ts.get(i);
             fAmt[i] = f.getFluidAmount(); fCap[i] = f.getCapacity();
             fId[i] = f.getFluid().isEmpty() ? null : BuiltInRegistries.FLUID.getKey(f.getFluid().getFluid());
+            // Push changes even when they didn't come from a GUI click (JEI drag, pipes)
+            // 非点击来源的变更也推送（JEI 拖拽、管道）
+            if (viewer != null && (fAmt[i] != lastSyncedFluidAmt[i]
+                    || !java.util.Objects.equals(fId[i], lastSyncedFluidId[i]))) {
+                lastSyncedFluidAmt[i] = fAmt[i];
+                lastSyncedFluidId[i] = fId[i];
+                PacketDistributor.sendToPlayer(viewer,
+                        new com.endlessepoch.core.network.FluidSyncPacket(pos, i, fId[i], fAmt[i], fCap[i]));
+            }
         }
 
         var es = hatch.getEnergyStorage();
@@ -112,6 +127,23 @@ public class HatchMenu extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotId, int button, ClickType type, Player player) {
+        // Creative fluid template: click with a fluid = set template (container untouched),
+        // empty hand = clear. Empty containers fall through and fill from the infinite tank.
+        // 创造流体模板：手持流体点击=设模板（容器不消耗），空手=清除。空容器走通用路径从无限罐取液。
+        if (slotId >= 0 && slotId < tankCount
+                && hatch instanceof com.endlessepoch.core.nova.block.part.CreativeHatchBlockEntity ch
+                && ch.isFluidTemplate()) {
+            var held = player.containerMenu.getCarried();
+            if (held.isEmpty()) {
+                ch.setFluidTemplate(slotId, null);
+                syncFromBE(); sendSync(slotId, player); return;
+            }
+            var contained = FluidUtil.getFluidContained(held);
+            if (contained.isPresent()) {
+                ch.setFluidTemplate(slotId, contained.get().getFluid());
+                syncFromBE(); sendSync(slotId, player); return;
+            }
+        }
         if (slotId >= 0 && slotId < tankCount && hatch != null && !player.containerMenu.getCarried().isEmpty()) {
             var held = player.containerMenu.getCarried();
             if (FluidUtil.getFluidHandler(held).isPresent()) {
@@ -136,6 +168,8 @@ public class HatchMenu extends AbstractContainerMenu {
                 new com.endlessepoch.core.network.FluidSyncPacket(pos, slotId,
                         fId[slotId], fAmt[slotId], fCap[slotId]));
     }
+
+    public BlockPos getPos() { return pos; }
 
     @Override public ItemStack quickMoveStack(Player p, int i) { return ItemStack.EMPTY; }
     @Override public boolean stillValid(Player p) { return p.distanceToSqr(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5) <= 64; }

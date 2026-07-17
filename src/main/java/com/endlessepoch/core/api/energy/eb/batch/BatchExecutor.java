@@ -43,7 +43,7 @@ public final class BatchExecutor {
         if (shards == 0) return false;
         if (ACTIVE_SHARDS.get() + shards > effectiveCap()) return false;
         ACTIVE_SHARDS.addAndGet(shards);
-        Schedulers.FORK_JOIN.submit(() -> {
+        Schedulers.forkJoin().submit(() -> {
             List<ShardResultUnit> out;
             try {
                 out = new ShardTask(task, 0, task.units().size(), RecipeSnapshotCache::get).invoke();

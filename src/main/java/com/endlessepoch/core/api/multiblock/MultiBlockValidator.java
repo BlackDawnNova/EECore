@@ -61,6 +61,15 @@ public final class MultiBlockValidator {
                             tagCounts.merge(key, 1, Integer::sum);
                             tagLimits.put(key, mc);
                         }
+                        // Category-total limits: count across every block in the category
+                        // 类别总量上限：同类别所有方块合计计数
+                        for (var ce : pattern.getCategoryLimits(tag).entrySet()) {
+                            if (ce.getValue() > 0 && ce.getKey().matches(actual.getBlock())) {
+                                String key = tag + "|cat:" + ce.getKey().name();
+                                tagCounts.merge(key, 1, Integer::sum);
+                                tagLimits.put(key, ce.getValue());
+                            }
+                        }
                     }
                 }
         for (var e : tagCounts.entrySet()) {

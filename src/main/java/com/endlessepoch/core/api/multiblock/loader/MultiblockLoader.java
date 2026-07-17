@@ -8,6 +8,7 @@ import com.endlessepoch.core.api.multiblock.MachineEffectRegistry;
 import com.endlessepoch.core.api.multiblock.MachineRegistry;
 import com.endlessepoch.core.api.multiblock.MultiBlockPattern;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
+import com.endlessepoch.core.api.multiblock.PartCategory;
 import com.endlessepoch.core.api.multiblock.TagDefRegistry;
 import com.endlessepoch.core.registry.Items;
 import com.endlessepoch.ecsformat.EcsFormat;
@@ -23,6 +24,7 @@ import java.util.*;
 public final class MultiblockLoader {
     private final ResourceLocation ecsFile;
     private final Map<String, Set<Block>> tagBindings = new LinkedHashMap<>();
+    private final Map<String, Set<PartCategory>> tagCategories = new LinkedHashMap<>();
     private String lastTag;
     private String nameEn, nameZh;
     private int tier;
@@ -33,6 +35,7 @@ public final class MultiblockLoader {
     private String itemId;
     private String[] supportedTypes;
     private final Map<String, Map<Block, Integer>> perBlockLimits = new LinkedHashMap<>();
+    private final Map<String, Map<PartCategory, Integer>> categoryLimits = new LinkedHashMap<>();
 
     private MultiblockLoader(ResourceLocation ecsFile) { this.ecsFile = ecsFile; }
     public static MultiblockLoader load(ResourceLocation ecsFile) { return new MultiblockLoader(ecsFile); }
@@ -49,10 +52,38 @@ public final class MultiblockLoader {
     }
 
     /**
+     * Bind whole part categories to a tag — every registered block in the category
+     * (creative and addon variants included) becomes a valid alternative. Resolved at
+     * register() time, so call register() after block registration (commonSetup+).
+     * 按部件类别绑定标签——该类别下所有已注册方块（含创造与附属变体）都成为合法替选。
+     * 在 register() 时解析，故 register() 须在方块注册完成后调用（commonSetup 起）。
+     */
+    public MultiblockLoader where(String tag, PartCategory... categories) {
+        lastTag = tag;
+        tagCategories.computeIfAbsent(tag, k -> new LinkedHashSet<>()).addAll(Arrays.asList(categories));
+        return this;
+    }
+
+    public MultiblockLoader or(PartCategory... categories) {
+        if (lastTag != null)
+            tagCategories.computeIfAbsent(lastTag, k -> new LinkedHashSet<>()).addAll(Arrays.asList(categories));
+        return this;
+    }
+
+    /**
      * Set per-block max count for a tag. -1 = unlimited. / 设置某方块在标签中的上限。
      */
     public MultiblockLoader limit(String tag, Block block, int maxCount) {
         perBlockLimits.computeIfAbsent(tag, k -> new LinkedHashMap<>()).put(block, maxCount);
+        return this;
+    }
+
+    /**
+     * Category-total limit — caps the combined count of every block in the category.
+     * 类别总量上限——限制该类别所有方块的合计数量。
+     */
+    public MultiblockLoader limit(String tag, PartCategory category, int maxCount) {
+        categoryLimits.computeIfAbsent(tag, k -> new LinkedHashMap<>()).put(category, maxCount);
         return this;
     }
 
@@ -93,10 +124,23 @@ public final class MultiblockLoader {
                     if (pattern.getTags(c).contains(e.getKey()))
                         pattern.addAlternatives(c, b.defaultBlockState());
 
+        // 2a. Expand category bindings / 展开类别绑定
+        for (var e : tagCategories.entrySet())
+            for (PartCategory cat : e.getValue())
+                for (Block b : cat.resolve())
+                    for (char c : pattern.getDefinitions().keySet())
+                        if (pattern.getTags(c).contains(e.getKey()))
+                            pattern.addAlternatives(c, b.defaultBlockState());
+
         // 2b. Register per-block limits on pattern / 每方块上限存 pattern
         for (var e : perBlockLimits.entrySet())
             for (var be : e.getValue().entrySet())
                 pattern.setBlockLimit(e.getKey(), be.getKey(), be.getValue());
+
+        // 2c. Register category-total limits / 类别总量上限存 pattern
+        for (var e : categoryLimits.entrySet())
+            for (var ce : e.getValue().entrySet())
+                pattern.setCategoryLimit(e.getKey(), ce.getKey(), ce.getValue());
 
         // 3. Create MachineDefinition / 创建定义
         String en = nameEn != null ? nameEn : machineId.getPath();

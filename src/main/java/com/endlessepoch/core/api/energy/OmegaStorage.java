@@ -136,7 +136,12 @@ public class OmegaStorage implements IOmegaEnergyStorage {
                     if (entry.contains("value", Tag.TAG_STRING)) {
                         String str = entry.getString("value");
                         if (str != null && !str.isEmpty()) {
-                            try { val = OmegaValue.of(new BigInteger(str)); } catch (NumberFormatException ignored) {}
+                            try { val = OmegaValue.of(new BigInteger(str)); }
+                            catch (NumberFormatException e) {
+                                // Corrupt save data — keep zero but leave a trace / 存档数据损坏——保零值但要留痕
+                                com.endlessepoch.core.EECore.LOGGER.warn(
+                                        "[Omega] corrupt tiered energy value in NBT: '{}', resetting to 0", str);
+                            }
                         }
                     } else if (entry.contains("value", Tag.TAG_LONG)) {
                         val = OmegaValue.of(entry.getLong("value"));
@@ -149,7 +154,11 @@ public class OmegaStorage implements IOmegaEnergyStorage {
             if (tag.contains("energy", Tag.TAG_STRING)) {
                 String str = tag.getString("energy");
                 if (str != null && !str.isEmpty()) {
-                    try { total = OmegaValue.of(new BigInteger(str)); } catch (NumberFormatException ignored) {}
+                    try { total = OmegaValue.of(new BigInteger(str)); }
+                    catch (NumberFormatException e) {
+                        com.endlessepoch.core.EECore.LOGGER.warn(
+                                "[Omega] corrupt total energy in NBT: '{}', resetting to 0", str);
+                    }
                 }
             } else if (tag.contains("energy", Tag.TAG_LONG)) {
                 total = OmegaValue.of(tag.getLong("energy"));
@@ -285,7 +294,6 @@ public class OmegaStorage implements IOmegaEnergyStorage {
                     }
                     extracted = extracted.add(toExtract);
                     remaining = remaining.subtract(toExtract);
-                    if (extracted.compareTo(OmegaValue.of(limit)) >= 0) break;
                 }
                 if (current == VoltageTier.ELV) break;
                 current = current.prev();

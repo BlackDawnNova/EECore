@@ -24,6 +24,9 @@ public class ClientEvents {
     public static void onRegisterScreens(RegisterMenuScreensEvent event) {
         event.register(Menus.CREATIVE_GENERATOR.get(), CreativeGeneratorScreen::new);
         event.register(Menus.CREATIVE_CONSUMER.get(), CreativeConsumerScreen::new);
+        event.register(Menus.CREATIVE_HATCH.get(), com.endlessepoch.core.screen.creative.CreativeHatchScreen::new);
+        event.register(Menus.CREATIVE_PARALLEL.get(), com.endlessepoch.core.screen.creative.CreativeParallelScreen::new);
+        event.register(Menus.CREATIVE_VOID.get(), com.endlessepoch.core.screen.creative.CreativeVoidScreen::new);
         event.register(Menus.BUS.get(), BusScreen::new);
         event.register(Menus.MACHINE.get(), MachineTestScreen::new);
         event.register(Menus.HATCH.get(), HatchScreen::new);

@@ -16,6 +16,8 @@ public final class MultiBlockPattern {
     private final Map<Character, List<String>> tags = new LinkedHashMap<>();
     // Per-pattern per-block limits / 每个 pattern 独立的方块上限
     private final Map<String, Map<Block, Integer>> blockLimits = new LinkedHashMap<>();
+    // Per-pattern category-total limits / 每个 pattern 独立的类别总量上限
+    private final Map<String, Map<PartCategory, Integer>> categoryLimits = new LinkedHashMap<>();
     private final java.util.List<BlockPos> nonAirPositions;
     private final java.util.List<BlockPos> nonAirControllers;
 
@@ -147,6 +149,20 @@ public final class MultiBlockPattern {
     public int getBlockLimit(String tag, Block block) {
         var m = blockLimits.get(tag);
         return m != null ? m.getOrDefault(block, 0) : 0;
+    }
+
+    /**
+     * Category-total limit for a tag — caps the combined count of every block in the
+     * category (addon variants included), e.g. "any kind of item input bus ≤ 2".
+     * 类别总量上限——限制该类别所有方块（含附属变体）的合计数量，
+     * 如"任意种类物品输入总线合计 ≤2"。
+     */
+    public void setCategoryLimit(String tag, PartCategory category, int max) {
+        categoryLimits.computeIfAbsent(tag, k -> new LinkedHashMap<>()).put(category, max);
+    }
+    public Map<PartCategory, Integer> getCategoryLimits(String tag) {
+        var m = categoryLimits.get(tag);
+        return m != null ? m : java.util.Collections.emptyMap();
     }
 
     public Map<Character, BlockState> getDefinitions() { return definitions; }

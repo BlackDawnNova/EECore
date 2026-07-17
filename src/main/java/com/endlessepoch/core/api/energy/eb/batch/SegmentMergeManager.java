@@ -35,4 +35,9 @@ public final class SegmentMergeManager {
     public static void clear(long posHash) {
         DELIVERY.remove(posHash);
     }
+
+    /** Drop all queues (server stopping). / 全部清空（服务器关闭）。 */
+    public static void clearAll() {
+        DELIVERY.clear();
+    }
 }

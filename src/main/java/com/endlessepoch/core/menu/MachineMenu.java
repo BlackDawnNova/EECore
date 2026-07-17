@@ -23,7 +23,7 @@ public class MachineMenu extends AbstractContainerMenu {
         super(Menus.MACHINE.get(), id);
         this.mc = mc; this.pos = mc.getBlockPos();
         this.nameEn = ""; this.nameZh = "";
-        this.data = new SimpleContainerData(16);
+        this.data = new SimpleContainerData(19);
         addDataSlots(data);
         addSlots(inv);
         syncFromBE();
@@ -38,7 +38,7 @@ public class MachineMenu extends AbstractContainerMenu {
         for (int i = 0; i < count; i++)
             types.add(net.minecraft.resources.ResourceLocation.parse(buf.readUtf()));
         this.clientSupported = java.util.List.copyOf(types);
-        this.data = new SimpleContainerData(16);
+        this.data = new SimpleContainerData(19);
         addDataSlots(data);
         addSlots(inv);
     }
@@ -66,6 +66,12 @@ public class MachineMenu extends AbstractContainerMenu {
     public boolean isHeatEnabled() { return data.get(13) != 0; }
     public boolean isOverclockEnabled() { return data.get(14) != 0; }
     public int getEffectiveTier() { return data.get(15); }
+    /** Live effective parallel (energy-adaptive). / 当前有效并行（能量自适应后）。 */
+    public int getEffectiveParallel() { return Math.max(1, data.get(16)); }
+    /** Hardware parallel cap (hatches). / 硬件并行上限（并行仓）。 */
+    public int getHardwareParallel() { return Math.max(1, data.get(17)); }
+    /** Batch pipeline currently running. / 批处理进行中。 */
+    public boolean isBatchActive() { return data.get(18) != 0; }
 
     @Override public void broadcastChanges() {
         super.broadcastChanges();
@@ -130,6 +136,9 @@ public class MachineMenu extends AbstractContainerMenu {
         data.set(13, mc.isHeatEnabled() ? 1 : 0);
         data.set(14, mc.isOverclockEnabled() ? 1 : 0);
         data.set(15, mc.getEffectiveTier());
+        data.set(16, mc.getDisplayEffectiveParallel());
+        data.set(17, mc.getParallelCap());
+        data.set(18, mc.isBatchActive() ? 1 : 0);
     }
 
     private void addSlots(Inventory inv) {

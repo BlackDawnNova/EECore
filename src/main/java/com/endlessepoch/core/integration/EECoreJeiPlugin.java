@@ -56,4 +56,12 @@ public class EECoreJeiPlugin implements IModPlugin {
         r.addRecipeCatalyst(stack, MachineRecipeCategory.TYPE);
         r.addRecipeCatalyst(stack, BoilerRecipeCategory.TYPE);
     }
+
+    @Override
+    public void registerGuiHandlers(mezz.jei.api.registration.IGuiHandlerRegistration r) {
+        // Creative bus phantom slots accept JEI ghost drags / 创造总线幻影槽接收 JEI 拖拽
+        r.addGhostIngredientHandler(com.endlessepoch.core.screen.BusScreen.class, new CreativeBusGhostHandler());
+        // Creative fluid hatch tanks accept fluid/bucket drags / 创造流体仓罐位接收流体/桶拖拽
+        r.addGhostIngredientHandler(com.endlessepoch.core.screen.HatchScreen.class, new CreativeFluidGhostHandler());
+    }
 }

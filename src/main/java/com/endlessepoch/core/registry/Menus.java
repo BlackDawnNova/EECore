@@ -27,6 +27,21 @@ public class Menus {
                     () -> IMenuTypeExtension.create(CreativeConsumerMenu::new)
             );
 
+    public static final Supplier<MenuType<com.endlessepoch.core.menu.creative.CreativeHatchMenu>> CREATIVE_HATCH =
+            MENUS.register("creative_hatch",
+                    () -> IMenuTypeExtension.create(com.endlessepoch.core.menu.creative.CreativeHatchMenu::new)
+            );
+
+    public static final Supplier<MenuType<com.endlessepoch.core.menu.creative.CreativeParallelMenu>> CREATIVE_PARALLEL =
+            MENUS.register("creative_parallel",
+                    () -> IMenuTypeExtension.create(com.endlessepoch.core.menu.creative.CreativeParallelMenu::new)
+            );
+
+    public static final Supplier<MenuType<com.endlessepoch.core.menu.creative.CreativeVoidMenu>> CREATIVE_VOID =
+            MENUS.register("creative_void",
+                    () -> IMenuTypeExtension.create(com.endlessepoch.core.menu.creative.CreativeVoidMenu::new)
+            );
+
     public static final Supplier<MenuType<BusMenu>> BUS =
             MENUS.register("bus",
                     () -> IMenuTypeExtension.create(BusMenu::new)

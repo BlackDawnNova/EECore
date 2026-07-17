@@ -15,6 +15,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class WindowBuffer {
 
     private final Queue<EeEvent> queue = new ConcurrentLinkedQueue<>();
+    // CLQ.size() is O(n) — keep our own O(1) counter / CLQ.size() 是 O(n)，自维护 O(1) 计数
+    private final java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger();
     private final Subscriber subscriber;
     private final TickTimer timer = new TickTimer();
     private long windowStart = System.nanoTime();
@@ -26,14 +28,15 @@ public class WindowBuffer {
 
     /** Push an event into the buffer. / 推入事件。 */
     public void offer(EeEvent event) {
-        if (queue.size() >= Config.ebBufferCapacity) {
-            queue.poll(); // drop oldest / 丢弃最早
+        if (count.get() >= Config.ebBufferCapacity) {
+            if (queue.poll() != null) count.decrementAndGet(); // drop oldest / 丢弃最早
             dropped++;
             if (dropped % 1000 == 1)
                 System.err.println("[EB] WindowBuffer overflow, dropped " + dropped + " events");
             return;
         }
         queue.add(event);
+        count.incrementAndGet();
     }
 
     /**
@@ -44,28 +47,32 @@ public class WindowBuffer {
     public void flush(long gameTick) {
         if (subscriber.isUnsubscribed()) {
             queue.clear();
+            count.set(0);
             return;
         }
         // Drop stale events after server sleep / 服务器休眠后丢弃过期事件
-        if (timer.isExpired(gameTick)) {
+        if (timer.checkAndAdvance(gameTick)) {
             queue.clear();
+            count.set(0);
             windowStart = System.nanoTime();
             return;
         }
         long now = System.nanoTime();
-        if (now - windowStart >= Config.ebWindowNanos && !queue.isEmpty()) {
+        if (now - windowStart >= Config.ebWindowNanos && count.get() > 0) {
             List<EeEvent> batch = new ArrayList<>();
             EeEvent ev;
-            while ((ev = queue.poll()) != null && batch.size() < Config.ebMaxBatch)
+            while (batch.size() < Config.ebMaxBatch && (ev = queue.poll()) != null) {
+                count.decrementAndGet();
                 batch.add(ev);
+            }
             if (!batch.isEmpty()) {
-                Schedulers.BACKGROUND.submit(() -> subscriber.onNext(batch));
+                Schedulers.background().submit(() -> subscriber.onNext(batch));
             }
             windowStart = now;
         }
     }
 
-    public int size() { return queue.size(); }
+    public int size() { return count.get(); }
 
     /**
      * Re-sync after a dormant period (e.g. machine re-formed): drop stale leftovers and
@@ -74,6 +81,7 @@ public class WindowBuffer {
      */
     public void resync(long gameTick) {
         queue.clear();
+        count.set(0);
         timer.reset(gameTick);
         windowStart = System.nanoTime();
     }

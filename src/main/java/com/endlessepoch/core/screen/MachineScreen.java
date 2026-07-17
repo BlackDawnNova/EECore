@@ -184,11 +184,21 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
                 if (!empty.isEmpty())
                     g.drawString(font, empty, sx + font.width(bar), py + 36, 0xFF_444444);
 
-                // Countdown / 倒计时
-                int remaining = mm.getMaxProgress() - mm.getProgress();
-                float secs = remaining / 20.0f;
-                String countdown = String.format("⏱ %.1fs", secs);
-                g.drawString(font, countdown, sx, py + 48, 0xFF_FFCC44);
+                // Batch: countdown is meaningless — show effective parallel instead
+                // 批处理：倒计时无意义——改显示有效并行
+                if (mm.isBatchActive()) {
+                    int eff = mm.getEffectiveParallel(), hw = mm.getHardwareParallel();
+                    // Orange when energy-limited below the hatch cap / 被供电压到仓上限以下时橙色
+                    int pc = eff < hw ? 0xFF_FFAA00 : 0xFF_44CC44;
+                    g.drawString(font, Component.translatable("eecore.gui.parallel.display", eff, hw).getString(),
+                            sx, py + 48, pc);
+                } else {
+                    // Countdown / 倒计时
+                    int remaining = mm.getMaxProgress() - mm.getProgress();
+                    float secs = remaining / 20.0f;
+                    String countdown = String.format("⏱ %.1fs", secs);
+                    g.drawString(font, countdown, sx, py + 48, 0xFF_FFCC44);
+                }
 
                 // Speed multiplier — only when oc/heat active / 倍率——仅超频/热量开启时显示
                 int mul = mm.getSpeedMultiplier();
