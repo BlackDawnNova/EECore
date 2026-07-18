@@ -10,7 +10,7 @@ import net.neoforged.neoforge.items.SlotItemHandler;
 
 public class BusMenu extends AbstractContainerMenu {
     private final InputBusBlockEntity bus; private final int slotCount; private final boolean isOutput;
-    private final boolean creative;
+    private final boolean creative; private final boolean oversized;
     private final BlockPos pos; private final int fluidSlots; private final ContainerData data;
     final ResourceLocation[] fId; final int[] fAmt, fCap;
     private net.minecraft.server.level.ServerPlayer viewer;
@@ -23,7 +23,7 @@ public class BusMenu extends AbstractContainerMenu {
 
     public BusMenu(int id, Inventory inv, InputBusBlockEntity bus) {
         super(Menus.BUS.get(), id); this.bus=bus; this.slotCount=bus.getSlotCount(); this.isOutput=bus.isOutput(); this.pos=bus.getBlockPos();
-        this.creative=bus.isCreative();
+        this.creative=bus.isCreative(); this.oversized=bus instanceof com.endlessepoch.core.nova.block.part.CreativeOversizedBusBlockEntity;
         this.data=new SimpleContainerData(2); addDataSlots(data);
         this.templateCountData = creative && bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
                 ? templateCountData(cb) : new SimpleContainerData(0);
@@ -36,7 +36,7 @@ public class BusMenu extends AbstractContainerMenu {
     }
     public BusMenu(int id, Inventory inv, FriendlyByteBuf buf) {
         super(Menus.BUS.get(), id); this.pos=buf.readBlockPos(); this.slotCount=buf.readVarInt();
-        this.isOutput=buf.readBoolean(); this.creative=buf.readBoolean(); this.fluidSlots=buf.readVarInt(); this.bus=null;
+        this.isOutput=buf.readBoolean(); this.creative=buf.readBoolean(); this.oversized=creative&&isOutput; this.fluidSlots=buf.readVarInt(); this.bus=null;
         this.data=new SimpleContainerData(2); addDataSlots(data);
         this.clientTemplateCounts = new int[creative ? slotCount : 0];
         this.templateCountData = creative ? clientTemplateCountData() : new SimpleContainerData(0);
@@ -50,7 +50,7 @@ public class BusMenu extends AbstractContainerMenu {
         addBusSlots(new net.neoforged.neoforge.items.ItemStackHandler(slotCount));
         addPlayerSlots(inv);
     }
-    @Override public void broadcastChanges(){super.broadcastChanges();if(bus!=null)syncFromBE();}
+    @Override public void broadcastChanges(){if(bus!=null)syncFromBE();super.broadcastChanges();}
     private void syncFromBE(){if(bus==null)return;var ts=((PartBlockEntity)bus).getFluidTanks();
         if(lastFid==null){lastFid=new ResourceLocation[Math.max(1,fluidSlots)];lastFAmt=new int[Math.max(1,fluidSlots)];}
         for(int i=0;i<fluidSlots&&i<ts.size();i++){var f=ts.get(i);fAmt[i]=f.getFluidAmount();fCap[i]=f.getCapacity();fId[i]=f.getFluid().isEmpty()?null:BuiltInRegistries.FLUID.getKey(f.getFluid().getFluid());
@@ -102,6 +102,7 @@ public class BusMenu extends AbstractContainerMenu {
         };
     }
     public boolean isOutputBus(){return isOutput;}
+    public boolean isOversized(){return oversized||(creative&&isOutput);}
     /** Side-by-side creative assembly: items left 4×4, fluids right 4×4. / 创造输入总成左右分栏：左物品 4×4、右流体 4×4。 */
     public boolean sideBySide(){return creative&&!isOutput&&fluidSlots>0;}
     /** Bus grid columns — creative uses a 4-wide AE-style grid. / 总线网格列数——创造总线用 4 列 AE 风格网格。 */
@@ -124,7 +125,7 @@ public class BusMenu extends AbstractContainerMenu {
             });
         }
         int cols=busCols();int x=busX();int fR=fluidRows();
-        for(int i=0;i<slotCount;i++){int r=i/cols,cl=i%cols;this.addSlot(new SlotItemHandler(h,i,x+cl*18,18+fR*18+r*18){@Override public boolean mayPlace(ItemStack s){return !isOutput&&!creative;}});}}
+        for(int i=0;i<slotCount;i++){int r=i/cols,cl=i%cols;this.addSlot(new SlotItemHandler(h,i,x+cl*18,18+fR*18+r*18){@Override public boolean mayPlace(ItemStack s){return !isOutput&&!creative;}@Override public ItemStack remove(int amount){return h.extractItem(getSlotIndex(),amount,false);}});}}
     private void addPlayerSlots(Inventory inv){int rs=busRows(),fR=fluidRows(),g=(rs+fR)<=3?14:20;int iy=18+fR*18+rs*18+g,hy=iy+3*18+4;
         for(int r=0;r<3;r++)for(int c=0;c<9;c++)this.addSlot(new Slot(inv,c+r*9+9,8+c*18,iy+r*18));for(int c=0;c<9;c++)this.addSlot(new Slot(inv,c,8+c*18,hy));}
     @Override public void clicked(int slotId,int button,ClickType type,Player player){
@@ -133,6 +134,7 @@ public class BusMenu extends AbstractContainerMenu {
         // 创造总线：手持物品左键=设模板，右键=清除；空手左键由客户端处理（数量弹框），服务端不动作
         int firstBus=fluidSlots, lastBus=firstBus+slotCount-1;
         if(creative&&slotId>=firstBus&&slotId<=lastBus){
+            if(oversized){super.clicked(slotId,button,type,player);return;}
             if(bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb){
                 if(button==1) cb.setTemplate(slotId-firstBus,ItemStack.EMPTY);
                 else if(!getCarried().isEmpty()) cb.setTemplate(slotId-firstBus,getCarried());

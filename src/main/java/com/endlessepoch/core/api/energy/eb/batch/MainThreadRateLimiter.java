@@ -12,12 +12,17 @@ package com.endlessepoch.core.api.energy.eb.batch;
 public final class MainThreadRateLimiter {
 
     private static int budget;
+    private static int currentLimit = 256;
 
     private MainThreadRateLimiter() {}
+
+    /** Current dynamic limit for display. / 当前动态限额，供显示。 */
+    public static int currentLimit() { return currentLimit; }
 
     /** Refill the budget at the start of each server tick. / 每 tick 开始时充值预算。 */
     public static void newTick(int limit) {
         budget = Math.max(0, limit);
+        currentLimit = limit;
     }
 
     /** Grant up to wanted units from the remaining budget. / 从剩余预算中授予至多 wanted 单元。 */

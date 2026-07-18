@@ -45,6 +45,7 @@ public class Config {
     public static volatile int p3SingleMachineShardLimit = 5461;
     public static volatile int p3SegmentMergeCount = 256;
     public static volatile int p3MainThreadLimit = 256;
+    public static volatile boolean p3MainThreadAdaptive = true;
     public static volatile int p3OverloadWarnThreshold = 3000;
     public static volatile double p3TpsFullThreshold = 19.5;
     public static volatile double p3TpsReducedThreshold = 16.5;
@@ -82,6 +83,7 @@ public class Config {
     public static final ModConfigSpec.BooleanValue P3_ADAPTIVE_SCHED;
     public static final ModConfigSpec.DoubleValue P3_CPU_TARGET;
     public static final ModConfigSpec.IntValue P3_MAIN_THREAD_LIMIT;
+    public static final ModConfigSpec.BooleanValue P3_MAIN_THREAD_ADAPTIVE;
     public static final ModConfigSpec.IntValue P3_FORK_JOIN_RECIPES;
     public static final ModConfigSpec.BooleanValue P3_ENERGY_ENABLED;
     public static final ModConfigSpec.LongValue P3_VANILLA_ENERGY_PER_TICK;
@@ -207,6 +209,10 @@ public class Config {
                 .comment("Max recipe units written per tick on the main thread. Default 256, adjustable [16, 2048].",
                         "主线程每 tick 最大配方单元写入数。默认 256，可调范围 [16, 2048]。")
                 .defineInRange("mainThreadLimit", 256, 16, 2048);
+        P3_MAIN_THREAD_ADAPTIVE = b
+                .comment("Enable dynamic mainThreadLimit scaling based on TPS. When disabled, uses the fixed value above.",
+                        "启用基于 TPS 的动态主线程写回限额。关闭则使用上述固定值。")
+                .define("mainThreadAdaptive", true);
         P3_FORK_JOIN_RECIPES = b
                 .comment("Max recipes per ForkJoin task.",
                         "每个 ForkJoin 任务最大配方数。")
@@ -320,6 +326,7 @@ public class Config {
         p3SingleMachineShardLimit = P3_SINGLE_MACHINE_SHARD_LIMIT.get();
         p3SegmentMergeCount = P3_SEGMENT_MERGE_COUNT.get();
         p3MainThreadLimit = P3_MAIN_THREAD_LIMIT.get();
+        p3MainThreadAdaptive = P3_MAIN_THREAD_ADAPTIVE.get();
         p3OverloadWarnThreshold = P3_OVERLOAD_WARN_THRESHOLD.get();
         p3TpsFullThreshold = P3_TPS_FULL_THRESHOLD.get();
         p3TpsReducedThreshold = P3_TPS_REDUCED_THRESHOLD.get();

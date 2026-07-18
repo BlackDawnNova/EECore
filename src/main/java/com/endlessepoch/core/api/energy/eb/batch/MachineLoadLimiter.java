@@ -131,6 +131,10 @@ public final class MachineLoadLimiter {
             while (!q.cancelled && (head = q.chunks.peek()) != null) {
                 final int shards = BatchExecutor.shardCount(head.units().size());
                 if (q.inFlightShards.get() + shards > Config.p3SingleMachineShardLimit) return;
+                // Count up BEFORE submit — the completion callback decrements outside this
+                // monitor, so the reverse order could dip the counter below zero.
+                // 提交前先计数——完成回调在锁外递减，反序会让计数瞬时为负。
+                q.inFlightShards.addAndGet(shards);
                 boolean ok = BatchExecutor.trySubmit(head, results -> {
                     q.inFlightShards.addAndGet(-shards);
                     if (!q.cancelled) {
@@ -138,11 +142,18 @@ public final class MachineLoadLimiter {
                         pump(posHash, q); // keep the machine fed / 续泵本机
                     }
                 });
-                if (!ok) return; // global budget saturated — driver re-pumps / 全局额度饱和，驱动点续泵
+                if (!ok) { // global budget saturated — roll back, driver re-pumps / 全局额度饱和，回滚计数待驱动点续泵
+                    q.inFlightShards.addAndGet(-shards);
+                    return;
+                }
                 q.chunks.poll();
-                q.inFlightShards.addAndGet(shards);
             }
-            if (q.chunks.isEmpty()) q.overloadWarned = false;
+            if (q.chunks.isEmpty()) {
+                q.overloadWarned = false;
+                // Drained queues leave the registry — pumpAll walks active machines only
+                // 排空的队列退出注册表——pumpAll 仅遍历在批机器
+                if (q.inFlightShards.get() == 0) QUEUES.remove(posHash, q);
+            }
         }
     }
 

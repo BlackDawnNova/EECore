@@ -14,7 +14,7 @@ public interface ITeamProvider {
     boolean disbandTeam(UUID teamId, UUID requesterId);
     boolean invitePlayer(UUID teamId, UUID inviterId, UUID targetId);
     boolean kickPlayer(UUID teamId, UUID kickerId, UUID targetId);
-    boolean transferOwnership(UUID teamId, UUID currentOwner, UUID newOwner);
+    boolean transferOwnership(UUID teamId, UUID currentOwnerId, UUID newOwnerId);
     boolean setAlly(UUID teamIdA, UUID teamIdB, boolean ally);
     boolean shareNetwork(UUID playerA, UUID playerB); // 是否共享网络
     String getProviderName();

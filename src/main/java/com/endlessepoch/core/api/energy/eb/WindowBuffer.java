@@ -29,11 +29,14 @@ public class WindowBuffer {
     /** Push an event into the buffer. / 推入事件。 */
     public void offer(EeEvent event) {
         if (count.get() >= Config.ebBufferCapacity) {
-            if (queue.poll() != null) count.decrementAndGet(); // drop oldest / 丢弃最早
-            dropped++;
-            if (dropped % 1000 == 1)
-                com.endlessepoch.core.EECore.LOGGER.warn("[EB] WindowBuffer overflow, dropped {} events", dropped);
-            return;
+            // Evict oldest to admit the newest — under storm the buffer keeps the freshest events
+            // 驱逐最旧、接纳最新——风暴下缓冲始终保留最新事件
+            if (queue.poll() != null) {
+                count.decrementAndGet();
+                dropped++;
+                if (dropped % 1000 == 1)
+                    com.endlessepoch.core.EECore.LOGGER.warn("[EB] WindowBuffer overflow, dropped {} events", dropped);
+            }
         }
         queue.add(event);
         count.incrementAndGet();

@@ -18,6 +18,9 @@ public final class Phase3Driver {
 
     private static int lastTpsTier = 2;
     private static double lastCpuScale = 1.0;
+    private static int lastMtLimit = 256;
+    private static int highTpsStreak;
+    private static int idleStreak;
 
     private Phase3Driver() {}
 
@@ -27,12 +30,46 @@ public final class Phase3Driver {
         double tpsScale = TpsQuotaManager.GLOBAL.tick(System.nanoTime(),
                 event.getServer().tickRateManager().tickrate(),
                 Config.p3TpsFullThreshold, Config.p3TpsReducedThreshold);
-        double cpuScale = CpuLoadGuard.scale(CpuMonitor.usage(),
+        double cpuScale = CpuLoadGuard.scale(CpuMonitor.usage(), lastCpuScale,
                 Config.p3CpuWarnThreshold, Config.p3CpuHighThreshold, Config.p3CpuCriticalThreshold);
 
         double scale = Math.min(tpsScale, cpuScale);
         BatchExecutor.setConcurrencyScale(scale);
-        MainThreadRateLimiter.newTick(Config.p3MainThreadLimit);
+
+        // Dynamic main-thread limit — gradual AIMD with proportional decay / 动态主线程限流：渐进涨跌
+        int mtLimit = Config.p3MainThreadLimit;
+        if (Config.p3MainThreadAdaptive) {
+            double tps = TpsQuotaManager.GLOBAL.tps(event.getServer().tickRateManager().tickrate());
+            if (tps <= 19.0) {
+                // Proportional decrease: ×0.5 at 16 TPS up to ×1.0 at 19 / 比例缩减：16 TPS 时 ×0.5，19 时 ×1.0
+                double ratio = (tps - 16.0) / (19.0 - 16.0);
+                if (tps <= 16.0) ratio = 0;
+                double factor = 0.5 + 0.5 * ratio;
+                mtLimit = Math.max(16, (int)(lastMtLimit * factor));
+                highTpsStreak = 0; idleStreak = 0;
+            } else if (tps > 19.8) {
+                int remaining = MainThreadRateLimiter.remaining();
+                if (remaining > lastMtLimit / 2) {
+                    idleStreak++;
+                    // Idle decay floors at the configured base — only TPS-pressure cuts (above) go down to 16
+                    // 闲置衰减仅回落到配置基准——只有压力降（上方分支）才可深至 16
+                    if (idleStreak >= 100) { mtLimit = Math.max(Config.p3MainThreadLimit, lastMtLimit * 9 / 10); idleStreak = 0; }
+                    else mtLimit = lastMtLimit;
+                } else {
+                    idleStreak = 0;
+                    highTpsStreak++;
+                    if (highTpsStreak >= 20) {
+                        mtLimit = lastMtLimit + (lastMtLimit < 512 ? 64 : lastMtLimit / 8);
+                        highTpsStreak = 0;
+                    } else { mtLimit = lastMtLimit; }
+                }
+            } else {
+                mtLimit = lastMtLimit;
+                highTpsStreak = 0; idleStreak = 0;
+            }
+            lastMtLimit = mtLimit;
+        }
+        MainThreadRateLimiter.newTick(mtLimit);
         MachineLoadLimiter.pumpAll();
 
         if (Config.ebDebugLog && event.getServer().getTickCount() % Config.ebDebugInterval == 0)
@@ -74,5 +111,8 @@ public final class Phase3Driver {
     static void reset() {
         lastTpsTier = 2;
         lastCpuScale = 1.0;
+        lastMtLimit = Config.p3MainThreadLimit;
+        highTpsStreak = 0;
+        idleStreak = 0;
     }
 }

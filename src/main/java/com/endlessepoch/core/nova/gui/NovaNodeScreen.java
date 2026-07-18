@@ -1,5 +1,6 @@
 package com.endlessepoch.core.nova.gui;
 
+import com.endlessepoch.core.api.energy.OmegaValue;
 import com.endlessepoch.core.api.field.INovaNode;
 import com.endlessepoch.core.api.field.NodeType;
 import com.endlessepoch.core.api.tier.VoltageTier;
@@ -110,10 +111,10 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
     protected abstract INovaNode getNode();
 
     /** Get the current buffer energy (Ω value). / 获取当前缓冲能量（Ω 值）。 */
-    protected abstract long getBufferEnergy();
+    protected abstract OmegaValue getBufferEnergy();
 
     /** Get the max buffer capacity (Ω value). / 获取最大缓冲容量（Ω 值）。 */
-    protected abstract long getBufferCapacity();
+    protected abstract OmegaValue getBufferCapacity();
 
     /** Get the input rate (Ω/t). / 获取输入速率（Ω/t）。 */
     protected abstract long getInputRate();
@@ -214,9 +215,16 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
     protected void renderEnergyBar(GuiGraphics g) {
         int x = leftPos + MARGIN_X;
         int y = topPos + BUFFER_Y;
-        long stored = getBufferEnergy();
-        long cap = getBufferCapacity();
-        double fill = cap > 0 ? (double) stored / cap : 0;
+        OmegaValue stored = getBufferEnergy();
+        OmegaValue cap = getBufferCapacity();
+        // BigInteger ratio — double would hit Infinity past 1e308 / 大数求比——double 超 1e308 溢出为无穷
+        double fill = 0;
+        if (!cap.isZero()) {
+            long pct = stored.toBigInteger()
+                    .multiply(java.math.BigInteger.valueOf(10000))
+                    .divide(cap.toBigInteger()).longValue();
+            fill = Math.min(1.0, pct / 10000.0);
+        }
 
         // Background / 背景
         g.fill(x, y, x + BAR_W, y + BAR_H, ui.barBgColor());
@@ -228,7 +236,7 @@ public abstract class NovaNodeScreen<T extends AbstractContainerMenu> extends Ab
         }
         // Label / 标签
         Component label = Component.translatable("eecore.nova.gui.buffer",
-                fmt(stored), fmt(cap));
+                stored.toDisplayString(), cap.toDisplayString());
         int lw = font.width(label);
         g.drawString(font, label, x + (BAR_W - lw) / 2, y + 2, ui.barTextColor(), false);
     }

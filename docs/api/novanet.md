@@ -17,9 +17,8 @@ public interface INovaNode {
     NodeType getNodeType(); // TRANSMITTER / RECEIVER / HUB / RELAY
     VoltageTier getTier();  // 电压等级（决定范围）
     int getRange();         // 覆盖半径（格）
-    long getBufferEnergy(); // 当前缓存能量
-    long getBufferCapacity();// 最大缓存
-    UUID getTeamId();       // 所属队伍
+    OmegaValue getBufferEnergy();   // 当前缓存能量（大数无溢出）
+    OmegaValue getBufferCapacity(); // 最大缓存（大数无溢出）    UUID getTeamId();       // 所属队伍
 }
 ```
 
@@ -145,8 +144,8 @@ public class MyTransmitterBE extends BlockEntity
     @Override public NodeType getNodeType() { return NodeType.TRANSMITTER; }
     @Override public VoltageTier getTier() { return VoltageTier.MV; }
     @Override public int getRange() { return 16; }
-    @Override public long getBufferEnergy() { return buffer.getStored().toLong(); }
-    @Override public long getBufferCapacity() { return buffer.getCapacity().toLong(); }
+    @Override public OmegaValue getBufferEnergy() { return buffer.getStored(); }
+    @Override public OmegaValue getBufferCapacity() { return buffer.getCapacity(); }
     @Override public UUID getTeamId() { return null; }
 }
 ```

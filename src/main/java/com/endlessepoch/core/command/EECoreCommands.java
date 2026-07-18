@@ -69,6 +69,7 @@ public final class EECoreCommands {
                                 .executes(ctx -> importStructure(ctx.getSource(),
                                         StringArgumentType.getString(ctx, "filename")))));
         CommandAutoBuild.register(root);
+        CommandStress.register(root);
         dispatcher.register(root);
     }
 

@@ -210,6 +210,9 @@ public class Blocks {
     /** Void sink — accepts and destroys all outputs, for endless stress runs. / 虚空输出——无限吞噬产物，持续压测用。 */
     public static final Supplier<? extends Block> CREATIVE_OUTPUT_BUS =
             registerPartBlock("creative_output_bus", 1, 4, 0, 0, 0, "Creative Output Bus", "创造输出总线");
+    /** Max-stack void output — overrides stack limit for batched write-back. / 巨量虚空输出——堆叠上限拉满，批量写回用。 */
+    public static final Supplier<? extends Block> OVERSIZED_OUTPUT_BUS =
+            registerPartBlock("oversized_output_bus", 1, 16, 0, 0, 0, "Oversized Output Bus", "巨量输出总线");
     /** Infinite Ω source with GUI-adjustable tier — drives machine effective voltage. / 无限 Ω 源，GUI 调档，决定机器有效电压。 */
     public static final Supplier<? extends Block> CREATIVE_ENERGY_INPUT =
             registerPartBlock("creative_energy_input", 1, 0, 0, 0, 10000, 16, "Creative Energy Input Hatch", "创造能源输入仓");

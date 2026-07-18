@@ -74,8 +74,11 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
     }
 
     /** Full-count string for tooltips (no abbreviation). / tooltip 用的完整数量（不缩略）。 */
-    private static String fmtCount(int n) {
-        return String.format("%,d", n);
+    private static String fmtCount(long n) {
+        if (n >= 1_000_000_000L) return String.format("%.1fB", n / 1_000_000_000.0);
+        if (n >= 1_000_000L)     return String.format("%.1fM", n / 1_000_000.0);
+        if (n >= 1_000L)         return String.format("%.1fK", n / 1_000.0);
+        return String.valueOf(n);
     }
 
     private void closeCountPopup() {
@@ -107,6 +110,15 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
                     var stack=menu.slots.get(menu.getFluidSlots()+i).getItem();
                     g.renderTooltip(font,net.minecraft.network.chat.Component.literal(
                             stack.getHoverName().getString()+" x"+fmtCount(menu.templateCount(i))),mx,my);
+                }
+            }
+        }
+        if(menu.isOversized()){
+            int cols=menu.busCols(),x=leftPos+menu.busX(),y=topPos+18+menu.fluidRows()*18;
+            for(int i=0;i<menu.getSlotCount();i++){int r=i/cols,c=i%cols,sx=x+c*18,sy=y+r*18;
+                if(mx>=sx&&mx<sx+16&&my>=sy&&my<sy+16&&menu.slots.get(menu.getFluidSlots()+i).hasItem()){
+                    var s=menu.slots.get(menu.getFluidSlots()+i).getItem();
+                    g.renderTooltip(font,Component.literal(s.getHoverName().getString()+" x"+fmtCount(s.getCount())),mx,my);
                 }
             }
         }

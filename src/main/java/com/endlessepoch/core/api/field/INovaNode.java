@@ -1,5 +1,6 @@
 package com.endlessepoch.core.api.field;
 
+import com.endlessepoch.core.api.energy.OmegaValue;
 import com.endlessepoch.core.api.tier.VoltageTier;
 import net.minecraft.core.BlockPos;
 
@@ -33,11 +34,11 @@ public interface INovaNode {
     /** Range in blocks for energy field coverage (configurable per-tier). / 能量场覆盖范围的方块数（可按等级配置）。 */
     int getRange();
 
-    /** Current energy stored in the node's buffer (Ω). / 节点缓冲区中当前存储的能量（Ω）。 */
-    long getBufferEnergy();
+    /** Current energy stored in the node's buffer (Ω, BigInteger-backed — QV-safe). / 节点缓冲区中当前存储的能量（Ω，大数无溢出）。 */
+    OmegaValue getBufferEnergy();
 
-    /** Maximum buffer capacity (Ω). / 最大缓冲区容量（Ω）。 */
-    long getBufferCapacity();
+    /** Maximum buffer capacity (Ω, BigInteger-backed — QV-safe). / 最大缓冲区容量（Ω，大数无溢出）。 */
+    OmegaValue getBufferCapacity();
 
     /** The team that owns this node. / 拥有此节点的队伍。 */
     UUID getTeamId();

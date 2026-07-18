@@ -119,6 +119,11 @@ public class PartBlock extends Block implements EntityBlock {
         return isBusType(type) && type.getId().getPath().startsWith("creative_");
     }
 
+    /** "oversized_" prefixed bus = max-stack output bus. / oversized_ 前缀总线=巨量输出总线。 */
+    public static boolean isOversizedBus(PartType type) {
+        return isBusType(type) && type.getId().getPath().startsWith("oversized_");
+    }
+
     /** "creative_" prefixed hatch (energy/fluid) = infinite/void hatch. / creative_ 前缀仓（能源/流体）=无限/虚空仓。 */
     public static boolean isCreativeHatch(PartType type) {
         String p = type.getId().getPath();
@@ -152,6 +157,8 @@ public class PartBlock extends Block implements EntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         if (isBusType(partType)) {
+            if (isOversizedBus(partType))
+                return new CreativeOversizedBusBlockEntity(pos, state, partType, tier, slotCount);
             if (isCreativeBus(partType))
                 return new CreativeBusBlockEntity(pos, state, partType, tier, slotCount);
             return new InputBusBlockEntity(pos, state, partType, tier, slotCount);

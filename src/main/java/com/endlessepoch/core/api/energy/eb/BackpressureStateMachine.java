@@ -4,11 +4,12 @@ package com.endlessepoch.core.api.energy.eb;
  * Debounced backpressure state machine — replaces naked boolean flags.
  * Each state transition requires consecutive ticks of the triggering condition
  * (5 for most states, 20 for RECIPE_MISMATCH), preventing UI flicker from
- * transient stalls. COLD_START is one-shot — it fires once then never re-triggers.
+ * transient stalls. COLD_START fires at most once per formation lifecycle —
+ * {@link #reset()} re-arms it.
  * Pure POJO, unit-testable without any game dependencies.
  * 防抖背压状态机——替代裸 boolean 标记。每个状态转换需要连续触发 tick
  * （多数 5 tick，RECIPE_MISMATCH 20 tick），消除瞬时卡顿的 UI 抖动。
- * COLD_START 仅首次触发——此后永不重发。纯 POJO，不依赖任何游戏代码，可单测。
+ * COLD_START 每个成型周期至多触发一次——reset() 重新武装。纯 POJO，不依赖任何游戏代码，可单测。
  */
 public final class BackpressureStateMachine {
 
@@ -19,7 +20,7 @@ public final class BackpressureStateMachine {
         OUTPUT_FULL,
         /** Recipe voltage requirement exceeds machine capability. / 配方电压需求超机器能力。 */
         VOLTAGE_LOW,
-        /** Recipe matched but heat is zero (cold boot). One-shot. / 配方匹配但热量为零（冷启动），仅首次。 */
+        /** Recipe matched but heat is zero (cold boot). At most once per formation lifecycle. / 配方匹配但热量为零（冷启动），每成型周期至多一次。 */
         COLD_START,
         /** No matching recipe, but items still present (KJS dynamic recipes etc.). / 无匹配配方但物品存在（KJS 动态配方等）。 */
         RECIPE_MISMATCH
@@ -48,14 +49,9 @@ public final class BackpressureStateMachine {
     void tick(State desired, int threshold) {
         if (desired == State.COLD_START && coldStartFired) return;
         if (desired == current) {
-            // Already committed — keep counting for hysteresis on exit
-            // 已在当前状态——继续计数用于退出迟滞
-            if (candidate != current) {
-                candidate = current;
-                counter = 1;
-            } else {
-                counter++;
-            }
+            // Re-observing the committed state cancels any exit-in-progress / 重见当前状态即取消退出进度
+            candidate = current;
+            counter = 0;
             return;
         }
         if (desired == candidate) {

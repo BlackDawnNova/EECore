@@ -73,8 +73,8 @@ public final class BatchExecutor {
 
     /**
      * Compute a batch inline on the calling thread — no ForkJoin overhead.
-     * Used by the Tier 1 (<8 units) and Tier 2 (8–31 units) dispatch paths.
-     * 在当前线程内联计算批次——无 ForkJoin 开销。供轻/中两档调用。
+     * Used by the inline dispatch path (<32 units).
+     * 在当前线程内联计算批次——无 ForkJoin 开销。供内联档（<32）调用。
      */
     public static List<ShardResultUnit> computeInline(BatchTask task) {
         if (task.units().isEmpty()) return List.of();

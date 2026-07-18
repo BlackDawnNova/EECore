@@ -159,6 +159,11 @@ The default implementation. In most cases just use this directly.
 new OmegaStorage(capacity, maxIO, tier)                  // long version
 new OmegaStorage(capacity, maxInput, maxOutput, tier)    // long version
 new OmegaStorage(capacityBI, maxInputBI, maxOutputBI, tier)  // BigInteger version
+new OmegaStorage(capacityOv, maxInputOv, maxOutputOv, tier)  // OmegaValue version
+// Multi-amp — per-packet gate = tier voltage × min(hatch amps, packet amps); amps ∈ {1,2,4,8,16}
+// 多安培版——每包限速 = 电压 × min(仓安培, 包安培)；安培仅允许 1/2/4/8/16
+new OmegaStorage(capacity, maxInput, maxOutput, tier, amperage)       // long + amps
+new OmegaStorage(capacityBI, maxInputBI, maxOutputBI, tier, amperage) // BigInteger + amps
 ```
 
 Features / 功能：
@@ -301,24 +306,26 @@ The machine GUI shows `Parallel eff/hw` during batching — orange when energy-l
 
 ---
 
-## Auto-Batch Tiers / 智能批处理三档
+## Auto-Batch Tiers / 智能批处理双档
 
-Recipe processing auto-dispatches into three tiers — no manual toggle needed:
+Recipe processing auto-dispatches into two tiers — no manual toggle needed:
 
 | Pending items | Computation | Write-back |
 |---|---|---|
 | < 32 | Main thread (inline) | Batched with parallel |
 | ≥ 32 | ForkJoin worker threads | Batched with parallel |
 
+Write-back additionally splits into a per-op light path (≤64 ops/tick budget) and a merged heavy path (>64) internally.
 Non-machine recipes (vanilla furnace etc.) keep the classic event-driven path.
 
-配方自动三档分发——无需手动开关：
+配方自动双档分发——无需手动开关：
 
 | 待处理数 | 计算 | 写回 |
 |---|---|---|
 | < 32 | 主线程内联 | 批量并行写回 |
 | ≥ 32 | ForkJoin 多线程 | 批量并行写回 |
 
+写回内部再按 tick 预算分轻路径（≤64 逐 op）与重路径（>64 合并批量）。
 非机器配方（原版熔炉等）保留经典事件驱动路径。
 
 ---
@@ -363,3 +370,36 @@ Five debounced states replace raw boolean flags, preventing UI flicker. Each tra
 | VOLTAGE_LOW | Recipe demands higher tier or insufficient power / 配方超电压或供电不足 |
 | COLD_START | Recipe matched but heat is zero (one-shot) / 配方匹配但热量为零（仅首次） |
 | RECIPE_MISMATCH | Items present but no matching recipe / 有物品无配方 |
+
+---
+
+## Adaptive mainThreadLimit / 自适应主线程限流
+
+Write-back budget self-scales via TCP-style AIMD:
+
+- TPS > 19.8 for 20 consecutive ticks → +64 or +12.5% (slow increase)
+- TPS ≤ 19.0 → proportional decrease (0.5× at 16 TPS, 1.0× at 19 TPS), floor 16
+- Idle budget > 50% for 100 ticks → ×0.9 (slow decay), never below the configured `mainThreadLimit` base
+- No ceiling; equilibrium found by TPS feedback
+
+写回预算按 TCP AIMD 模型自寻平衡：19.8+→慢涨，19−→比例降（地板 16），闲置→慢缩（仅回落到配置基准 `mainThreadLimit`），无上限。
+
+Config: `mainThreadAdaptive` (default true), `mainThreadLimit` as base.
+
+---
+
+## Oversized Output Bus / 巨量输出总线
+
+A 16-slot output bus with unlimited per-slot count — bypasses ItemStack's 64 cap via `storedAmount[]` array. Items accumulate in one slot, tooltip shows formatted count (e.g. `×6.9K`). Extraction capped at 64 per click, read from `storedAmount[]`.
+
+16 槽巨量输出总线，绕过 ItemStack 64 上限，单槽无限制累积。悬浮显示格式化数量。
+
+Register via `oversized_output_bus` PartType prefix; suffix `_output_bus` auto-binds ITEM_OUTPUT.
+
+---
+
+## Stress Test Command / 压测命令
+
+`/eecore stress <ticks>` — monitors a nearby formed machine for N ticks and reports throughput (ops/tick), TPS, shard count, and current dynamic mtLimit.
+
+监控附近成型机器 N tick，报告吞吐量、TPS、分片数、动态限流值。

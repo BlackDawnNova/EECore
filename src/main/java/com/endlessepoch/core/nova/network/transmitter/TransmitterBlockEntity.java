@@ -101,10 +101,10 @@ public class TransmitterBlockEntity extends BlockEntity implements INovaNode, IM
     public int getRange() { return range; }
 
     @Override
-    public long getBufferEnergy() { return buffer.getStored().toLong(); }
+    public OmegaValue getBufferEnergy() { return buffer.getStored(); }
 
     @Override
-    public long getBufferCapacity() { return buffer.getCapacity().toLong(); }
+    public OmegaValue getBufferCapacity() { return buffer.getCapacity(); }
 
     @Override
     public UUID getTeamId() { return teamId; }

@@ -266,5 +266,6 @@
   "eecore.gui.void.empty": "Nothing swallowed yet",
   "block.eecore.creative_input_assembly": "Creative Input Assembly",
   "block.eecore.creative_output_assembly": "Creative Output Assembly",
-  "eecore.gui.parallel.display": "Parallel %1$s/%2$s"
+  "eecore.gui.parallel.display": "Parallel %1$s/%2$s",
+  "block.eecore.oversized_output_bus": "Oversized Output Bus"
 }

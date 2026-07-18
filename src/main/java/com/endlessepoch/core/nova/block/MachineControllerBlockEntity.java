@@ -389,6 +389,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     public boolean isOutputBlocked() { return backpressure.getState() == com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.OUTPUT_FULL; }
     public boolean hasWork() { return batchActive || !processingInput.isEmpty(); }
+    public long getBatchOpsProcessed() { return totalOpsProcessed; }
+    long totalOpsProcessed;
     public int getProgress() {
         if (batchActive) return batchTotal <= 0 ? 0 : (int) (batchProcessed * 1000 / Math.max(1, batchTotal));
         return progress;
@@ -657,10 +659,12 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     }
 
     /**
-     * Called by InputBus when items arrive. Three-tier dispatch: <8 inline compute →
-     * 8–31 inline with parallel write-back → ≥32 full ForkJoin batch.
+     * Called by InputBus when items arrive. Two-tier dispatch: <32 inline compute with
+     * parallel write-back → ≥32 full ForkJoin batch. The light/heavy write-back split
+     * lives inside writeBackOps, not here.
      * Non-machine profiles (vanilla recipes) keep the Subscriber-based light path.
-     * 物品进总线时发布事件。三档分发：<8 内联计算→8–31 内联+并行写回→≥32 全 ForkJoin 批处理。
+     * 物品进总线时发布事件。两档分发：<32 内联计算+并行写回→≥32 全 ForkJoin 批处理。
+     * 写回轻/重路径是 writeBackOps 内部的另一层切分，与此无关。
      * 非机器配方（原版）保留 Subscriber 轻路径。
      */
     public void publishProcessEvent() {
@@ -677,8 +681,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (isMachineProfile()) {
             long pending = countPendingItems();
             if (pending >= 32) {
-                // Tier 3: Full ForkJoin batch with prime-offset stagger
-                // 三档：完整 ForkJoin 批处理 + 质数偏移错峰
+                // Heavy tier (≥32): full ForkJoin batch with prime-offset stagger
+                // 重档（≥32）：完整 ForkJoin 批处理 + 质数偏移错峰
                 if (!com.endlessepoch.core.api.energy.eb.batch.PrimeOffsetScheduler.canProcess(
                         com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition),
                         level.getGameTime(), com.endlessepoch.core.Config.p3PrimeOffsetMode)) {
@@ -693,8 +697,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 // 全局分片额度饱和 -> 降级走内联
             }
             if (pending >= 1) {
-                // Tier 1 (<8) / Tier 2 (8–31): inline compute + batch write-back with parallel
-                // 一档/二档：内联计算 + 批量写回（享受并行）
+                // Inline tier (<32): main-thread compute + batch write-back with parallel
+                // 内联档（<32）：主线程计算 + 批量并行写回
                 startInlineBatch();
             }
             return;
@@ -818,9 +822,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     /**
      * Inline batch: snapshots inputs, computes on the main thread (no ForkJoin overhead),
      * and populates batchPending directly — tickBatch handles parallel write-back.
-     * Used for Tier 1 (<8 units) and Tier 2 (8–31 units).
+     * Used for every batch below the ForkJoin threshold (<32 units).
      * 内联批处理：拍输入快照→主线程直接计算（无 ForkJoin 开销）→填入 batchPending，
-     * 由 tickBatch 统一并行写回。供一档（<8）和二档（8–31）使用。
+     * 由 tickBatch 统一并行写回。供 ForkJoin 阈值以下（<32）的全部批次使用。
      */
     private void startInlineBatch() {
         var units = new java.util.ArrayList<com.endlessepoch.core.api.energy.eb.batch.InputUnit>();
@@ -949,7 +953,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         int effParallel = getEffectiveParallelCap(head.energyPerOp(), head.finalDuration());
         lastEffParallel = effParallel;
         batchQuotaAcc += (double) effParallel / Math.max(1, head.finalDuration());
-        int budget = (int) Math.min(Math.min(batchQuotaAcc, com.endlessepoch.core.Config.p3MainThreadLimit),
+        int budget = (int) Math.min(Math.min(batchQuotaAcc,
+                        com.endlessepoch.core.api.energy.eb.batch.MainThreadRateLimiter.currentLimit()),
                 head.ops());
         // Global cross-machine write-back budget — acquire, write, release the unused
         // 全局跨机写回预算——先领额度，写回后归还未用完部分
@@ -962,6 +967,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (done > 0) {
             batchQuotaAcc -= done;
             batchProcessed += done;
+            totalOpsProcessed += done;
         }
         if (batchUnitExhausted) {
             // Inputs vanished (player/pipe) — drop the unit's remainder / 输入被取走，丢弃该单元剩余
@@ -1016,7 +1022,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 heatComponent.bulkHeat(currentProfileId, mh, tick, tick);
             }
             tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.IDLE);
-            done++;
+            done++; totalOpsProcessed++;
         }
         return done;
     }
@@ -1146,13 +1152,15 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         int total = 0;
         for (var op : outputBusPos) {
             if (level.getBlockEntity(op) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
+                if (bus instanceof com.endlessepoch.core.nova.block.part.CreativeOversizedBusBlockEntity)
+                    return Integer.MAX_VALUE;
+                int maxStack = Math.min(item.getDefaultInstance().getMaxStackSize(), bus.getInventory().getSlotLimit(0));
                 for (int si = 0; si < bus.getInventory().getSlots(); si++) {
                     var existing = bus.getInventory().getStackInSlot(si);
-                    int maxStack = bus.getInventory().getSlotLimit(si);
                     if (existing.isEmpty()) { total += maxStack / perOp; continue; }
                     if (existing.getItem() == item) {
                         int space = maxStack - existing.getCount();
-                        total += space / perOp;
+                        if (space > 0) total += space / perOp;
                     }
                 }
             }

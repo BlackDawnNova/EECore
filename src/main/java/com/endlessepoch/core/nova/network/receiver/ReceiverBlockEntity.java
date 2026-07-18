@@ -1,6 +1,7 @@
 package com.endlessepoch.core.nova.network.receiver;
 
 import com.endlessepoch.core.nova.network.transmitter.TransmitterEnergyBuffer;
+import com.endlessepoch.core.api.energy.OmegaValue;
 import com.endlessepoch.core.api.field.INovaNode;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import com.endlessepoch.core.api.field.NodeType;
@@ -104,10 +105,10 @@ public class ReceiverBlockEntity extends BlockEntity implements INovaNode, IMult
     public int getRange() { return range; }
 
     @Override
-    public long getBufferEnergy() { return buffer.getStored().toLong(); }
+    public OmegaValue getBufferEnergy() { return buffer.getStored(); }
 
     @Override
-    public long getBufferCapacity() { return buffer.getCapacity().toLong(); }
+    public OmegaValue getBufferCapacity() { return buffer.getCapacity(); }
 
     @Override
     public UUID getTeamId() { return teamId; }
