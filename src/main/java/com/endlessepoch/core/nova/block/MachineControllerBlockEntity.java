@@ -93,6 +93,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private boolean batchDeferred; // prime-offset stagger postponed the start / 被质数偏移错峰推迟，serverTick 续试
     private int lastEffParallel;   // live effective parallel for GUI / 供 GUI 显示的当前有效并行
     private double lastSpeedHeat = -1;
+    private int lastSpeedOcMul = -1; // oc part of the displayed multiplier — recalc when the plan's oc changes / 显示倍率的超频部分——计划超频变化时重算
     private double batchMaxHeat = 10.0;
     // Conditions baked into the in-flight batch plan — mismatch invalidates it (lossless)
     // 在途批计划的条件快照——不一致即作废重算（无损，物品仍在总线）
@@ -356,6 +357,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         partsScanned = false;
         completionTick = 0;
         voltageBlockedTier = -1;
+        currentHeatBoost = 100;
         backpressure.reset();
         clearBatchState();
         heatComponent.reset();
@@ -700,6 +702,14 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 // Inline tier (<32): main-thread compute + batch write-back with parallel
                 // 内联档（<32）：主线程计算 + 批量并行写回
                 startInlineBatch();
+            } else {
+                // Out of inputs — clear the stale multiplier so the ⚡ label disappears
+                // 断料——清除滞留倍率，⚡ 标签随之消失
+                currentHeatBoost = 100;
+                lastSpeedHeat = -1;
+                lastSpeedOcMul = -1;
+                voltageBlockedTier = -1;
+                tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.IDLE);
             }
             return;
         }
@@ -730,6 +740,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
         // No items in any bus — clear stale hints / 总线已空，清除滞留提示
         voltageBlockedTier = -1;
+        if (completionTick == 0) currentHeatBoost = 100; // idle only, keep it while cooking / 仅空闲清除，加工中保留
         tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.IDLE);
     }
 
@@ -935,18 +946,25 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
         if (paused) return;
         var head = batchPending.peekFirst();
-        // Live speed multiplier: ocMul × current heat factor, lazy — only when heat changed
-        // 实时倍率：超频 × 当前热量，惰性更新——仅热量变化时重算
+        // Live speed multiplier: ocMul × current heat factor, lazy — recalc when heat
+        // OR the plan's oc multiplier changes (pegged heat froze the old display otherwise)
+        // 实时倍率：超频 × 当前热量，惰性更新——热量或计划超频倍率变化时重算
+        // （否则热量满格时旧显示永远冻结）
         if (com.endlessepoch.core.Config.heatEnabled && heatEnabled && currentProfileId != null) {
             double liveHeat = heatComponent.getHeatRaw(currentProfileId);
-            if (Math.abs(liveHeat - lastSpeedHeat) > 0.01) {
+            if (Math.abs(liveHeat - lastSpeedHeat) > 0.01 || head.ocMulX100() != lastSpeedOcMul) {
                 lastSpeedHeat = liveHeat;
+                lastSpeedOcMul = head.ocMulX100();
                 double liveHf = com.endlessepoch.core.api.energy.eb.batch.OverclockUtil.heatFactor(
                         liveHeat, batchMaxHeat, com.endlessepoch.core.Config.heatSpeedBoostMax);
                 currentHeatBoost = Math.max(100, (int) Math.round(head.ocMulX100() * liveHf));
             }
         } else {
             currentHeatBoost = head.ocMulX100();
+            // Invalidate the lazy cache — re-enabling heat must recalc even when heat is pegged
+            // 作废惰性缓存——重开热量时即使热量满格也必须重算
+            lastSpeedHeat = -1;
+            lastSpeedOcMul = -1;
         }
         // Effective parallel auto-scales to sustained energy rate — no oscillation
         // 有效并行随能量输入速率自动缩放——不振荡
@@ -1068,16 +1086,22 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     /** Max ops that fit in output buses for this shard unit. / 该分片单元可写入输出总线的最大 ops 数。 */
     private int countOutputSpace(com.endlessepoch.core.api.energy.eb.batch.ShardResultUnit r) {
+        // MAX_VALUE doubles as "unlimited" (oversized bus) — track "any real output seen"
+        // separately so unlimited capacity isn't mistaken for the empty-outputs sentinel.
+        // MAX_VALUE 兼作"无限"（巨量总线）——"是否见到真实产物"单独跟踪，
+        // 防止无限容量被误判为"无产物"哨兵而归零。
         int max = Integer.MAX_VALUE;
+        boolean found = false;
         for (int i = 0; i < r.outputItemIds().length; i++) {
             var out = net.minecraft.core.registries.BuiltInRegistries.ITEM.byId((int) r.outputItemIds()[i]);
             if (out == net.minecraft.world.item.Items.AIR) continue;
+            found = true;
             int perOp = (int) r.outputCounts()[i];
             int slots = countInsertCapacity(out, perOp);
             if (slots < max) max = slots;
             if (max == 0) break;
         }
-        return max == Integer.MAX_VALUE ? 0 : max;
+        return found ? max : 0;
     }
 
     /** Ops affordable from energy hatches (simulate, cap at budget). / 能源仓可支撑的 op 数。 */
@@ -1110,7 +1134,10 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 for (int s = 0; s < bus.getInventory().getSlots(); s++) {
                     var stack = bus.getInventory().getStackInSlot(s);
                     if (!stack.isEmpty() && stack.getItem() == item) {
-                        total += stack.getCount();
+                        // Creative templates present their configured count, not the count-1 placeholder
+                        // 创造模板按配置数量计，而非 count=1 占位堆
+                        total += bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
+                                ? cb.getTemplateCount(s) : stack.getCount();
                         if (total >= cap) return cap;
                     }
                 }
@@ -1127,6 +1154,12 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 for (int s = 0; s < bus.getInventory().getSlots() && remaining > 0; s++) {
                     var stack = bus.getInventory().getStackInSlot(s);
                     if (!stack.isEmpty() && stack.getItem() == item) {
+                        // Infinite source never depletes — extraction is a no-op, count it fulfilled
+                        // 无限源永不减少——实扣是空操作，直接计为已满足
+                        if (bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity) {
+                            remaining = 0;
+                            break;
+                        }
                         int take = Math.min(remaining, stack.getCount());
                         bus.getInventory().extractItem(s, take, false);
                         remaining -= take;

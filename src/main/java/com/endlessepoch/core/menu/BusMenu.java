@@ -18,6 +18,9 @@ public class BusMenu extends AbstractContainerMenu {
     /** Client-side template-count sync for creative buses: [i*2]=low 15 bits, [i*2+1]=high bits. */
     private final ContainerData templateCountData;
     private int[] clientTemplateCounts;
+    /** Oversized-bus real-count sync — 4×14-bit per slot (56 bits). / 巨量总线真实数量同步——每槽 4×14bit。 */
+    private final ContainerData storedAmountData;
+    private long[] clientStoredAmounts;
 
     public void setViewer(net.minecraft.server.level.ServerPlayer p){this.viewer=p;}
 
@@ -25,9 +28,16 @@ public class BusMenu extends AbstractContainerMenu {
         super(Menus.BUS.get(), id); this.bus=bus; this.slotCount=bus.getSlotCount(); this.isOutput=bus.isOutput(); this.pos=bus.getBlockPos();
         this.creative=bus.isCreative(); this.oversized=bus instanceof com.endlessepoch.core.nova.block.part.CreativeOversizedBusBlockEntity;
         this.data=new SimpleContainerData(2); addDataSlots(data);
-        this.templateCountData = creative && bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
+        // Template data only for creative INPUT side — keeps data-slot indices aligned
+        // with the client (oversized output is creative too but has no templates).
+        // 模板数据仅创造输入侧注册——保证与客户端数据槽索引对齐（巨量输出也是 creative 但无模板）。
+        this.templateCountData = creative && !isOutput && bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
                 ? templateCountData(cb) : new SimpleContainerData(0);
-        if (creative) addDataSlots(templateCountData);
+        if (creative && !isOutput) addDataSlots(templateCountData);
+        this.storedAmountData = oversized
+                ? storedAmountData((com.endlessepoch.core.nova.block.part.CreativeOversizedBusBlockEntity) bus)
+                : new SimpleContainerData(0);
+        if (oversized) addDataSlots(storedAmountData);
         var ts=((PartBlockEntity)bus).getFluidTanks();
         int fs=0; if(!ts.isEmpty()&&bus.getBlockState().getBlock() instanceof PartBlock pb)fs=pb.fluidSlots;
         this.fluidSlots=fs;
@@ -38,9 +48,12 @@ public class BusMenu extends AbstractContainerMenu {
         super(Menus.BUS.get(), id); this.pos=buf.readBlockPos(); this.slotCount=buf.readVarInt();
         this.isOutput=buf.readBoolean(); this.creative=buf.readBoolean(); this.oversized=creative&&isOutput; this.fluidSlots=buf.readVarInt(); this.bus=null;
         this.data=new SimpleContainerData(2); addDataSlots(data);
-        this.clientTemplateCounts = new int[creative ? slotCount : 0];
-        this.templateCountData = creative ? clientTemplateCountData() : new SimpleContainerData(0);
-        if (creative) addDataSlots(templateCountData);
+        this.clientTemplateCounts = new int[creative && !isOutput ? slotCount : 0];
+        this.templateCountData = creative && !isOutput ? clientTemplateCountData() : new SimpleContainerData(0);
+        if (creative && !isOutput) addDataSlots(templateCountData);
+        this.clientStoredAmounts = new long[oversized ? slotCount : 0];
+        this.storedAmountData = oversized ? clientStoredAmountData() : new SimpleContainerData(0);
+        if (oversized) addDataSlots(storedAmountData);
         this.fId=new ResourceLocation[Math.max(1,fluidSlots)];this.fAmt=new int[Math.max(1,fluidSlots)];this.fCap=new int[Math.max(1,fluidSlots)];
         for(int i=0;i<fluidSlots;i++){fId[i]=buf.readBoolean()?buf.readResourceLocation():null;fAmt[i]=buf.readVarInt();fCap[i]=buf.readVarInt();}
         // Client display backing — ItemStackHandler, NOT SimpleContainer: the latter's
@@ -100,6 +113,37 @@ public class BusMenu extends AbstractContainerMenu {
             }
             @Override public int getCount() { return clientTemplateCounts != null ? clientTemplateCounts.length * 2 : 0; }
         };
+    }
+    /** Server side: split each slot's long into 4×14-bit values. / 服务端：每槽 long 拆 4 段 14bit。 */
+    private static ContainerData storedAmountData(com.endlessepoch.core.nova.block.part.CreativeOversizedBusBlockEntity ob) {
+        return new ContainerData() {
+            @Override public int get(int i) {
+                long a = i / 4 < ob.getSlotCount() ? ob.getStoredAmount(i / 4) : 0;
+                return (int) ((a >>> (14 * (i % 4))) & 0x3FFF);
+            }
+            @Override public void set(int i, int v) {}
+            @Override public int getCount() { return ob.getSlotCount() * 4; }
+        };
+    }
+    private ContainerData clientStoredAmountData() {
+        return new ContainerData() {
+            @Override public int get(int i) { return 0; }
+            @Override public void set(int i, int v) {
+                if (clientStoredAmounts == null) return;
+                int slot = i / 4;
+                if (slot >= clientStoredAmounts.length) return;
+                int shift = 14 * (i % 4);
+                clientStoredAmounts[slot] = (clientStoredAmounts[slot] & ~(0x3FFFL << shift)) | ((long) (v & 0x3FFF) << shift);
+            }
+            @Override public int getCount() { return clientStoredAmounts != null ? clientStoredAmounts.length * 4 : 0; }
+        };
+    }
+    /** Real stored count for oversized-bus slot i (synced to client). / 巨量总线第 i 槽真实数量（已同步客户端）。 */
+    public long storedAmount(int i) {
+        if (bus instanceof com.endlessepoch.core.nova.block.part.CreativeOversizedBusBlockEntity ob)
+            return ob.getStoredAmount(i); // server / 服务端
+        if (clientStoredAmounts == null || i < 0 || i >= clientStoredAmounts.length) return 0;
+        return clientStoredAmounts[i]; // client / 客户端
     }
     public boolean isOutputBus(){return isOutput;}
     public boolean isOversized(){return oversized||(creative&&isOutput);}

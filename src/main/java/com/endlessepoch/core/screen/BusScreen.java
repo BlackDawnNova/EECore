@@ -118,7 +118,10 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
             for(int i=0;i<menu.getSlotCount();i++){int r=i/cols,c=i%cols,sx=x+c*18,sy=y+r*18;
                 if(mx>=sx&&mx<sx+16&&my>=sy&&my<sy+16&&menu.slots.get(menu.getFluidSlots()+i).hasItem()){
                     var s=menu.slots.get(menu.getFluidSlots()+i).getItem();
-                    g.renderTooltip(font,Component.literal(s.getHoverName().getString()+" x"+fmtCount(s.getCount())),mx,my);
+                    // Real count via data-slot sync — the slot stack itself is capped at 64
+                    // 真实数量走数据槽同步——槽内物品堆本身被钳在 64
+                    long real=Math.max(menu.storedAmount(i),s.getCount());
+                    g.renderTooltip(font,Component.literal(s.getHoverName().getString()+" x"+fmtCount(real)),mx,my);
                 }
             }
         }
