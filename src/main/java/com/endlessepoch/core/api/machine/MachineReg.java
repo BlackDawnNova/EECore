@@ -48,14 +48,11 @@ public class MachineReg {
     public static Supplier<? extends Block> register(String id, String machineTypeId,
                                                       String nameEn, String nameZh,
                                                       int tier, MapColor color) {
-        // Block
         var block = BLOCKS.register(id, () -> new MachineBlock(
                 BlockBehaviour.Properties.of().mapColor(color)
                         .strength(3f + tier * 3f, 6f + tier * 3f)
                         .requiresCorrectToolForDrops()
                         .noOcclusion()));
-
-        // BlockItem carries tier + typeId to BE on placement
         final String finalTypeId = machineTypeId;
         var itemSupplier = com.endlessepoch.core.registry.Items.ITEMS.register(id, () ->
                 new net.minecraft.world.item.BlockItem(block.get(), new Item.Properties().stacksTo(64)) {

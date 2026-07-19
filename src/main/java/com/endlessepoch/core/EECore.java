@@ -365,7 +365,8 @@ public class EECore {
     private static boolean fluidCapablePart(com.endlessepoch.core.api.multiblock.PartType type) {
         String p = type.getId().getPath();
         return p.endsWith("fluid_input") || p.endsWith("fluid_output")
-                || p.endsWith("input_assembly") || p.endsWith("output_assembly");
+                || p.endsWith("input_assembly") || p.endsWith("output_assembly")
+                || p.endsWith("input_bin");
     }
 
     /** Energy-capable part suffixes. / 具备能量能力的部件后缀。 */

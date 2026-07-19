@@ -61,6 +61,8 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
     public boolean isOutput() { return output; }
     /** Phantom-template infinite bus? / 是否为幻影模板无限总线。 */
     public boolean isCreative() { return false; }
+    /** BigInteger-capable storage? / 是否为 BigInteger 容量存储。 */
+    public boolean isOversized() { return false; }
 
     /**
      * Direction-restricted view for pipes/hoppers: input buses are insert-only, output

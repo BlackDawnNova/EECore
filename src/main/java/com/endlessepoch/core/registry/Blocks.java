@@ -242,4 +242,12 @@ public class Blocks {
     public static final Supplier<? extends Block> OUTPUT_ASSEMBLY = registerPartBlock("output_assembly", 1, 9, 16000, 9, 0, "Output Assembly", "输出总成");
     public static final Supplier<? extends Block> PARALLEL_HATCH = registerPartBlock("parallel_hatch", 1, 0, 0, 0, 0, "Parallel Control Hatch", "并行控制仓");
 
+    // Locked oversized input series — BigInteger storage with per-slot type locking / 巨量锁定输入系列——BigInteger存储+每槽类型锁
+    public static final Supplier<? extends Block> OVERSIZED_LOCKED_INPUT_BUS =
+            registerPartBlock("oversized_locked_input_bus", 1, 16, 0, 0, 0, "Oversized Locked Input Bus", "巨量锁定输入总线");
+    public static final Supplier<? extends Block> OVERSIZED_LOCKED_INPUT_BIN =
+            registerPartBlock("oversized_locked_input_bin", 1, 0, Integer.MAX_VALUE, 16, 0, "Oversized Locked Input Bin", "巨量锁定输入仓");
+    public static final Supplier<? extends Block> OVERSIZED_LOCKED_INPUT_ASSEMBLY =
+            registerPartBlock("oversized_locked_input_assembly", 1, 16, Integer.MAX_VALUE, 16, 0, "Oversized Locked Input Assembly", "巨量锁定输入总成");
+
 }

@@ -267,5 +267,8 @@
   "block.eecore.creative_input_assembly": "Creative Input Assembly",
   "block.eecore.creative_output_assembly": "Creative Output Assembly",
   "eecore.gui.parallel.display": "Parallel %1$s/%2$s",
-  "block.eecore.oversized_output_bus": "Oversized Output Bus"
+  "block.eecore.oversized_output_bus": "Oversized Output Bus",
+  "block.eecore.oversized_locked_input_bus": "Oversized Locked Input Bus",
+  "block.eecore.oversized_locked_input_bin": "Oversized Locked Input Bin",
+  "block.eecore.oversized_locked_input_assembly": "Oversized Locked Input Assembly"
 }

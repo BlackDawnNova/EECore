@@ -81,7 +81,7 @@ public class PartBlock extends Block implements EntityBlock {
         super(p); this.partType = type; this.tier = tier;
         this.slotCount = clamp(sc, isBusType(type) ? 1 : 0, MAX_SLOTS);
         this.fluidCapacity = Math.max(0, fc); this.energyCapacity = Math.max(0, ec);
-        this.fluidSlots = fc > 0 ? Math.max(0, Math.min(27, fs)) : 0;
+        this.fluidSlots = fc > 0 ? Math.max(0, Math.min(MAX_SLOTS, fs)) : 0;
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
     }
 
@@ -124,6 +124,17 @@ public class PartBlock extends Block implements EntityBlock {
         return isBusType(type) && type.getId().getPath().startsWith("oversized_");
     }
 
+    /** Bus with "_locked_" in path = slot-lockable oversized input. / 路径含 _locked_ 的总线=锁槽巨量输入。 */
+    public static boolean isLockedBus(PartType type) {
+        return isBusType(type) && type.getId().getPath().contains("_locked_");
+    }
+
+    /** Fluid bin with "_locked_" in path = auto-locking oversized fluid input. / 路径含 _locked_ 的仓=自动锁巨量流体输入。 */
+    public static boolean isLockedFluidBin(PartType type) {
+        String p = type.getId().getPath();
+        return p.contains("_locked_") && p.endsWith("input_bin");
+    }
+
     /** "creative_" prefixed hatch (energy/fluid) = infinite/void hatch. / creative_ 前缀仓（能源/流体）=无限/虚空仓。 */
     public static boolean isCreativeHatch(PartType type) {
         String p = type.getId().getPath();
@@ -157,12 +168,16 @@ public class PartBlock extends Block implements EntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         if (isBusType(partType)) {
+            if (isLockedBus(partType))
+                return new LockedOversizedBusBlockEntity(pos, state, partType, tier, slotCount);
             if (isOversizedBus(partType))
                 return new CreativeOversizedBusBlockEntity(pos, state, partType, tier, slotCount);
             if (isCreativeBus(partType))
                 return new CreativeBusBlockEntity(pos, state, partType, tier, slotCount);
             return new InputBusBlockEntity(pos, state, partType, tier, slotCount);
         }
+        if (isLockedFluidBin(partType))
+            return new LockedOversizedFluidBinBlockEntity(pos, state, partType, tier);
         if (isCreativeHatch(partType))
             return new CreativeHatchBlockEntity(pos, state, partType, tier);
         if (isCreativeParallel(partType))
@@ -200,6 +215,7 @@ public class PartBlock extends Block implements EntityBlock {
                 player.openMenu(bus, buf -> {
                     buf.writeBlockPos(pos); buf.writeVarInt(bus.getSlotCount()); buf.writeBoolean(bus.isOutput());
                     buf.writeBoolean(bus.isCreative());
+                    buf.writeBoolean(bus.isOversized());
                     buf.writeVarInt(fs);
                     for (int i = 0; i < fs && i < tanks.size(); i++) {
                         var s = tanks.get(i).getFluid();

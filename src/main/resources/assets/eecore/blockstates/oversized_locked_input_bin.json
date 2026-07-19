@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"eecore:block/oversized_locked_input_bin","y":0},"facing=east":{"model":"eecore:block/oversized_locked_input_bin","y":90},"facing=south":{"model":"eecore:block/oversized_locked_input_bin","y":180},"facing=west":{"model":"eecore:block/oversized_locked_input_bin","y":270}}}

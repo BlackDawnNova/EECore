@@ -18,6 +18,7 @@ import java.util.List;
 public enum PartCategory {
     ITEM_INPUT_BUS("input_bus"),
     ITEM_OUTPUT_BUS("output_bus"),
+    INPUT_BIN("input_bin"),
     INPUT_ASSEMBLY("input_assembly"),
     OUTPUT_ASSEMBLY("output_assembly"),
     FLUID_INPUT("fluid_input"),

@@ -362,6 +362,7 @@ boolean isFormed();
 |----------|-----------------|-------------------|
 | `input_bus` | ITEM_INPUT | ItemStackHandler (1-81 slots) / 1-81格 |
 | `output_bus` | ITEM_OUTPUT | ItemStackHandler (1-81 slots) / 1-81格 |
+| `input_bin` | FLUID_INPUT | FluidTank (configurable mB) / 可配mB |
 | `fluid_input` | FLUID_INPUT | FluidTank (configurable mB) / 可配mB |
 | `fluid_output` | FLUID_OUTPUT | FluidTank (configurable mB) / 可配mB |
 | `energy_input` | ENERGY_INPUT | OmegaStorage — charge in at V×A, machine drains freely / 充入限速V×A，机器划扣不限 |
@@ -483,7 +484,8 @@ Define valid structural blocks for a multiblock by **category suffix** instead o
 
 ```java
 .where("EE-3", PartCategory.ANY_FUNCTIONAL)            // bind all non-casing parts
-.limit("EE-3", PartCategory.ITEM_INPUT_BUS, 2)         // total input buses ≤ 2 (incl. creative variants)
+.limit("EE-3", PartCategory.ITEM_INPUT_BUS, 2)         // total item input buses ≤ 2 (incl. creative/locked variants)
+.limit("EE-3", PartCategory.INPUT_BIN, 2)              // fluid bins ≤ 2 (incl. oversized locked variants)
 .limit("EE-3", PartCategory.ENERGY_INPUT, 2)           // energy hatches ≤ 2 (dual-boost, addon included)
 ```
 
@@ -501,6 +503,22 @@ Define valid structural blocks for a multiblock by **category suffix** instead o
 | creative_fluid_input | — | Bucket-click sets template (no consume), JEI drag fluid / 桶点设模板(不消耗)+JEI拖流体 |
 | creative_input_assembly | 16 item + 16 fluid | Double 4×4 grid (items left, fluids right) + JEI dual-target / 左4×4物品 右4×4流体+JEI双目标 |
 | creative_output_assembly | — | Void items + fluids, mixed stats GUI / 物品+流体全吞, 混合统计GUI |
+
+#### Oversized Locked Series / 巨量锁定系列
+
+BigInteger-scale input storage with per-slot auto-locking (items or fluids). Slots auto-lock to the first type inserted and auto-unlock when drained. Manual insertion is blocked; automation (pipes/hoppers) is the only fill path. The batch pipeline only reads from locked slots, preventing cross-contamination.
+
+BigInteger 级输入存储，每槽/罐自动锁定类型。槽位首次进料自动锁，耗尽自动解锁。禁止手动放入，仅走自动化。批管线只读已锁槽，杜绝混料。
+
+| PartType | Abilities / 能力 | Slots / 槽数 |
+|----------|-----------------|-------------|
+| `oversized_locked_input_bus` | ITEM_INPUT | 16 item (4×4) |
+| `oversized_locked_input_bin` | FLUID_INPUT | 16 fluid (4×4), BigInt capacity / BigInt 容量 |
+| `oversized_locked_input_assembly` | ITEM_INPUT + FLUID_INPUT | 16 item + 16 fluid (left 4×4 + right 4×4) |
+
+Grid adapts to ceil(sqrt(N)) for any slot count — 1→1×1, 4→2×2, 9→3×3, up to 81→9×9.
+
+网格按 ceil(sqrt(N)) 自适应——1→1×1、4→2×2、9→3×3，至 81→9×9。
 
 #### PartBlockEntity / 部件基类 BE
 

@@ -50,6 +50,7 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
         String p = type.getId().getPath();
         if (p.endsWith("input_assembly"))       { abilities.add(PartAbility.ITEM_INPUT); abilities.add(PartAbility.FLUID_INPUT); }
         else if (p.endsWith("output_assembly")) { abilities.add(PartAbility.ITEM_OUTPUT); abilities.add(PartAbility.FLUID_OUTPUT); }
+        else if (p.endsWith("input_bin"))        abilities.add(PartAbility.FLUID_INPUT);
         else if (p.endsWith("input_bus"))       abilities.add(PartAbility.ITEM_INPUT);
         else if (p.endsWith("output_bus"))      abilities.add(PartAbility.ITEM_OUTPUT);
         else if (p.endsWith("fluid_input"))     abilities.add(PartAbility.FLUID_INPUT);

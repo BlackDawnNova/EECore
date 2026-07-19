@@ -17,7 +17,7 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
     private net.minecraft.client.gui.components.EditBox countBox;
     private net.minecraft.client.gui.components.Button countOk;
     private int countSlot = -1;
-    public BusScreen(BusMenu m, Inventory inv, Component t) { super(m,inv,t); this.imageWidth=BG_W; }
+    public BusScreen(BusMenu m, Inventory inv, Component t) { super(m,inv,t); this.imageWidth=m.imageW();this.imageHeight=m.imageH(); }
 
     @Override
     protected void containerTick() {
@@ -28,7 +28,9 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
     }
 
     @Override protected void init() {int rs=menu.busRows(),fR=menu.fluidRows(),g=(rs+fR)<=3?14:20;
-        this.imageHeight=Math.min(18+(fR+rs)*18+g+3*18+4+18+7,MAX_H);super.init();this.inventoryLabelY=18+(fR+rs)*18+g-11;
+        this.imageHeight=menu.imageH();super.init();this.inventoryLabelY=18+(fR+rs)*18+g-11;
+        this.titleLabelX=(imageWidth-font.width(title))/2; // center title / 标题居中
+        this.inventoryLabelX=(imageWidth-font.width(playerInventoryTitle))/2; // center "物品栏" / "物品栏"居中
         if(menu.isCreative()&&!menu.isOutputBus()){
             countBox=new net.minecraft.client.gui.components.EditBox(font,leftPos+92,topPos+3,44,12,Component.empty());
             countBox.setMaxLength(7);
@@ -138,7 +140,8 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
     }
 
     @Override protected void renderBg(GuiGraphics g,float p,int mx,int my){int x=(width-imageWidth)/2,y=(height-imageHeight)/2;
-        g.blit(BG,x,y,0,0,imageWidth,imageHeight,imageWidth,imageHeight);int fs=menu.getFluidSlots();
+        g.blit(BG,x,y,0,0,imageWidth,imageHeight,imageWidth,imageHeight);
+        int fs=menu.getFluidSlots();
         for(int i=0;i<fs;i++){int sx=x+menu.fluidSlotX(i),sy=y+menu.fluidSlotY(i);
             g.fill(sx,sy,sx+16,sy+16,0xFF_000000);g.fill(sx+1,sy+1,sx+15,sy+15,0xFF_111111);
             int amt=menu.getFluidAmt(i),cap=Math.max(1,menu.getFluidCap(i));ResourceLocation fid=menu.getFluidId(i);
@@ -150,8 +153,17 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
         }}}}
         int fR=menu.fluidRows(),slotY=y+18+fR*18,cols=menu.busCols(),slotX=menu.busX();
         for(int i=0;i<menu.getSlotCount();i++)ScreenUtil.drawSlot(g,x+slotX+(i%cols)*18,slotY+(i/cols)*18);
+        // Gold border on locked slots (all 4 sides) / 锁定槽金边（四边）
+        for(int i=0;i<menu.getSlotCount();i++)if(menu.lockState(i)){int sx=x+slotX+(i%cols)*18,sy=slotY+(i/cols)*18;
+            g.fill(sx,sy,sx+16,sy+1,0xFF_FFD700);g.fill(sx,sy,sx+1,sy+16,0xFF_FFD700);
+            g.fill(sx,sy+15,sx+16,sy+16,0xFF_FFD700);g.fill(sx+15,sy,sx+16,sy+16,0xFF_FFD700);}
+        for(int i=0;i<fs;i++)if(menu.lockState(menu.getSlotCount()+i)){int sx=x+menu.fluidSlotX(i),sy=y+menu.fluidSlotY(i);
+            g.fill(sx,sy,sx+16,sy+1,0xFF_FFD700);g.fill(sx,sy,sx+1,sy+16,0xFF_FFD700);
+            g.fill(sx,sy+15,sx+16,sy+16,0xFF_FFD700);g.fill(sx+15,sy,sx+16,sy+16,0xFF_FFD700);}
         int rs=menu.busRows(),gap=(rs+fR)<=3?14:20,invY=slotY+rs*18+gap;
-        for(int r=0;r<3;r++)for(int c=0;c<9;c++)ScreenUtil.drawSlot(g,x+8+c*18,invY+r*18);
-        for(int c=0;c<9;c++)ScreenUtil.drawSlot(g,x+8+c*18,invY+3*18+4);
+        // Center player inventory exactly like addPlayerSlots does / 与 addPlayerSlots 完全一致的居中
+        int invX=x+(imageWidth-162)/2;
+        for(int r=0;r<3;r++)for(int c=0;c<9;c++)ScreenUtil.drawSlot(g,invX+c*18,invY+r*18);
+        for(int c=0;c<9;c++)ScreenUtil.drawSlot(g,invX+c*18,invY+3*18+4);
     }
 }

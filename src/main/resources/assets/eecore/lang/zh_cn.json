@@ -266,5 +266,8 @@
   "block.eecore.creative_input_assembly": "创造输入总成",
   "block.eecore.creative_output_assembly": "创造输出总成",
   "eecore.gui.parallel.display": "并行 %1$s/%2$s",
-  "block.eecore.oversized_output_bus": "巨量输出总线"
+  "block.eecore.oversized_output_bus": "巨量输出总线",
+  "block.eecore.oversized_locked_input_bus": "巨量锁定输入总线",
+  "block.eecore.oversized_locked_input_bin": "巨量锁定输入仓",
+  "block.eecore.oversized_locked_input_assembly": "巨量锁定输入总成"
 }

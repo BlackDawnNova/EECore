@@ -101,6 +101,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private int batchSnapshotTier = -1;
     private int batchSnapshotMaxOc = -1;
     private boolean batchSnapshotEnergy;
+    private int batchSnapshotLockHash; // lock-state hash at batch start — mismatch invalidates / 批启动时锁状态哈希——不一致即作废
     private long batchTotal, batchProcessed;
     private double batchQuotaAcc;
     private boolean batchUnitExhausted;
@@ -284,6 +285,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         batchTotal = 0;
         batchProcessed = 0;
         batchSnapshotTier = -1;
+        batchSnapshotLockHash = 0;
         setChanged();
     }
 
@@ -776,12 +778,33 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 for (int s = 0; s < bus.getInventory().getSlots(); s++) {
                     var stack = bus.getInventory().getStackInSlot(s);
                     if (stack.isEmpty()) continue;
+                    // Locked-slot buses only count locked slots / 锁槽总线仅统计已锁槽位
+                    if (bus instanceof com.endlessepoch.core.api.part.ILockedSlotBus lsb && !lsb.isSlotLocked(s)) continue;
                     total += bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
                             ? cb.getTemplateCount(s) : stack.getCount();
                 }
             }
         }
         return total;
+    }
+
+    /** Lock-state hash for stale-plan guard. / 锁状态哈希（供陈旧计划守卫）。 */
+    private int computeLockHash() {
+        int hash = 0;
+        for (int bi = 0; bi < inputBusPos.size(); bi++) {
+            var be = level.getBlockEntity(inputBusPos.get(bi));
+            if (be instanceof com.endlessepoch.core.api.part.ILockedSlotBus lb) {
+                for (int s = 0; s < (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity ib ? ib.getSlotCount() : 0); s++) {
+                    if (lb.isSlotLocked(s)) {
+                        hash = hash * 31 + bi;
+                        hash = hash * 31 + s;
+                        hash = hash * 31 + net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(
+                                lb.getLockItem(s).getItem());
+                    }
+                }
+            }
+        }
+        return hash;
     }
 
     /**
@@ -834,6 +857,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         batchSnapshotTier = task.machineTier();
         batchSnapshotMaxOc = task.maxOverclock();
         batchSnapshotEnergy = task.energyEnabled();
+        batchSnapshotLockHash = computeLockHash();
         batchTotal = totalItems; // provisional until compute completes / 计算完成前的预估值
         if (Config.ebDebugLog && LOGGER.isDebugEnabled())
             LOGGER.debug("[EB-DBG] batch started @{}: {} items, tier={}, oc={}, shard price approx {}",
@@ -900,6 +924,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         batchSnapshotTier = task.machineTier();
         batchSnapshotMaxOc = task.maxOverclock();
         batchSnapshotEnergy = task.energyEnabled();
+        batchSnapshotLockHash = computeLockHash();
         batchTotal = totalItems;
         batchProcessed = 0;
         batchQuotaAcc = 0;
@@ -923,7 +948,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         int curMaxOc = overclockEnabled ? com.endlessepoch.core.Config.p3MaxOverclock : 0;
         if (getEffectiveTier() != batchSnapshotTier
                 || curMaxOc != batchSnapshotMaxOc
-                || com.endlessepoch.core.Config.p3EnergyEnabled != batchSnapshotEnergy) {
+                || com.endlessepoch.core.Config.p3EnergyEnabled != batchSnapshotEnergy
+                || computeLockHash() != batchSnapshotLockHash) {
             LOGGER.info("[EB-P3] batch plan invalidated at {} (conditions changed), re-planning", worldPosition);
             invalidateBatch();
             publishProcessEvent();
@@ -1151,6 +1177,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 for (int s = 0; s < bus.getInventory().getSlots(); s++) {
                     var stack = bus.getInventory().getStackInSlot(s);
                     if (!stack.isEmpty() && stack.getItem() == item) {
+                        if (bus instanceof com.endlessepoch.core.api.part.ILockedSlotBus lsb && !lsb.isSlotLocked(s)) continue;
                         // Creative templates present their configured count, not the count-1 placeholder
                         // 创造模板按配置数量计，而非 count=1 占位堆
                         total += bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
@@ -1171,6 +1198,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 for (int s = 0; s < bus.getInventory().getSlots() && remaining > 0; s++) {
                     var stack = bus.getInventory().getStackInSlot(s);
                     if (!stack.isEmpty() && stack.getItem() == item) {
+                        if (bus instanceof com.endlessepoch.core.api.part.ILockedSlotBus lsb && !lsb.isSlotLocked(s)) continue;
                         // Infinite source never depletes — extraction is a no-op, count it fulfilled
                         // 无限源永不减少——实扣是空操作，直接计为已满足
                         if (bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity) {
@@ -1224,6 +1252,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             if (level.getBlockEntity(ip) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
                 for (int s = 0; s < bus.getInventory().getSlots(); s++) {
                     var stack = bus.getInventory().getStackInSlot(s);
+                    if (bus instanceof com.endlessepoch.core.api.part.ILockedSlotBus lsb && !lsb.isSlotLocked(s)) continue;
                     if (!stack.isEmpty() && stack.getItem() == item
                             && !bus.getInventory().extractItem(s, 1, false).isEmpty())
                         return true;
