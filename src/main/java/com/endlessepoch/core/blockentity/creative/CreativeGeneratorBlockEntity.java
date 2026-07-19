@@ -308,9 +308,10 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
         return Component.translatable("eecore.generator.chat_prefix").withStyle(net.minecraft.ChatFormatting.GREEN);
     }
 
+    // Generator produces energy, never consumes — reject all incoming / 发电机只产出不消费——拒绝所有输入
     @Override
     public EnergyPacket receivePacket(EnergyPacket packet, boolean simulate) {
-        return packet;
+        return null;
     }
 
     @Override
@@ -320,7 +321,7 @@ public class CreativeGeneratorBlockEntity extends BlockEntity
 
     @Override
     public OmegaValue receiveEnergy(OmegaValue amount, boolean simulate) {
-        return amount;
+        return OmegaValue.zero();
     }
 
     @Override

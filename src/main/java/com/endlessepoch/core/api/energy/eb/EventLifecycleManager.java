@@ -4,8 +4,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages Flow lifecycle: dispose on machine removal, flush on chunk unload.
- * 生命周期管理：机器移除时 dispose，区块卸载时 flush。
+ * Manages Flow lifecycle: dispose on machine removal.
+ * 生命周期管理：机器移除时 dispose。
  */
 public final class EventLifecycleManager {
 

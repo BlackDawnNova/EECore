@@ -72,19 +72,13 @@ public class Config {
 
     // ── Thread Pool / 线程池 ──
     public static final ModConfigSpec.IntValue EB_BG_THREADS;
-    public static final ModConfigSpec.BooleanValue EB_FORK_JOIN;
     public static final ModConfigSpec.IntValue EB_FJ_PARALLELISM;
     public static final ModConfigSpec.IntValue EB_SEGMENT_COUNT;
 
     // ── Phase 3 — execution layer / Phase 3 执行层 ──
     public static final ModConfigSpec.IntValue P3_BATCH_SIZE;
-    public static final ModConfigSpec.BooleanValue P3_PREDICTIVE_HEAT;
-    public static final ModConfigSpec.IntValue P3_PREDICT_WINDOW;
-    public static final ModConfigSpec.BooleanValue P3_ADAPTIVE_SCHED;
-    public static final ModConfigSpec.DoubleValue P3_CPU_TARGET;
     public static final ModConfigSpec.IntValue P3_MAIN_THREAD_LIMIT;
     public static final ModConfigSpec.BooleanValue P3_MAIN_THREAD_ADAPTIVE;
-    public static final ModConfigSpec.IntValue P3_FORK_JOIN_RECIPES;
     public static final ModConfigSpec.BooleanValue P3_ENERGY_ENABLED;
     public static final ModConfigSpec.LongValue P3_VANILLA_ENERGY_PER_TICK;
     public static final ModConfigSpec.IntValue P3_MAX_OVERCLOCK;
@@ -167,10 +161,6 @@ public class Config {
                 .comment("Background thread count. 0 = auto (CPU-1 server, CPU/2 client). Requires restart.",
                         "后台线程数。0=自动（服务器 CPU-1，客户端 CPU/2）。需重启生效。")
                 .defineInRange("bgThreads", 0, 0, 64);
-        EB_FORK_JOIN = b
-                .comment("Use ForkJoinPool for parallel operations (Phase 3). Requires restart.",
-                        "使用 ForkJoinPool 并行操作（Phase 3）。需重启生效。")
-                .define("forkJoin", false);
         EB_FJ_PARALLELISM = b
                 .comment("ForkJoinPool thread parallelism. 0 = auto: physical-cores−1 (pure-compute pool; shard concurrency is a separate cap). Requires restart.",
                         "ForkJoin 线程并行度。0=自动：物理核心−1（纯计算池；分片并发数是另一个上限）。需重启生效。")
@@ -189,22 +179,6 @@ public class Config {
                 .comment("Local buffer submit chunk size per machine.",
                         "单机本地缓冲每次提交的分块大小。")
                 .defineInRange("batchSize", 256, 16, 16384);
-        P3_PREDICTIVE_HEAT = b
-                .comment("Pre-compute heat for queued recipes.",
-                        "预计算排队配方的热量。")
-                .define("predictiveHeat", false);
-        P3_PREDICT_WINDOW = b
-                .comment("Ticks ahead for predictive heating.",
-                        "预计算提前量（tick）。")
-                .defineInRange("predictWindow", 20, 5, 200);
-        P3_ADAPTIVE_SCHED = b
-                .comment("Dynamically adjust flush window based on CPU load.",
-                        "根据 CPU 负载动态调整刷新窗口。")
-                .define("adaptiveSched", false);
-        P3_CPU_TARGET = b
-                .comment("Target CPU usage for adaptive scheduling (0.0-1.0).",
-                        "自适应调度的目标 CPU 占用率。")
-                .defineInRange("cpuTarget", 0.8, 0.1, 0.95);
         P3_MAIN_THREAD_LIMIT = b
                 .comment("Max recipe units written per tick on the main thread. Default 256, adjustable [16, 2048].",
                         "主线程每 tick 最大配方单元写入数。默认 256，可调范围 [16, 2048]。")
@@ -213,10 +187,6 @@ public class Config {
                 .comment("Enable dynamic mainThreadLimit scaling based on TPS. When disabled, uses the fixed value above.",
                         "启用基于 TPS 的动态主线程写回限额。关闭则使用上述固定值。")
                 .define("mainThreadAdaptive", true);
-        P3_FORK_JOIN_RECIPES = b
-                .comment("Max recipes per ForkJoin task.",
-                        "每个 ForkJoin 任务最大配方数。")
-                .defineInRange("fjMaxRecipes", 16, 4, 256);
         P3_ENERGY_ENABLED = b
                 .comment("Enable recipe energy consumption (Ω drawn from energy input hatches).",
                         "启用配方能量消耗（从能源输入仓扣 Ω）。")

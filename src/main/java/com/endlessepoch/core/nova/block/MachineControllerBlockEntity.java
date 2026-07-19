@@ -91,6 +91,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     // Batch mode (Phase 3) / 批处理模式
     private boolean batchActive;
     private boolean batchDeferred; // prime-offset stagger postponed the start / 被质数偏移错峰推迟，serverTick 续试
+    private long kickoffAt;        // staggered world-load kickoff tick, 0=idle / 读档启动散列目标 tick，0=空闲
     private int lastEffParallel;   // live effective parallel for GUI / 供 GUI 显示的当前有效并行
     private double lastSpeedHeat = -1;
     private int lastSpeedOcMul = -1; // oc part of the displayed multiplier — recalc when the plan's oc changes / 显示倍率的超频部分——计划超频变化时重算
@@ -289,6 +290,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private void clearBatchState() {
         batchActive = false;
         batchDeferred = false;
+        kickoffAt = 0;
         lastEffParallel = 0;
         batchPending.clear();
         batchTotal = 0;
@@ -542,11 +544,26 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         // Unformed machines pay zero heartbeat — onMultiblockFormed resyncs instead
         // 未成型机器零心跳——由 onMultiblockFormed 的 resync 对时
         long tick = level.getGameTime();
-        // World load restores formed via NBT without onMultiblockFormed — kick once
-        // 读档恢复 formed 但不触发 onMultiblockFormed——补发一次启动
+        // World load restores formed via NBT without onMultiblockFormed — stagger the
+        // first kickoff across 2 seconds by posHash so machines don't all pile onto
+        // the same tick.
+        // 读档恢复 formed 但不触发 onMultiblockFormed——按 posHash 散列到 2 秒窗口，
+        // 防止多机同时苏醒挤爆单 tick。
         if (needsKickoff) {
             needsKickoff = false;
             ebFlow.resync(tick);
+            int delay = (int) (Math.floorMod(
+                    com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition), 40));
+            batchDeferred = delay > 0;
+            if (batchDeferred) {
+                kickoffAt = tick + delay;
+            } else {
+                publishProcessEvent(); // slot 0 → fire now / 槽位 0 → 立即踢
+            }
+        }
+        if (kickoffAt > 0 && tick >= kickoffAt) {
+            kickoffAt = 0;
+            batchDeferred = false;
             publishProcessEvent();
         }
         ebFlow.flush(tick);
