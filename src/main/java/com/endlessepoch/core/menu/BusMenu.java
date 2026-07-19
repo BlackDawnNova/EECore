@@ -15,14 +15,14 @@ public class BusMenu extends AbstractContainerMenu {
     final ResourceLocation[] fId; final int[] fAmt, fCap;
     private net.minecraft.server.level.ServerPlayer viewer;
     private ResourceLocation[] lastFid; private int[] lastFAmt;
-    /** Client-side template-count sync for creative buses: [i*2]=low 15 bits, [i*2+1]=high bits. */
-    private final ContainerData templateCountData;
+    /** Client-side template-count sync for creative buses. / 模板数量同步。 */
+    private ContainerData templateCountData;
     private int[] clientTemplateCounts;
-    /** Lock-state sync for locked-slot buses: 1=locked, 0=unlocked per slot. / 巨量锁定总线锁状态同步：1=已锁。 */
-    private final ContainerData lockData;
+    /** Lock-state sync for locked-slot buses. / 锁状态同步。 */
+    private ContainerData lockData;
     private boolean[] clientLockStates;
-    /** Oversized-bus real-count sync — 4×14-bit per slot (56 bits). / 巨量总线真实数量同步——每槽 4×14bit。 */
-    private final ContainerData storedAmountData;
+    /** Oversized-bus real-count sync. / 巨量真实数量同步。 */
+    private ContainerData storedAmountData;
     private long[] clientStoredAmounts;
 
     public void setViewer(net.minecraft.server.level.ServerPlayer p){this.viewer=p;}
@@ -32,18 +32,16 @@ public class BusMenu extends AbstractContainerMenu {
         this.creative=bus.isCreative(); this.oversized=bus.isOversized();
         this.locked=bus instanceof com.endlessepoch.core.api.part.ILockedSlotBus;
         this.data=new SimpleContainerData(2); addDataSlots(data);
-        this.templateCountData = creative && !isOutput && bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
-                ? templateCountData(cb) : new SimpleContainerData(0);
-        if (creative && !isOutput) addDataSlots(templateCountData);
-        this.storedAmountData = oversized ? storedAmountData(bus) : new SimpleContainerData(0);
-        if (oversized) addDataSlots(storedAmountData);
-        // Lock data must register AFTER fluidSlots is set, or getCount() reads 0 for fluid bins
-        // 锁数据必须在 fluidSlots 赋值后注册，否则流体仓的 getCount() 读到 0
+        // Data-slot providers / 数据槽注册链
+        for (var p : SLOT_PROVIDERS)
+            if (p.active(creative, isOutput, oversized, locked, slotCount, 0))
+                p.register(this, bus, true);
         var ts=((PartBlockEntity)bus).getFluidTanks();
         int fs=0; if(!ts.isEmpty()&&bus.getBlockState().getBlock() instanceof PartBlock pb)fs=pb.fluidSlots;
         this.fluidSlots=fs;
-        this.lockData = locked ? lockData(bus) : new SimpleContainerData(0);
-        if (locked) addDataSlots(lockData);
+        for (var p : SLOT_PROVIDERS)
+            if (p.active(creative, isOutput, oversized, locked, slotCount, fluidSlots) && p.postFluidSlots())
+                p.register(this, bus, true);
         this.fId=new ResourceLocation[Math.max(1,fs)];this.fAmt=new int[Math.max(1,fs)];this.fCap=new int[Math.max(1,fs)];
         syncFromBE(); addBusSlots(bus.getInventory()); addPlayerSlots(inv);
     }
@@ -53,15 +51,15 @@ public class BusMenu extends AbstractContainerMenu {
         this.oversized=buf.readBoolean(); this.fluidSlots=buf.readVarInt(); this.bus=null;
         this.locked=oversized && !creative && !isOutput && (slotCount>0||fluidSlots>0);
         this.data=new SimpleContainerData(2); addDataSlots(data);
-        this.clientTemplateCounts = new int[creative && !isOutput ? slotCount : 0];
-        this.templateCountData = creative && !isOutput ? clientTemplateCountData() : new SimpleContainerData(0);
-        if (creative && !isOutput) addDataSlots(templateCountData);
-        this.clientStoredAmounts = new long[oversized ? slotCount : 0];
-        this.storedAmountData = oversized ? clientStoredAmountData() : new SimpleContainerData(0);
-        if (oversized) addDataSlots(storedAmountData);
-        this.clientLockStates = new boolean[locked ? Math.max(1, slotCount + fluidSlots) : 0];
-        this.lockData = locked ? clientLockData() : new SimpleContainerData(0);
-        if (locked) addDataSlots(lockData);
+        this.clientTemplateCounts=new int[creative&&!isOutput?slotCount:0];
+        this.clientStoredAmounts=new long[oversized?slotCount:0];
+        for (var p : SLOT_PROVIDERS)
+            if (p.active(creative, isOutput, oversized, locked, slotCount, 0))
+                p.register(this, null, false);
+        this.clientLockStates=new boolean[locked?Math.max(1,slotCount+fluidSlots):0];
+        for (var p : SLOT_PROVIDERS)
+            if (p.active(creative, isOutput, oversized, locked, slotCount, fluidSlots) && p.postFluidSlots())
+                p.register(this, null, false);
         this.fId=new ResourceLocation[Math.max(1,fluidSlots)];this.fAmt=new int[Math.max(1,fluidSlots)];this.fCap=new int[Math.max(1,fluidSlots)];
         for(int i=0;i<fluidSlots;i++){fId[i]=buf.readBoolean()?buf.readResourceLocation():null;fAmt[i]=buf.readVarInt();fCap[i]=buf.readVarInt();}
         // Client display backing — ItemStackHandler, NOT SimpleContainer: the latter's
@@ -305,4 +303,40 @@ public class BusMenu extends AbstractContainerMenu {
         return copy;
     }
     @Override public boolean stillValid(Player p){return p.distanceToSqr(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)<=64;}
+
+    // ── Data-slot provider chain / 数据槽注册链 ──
+
+    private interface SlotProvider {
+        boolean active(boolean creative, boolean isOutput, boolean oversized, boolean locked, int slotCount, int fluidSlots);
+        default boolean postFluidSlots() { return false; }
+        void register(BusMenu m, InputBusBlockEntity bus, boolean server);
+    }
+    private final java.util.List<SlotProvider> SLOT_PROVIDERS = java.util.List.of(
+        new SlotProvider() { // template / 模板
+            @Override public boolean active(boolean c, boolean o, boolean ov, boolean l, int sc, int fs) { return c && !o; }
+            @Override public void register(BusMenu m, InputBusBlockEntity bus, boolean srv) {
+                if (srv && bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb) { m.templateCountData = m.templateCountData(cb); }
+                else if (!srv) m.templateCountData = m.clientTemplateCountData();
+                else return;
+                addDataSlots(m.templateCountData);
+            }
+        },
+        new SlotProvider() { // stored amount / 巨量
+            @Override public boolean active(boolean c, boolean o, boolean ov, boolean l, int sc, int fs) { return ov; }
+            @Override public void register(BusMenu m, InputBusBlockEntity bus, boolean srv) {
+                if (srv) m.storedAmountData = m.storedAmountData(bus);
+                else m.storedAmountData = m.clientStoredAmountData();
+                addDataSlots(m.storedAmountData);
+            }
+        },
+        new SlotProvider() { // lock state / 锁状态
+            @Override public boolean active(boolean c, boolean o, boolean ov, boolean l, int sc, int fs) { return l; }
+            @Override public boolean postFluidSlots() { return true; }
+            @Override public void register(BusMenu m, InputBusBlockEntity bus, boolean srv) {
+                if (srv) m.lockData = m.lockData(bus);
+                else m.lockData = m.clientLockData();
+                addDataSlots(m.lockData);
+            }
+        }
+    );
 }

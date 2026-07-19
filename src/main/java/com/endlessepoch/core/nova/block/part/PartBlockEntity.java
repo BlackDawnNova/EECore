@@ -45,20 +45,10 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
         super(BlockEntities.PART.get(), pos, state);
         this.partType = type;
         this.tier = tier;
-        // Suffix match so addon-registered tiered variants (e.g. "hv_energy_input") map abilities too
-        // 后缀匹配，附属注册的分级变体（如 hv_energy_input）同样获得能力
+        // Suffix → ability registry / 后缀→能力注册表
         String p = type.getId().getPath();
-        if (p.endsWith("input_assembly"))       { abilities.add(PartAbility.ITEM_INPUT); abilities.add(PartAbility.FLUID_INPUT); }
-        else if (p.endsWith("output_assembly")) { abilities.add(PartAbility.ITEM_OUTPUT); abilities.add(PartAbility.FLUID_OUTPUT); }
-        else if (p.endsWith("input_bin"))        abilities.add(PartAbility.FLUID_INPUT);
-        else if (p.endsWith("input_bus"))       abilities.add(PartAbility.ITEM_INPUT);
-        else if (p.endsWith("output_bus"))      abilities.add(PartAbility.ITEM_OUTPUT);
-        else if (p.endsWith("fluid_input"))     abilities.add(PartAbility.FLUID_INPUT);
-        else if (p.endsWith("fluid_output"))    abilities.add(PartAbility.FLUID_OUTPUT);
-        else if (p.endsWith("energy_input"))    abilities.add(PartAbility.ENERGY_INPUT);
-        else if (p.endsWith("energy_output"))   abilities.add(PartAbility.ENERGY_OUTPUT);
-        else if (p.endsWith("parallel_hatch"))  abilities.add(PartAbility.PARALLEL);
-        else if (p.endsWith("casing"))          abilities.add(PartAbility.STRUCTURAL);
+        for (var e : SUFFIX_ABILITIES.entrySet())
+            if (p.endsWith(e.getKey())) abilities.addAll(e.getValue());
         // Read config from PartBlock if available (CasingBlock doesn't extend PartBlock) / 从 PartBlock 读配置
         int fluidCap = 0;
         long energyCap = 0;
@@ -238,4 +228,18 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
                 fluidTanks.get(i).readFromNBT(provider, fl.getCompound(i));
         }
     }
+
+    private static final java.util.Map<String, java.util.Set<PartAbility>> SUFFIX_ABILITIES =
+            java.util.Map.ofEntries(
+                    java.util.Map.entry("input_assembly",  java.util.Set.of(PartAbility.ITEM_INPUT, PartAbility.FLUID_INPUT)),
+                    java.util.Map.entry("output_assembly", java.util.Set.of(PartAbility.ITEM_OUTPUT, PartAbility.FLUID_OUTPUT)),
+                    java.util.Map.entry("input_bin",       java.util.Set.of(PartAbility.FLUID_INPUT)),
+                    java.util.Map.entry("input_bus",       java.util.Set.of(PartAbility.ITEM_INPUT)),
+                    java.util.Map.entry("output_bus",      java.util.Set.of(PartAbility.ITEM_OUTPUT)),
+                    java.util.Map.entry("fluid_input",     java.util.Set.of(PartAbility.FLUID_INPUT)),
+                    java.util.Map.entry("fluid_output",    java.util.Set.of(PartAbility.FLUID_OUTPUT)),
+                    java.util.Map.entry("energy_input",    java.util.Set.of(PartAbility.ENERGY_INPUT)),
+                    java.util.Map.entry("energy_output",   java.util.Set.of(PartAbility.ENERGY_OUTPUT)),
+                    java.util.Map.entry("parallel_hatch",  java.util.Set.of(PartAbility.PARALLEL)),
+                    java.util.Map.entry("casing",          java.util.Set.of(PartAbility.STRUCTURAL)));
 }
