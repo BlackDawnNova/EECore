@@ -1,6 +1,7 @@
 package com.endlessepoch.core.screen;
 
 import com.endlessepoch.core.menu.BusMenu;
+import com.endlessepoch.core.network.SetCircuitPacket;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft; import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -13,7 +14,6 @@ import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtension
 public class BusScreen extends AbstractContainerScreen<BusMenu> {
     private static final ResourceLocation BG = ResourceLocation.parse("eecore:textures/gui/container/bus.png");
     private static final int BG_W = 176, MAX_H = 512;
-    // Count popup for creative template slots / 创造模板槽数量弹框
     private net.minecraft.client.gui.components.EditBox countBox;
     private net.minecraft.client.gui.components.Button countOk;
     private int countSlot = -1;
@@ -22,15 +22,15 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
     @Override
     protected void containerTick() {
         super.containerTick();
-        // Popup open on a now-empty slot → auto-dismiss / 弹框开着但槽已空 → 自动关
         if (countSlot >= 0 && !menu.slots.get(menu.getFluidSlots() + countSlot).hasItem())
             closeCountPopup();
     }
 
     @Override protected void init() {int rs=menu.busRows(),fR=menu.fluidRows(),g=(rs+fR)<=3?14:20;
         this.imageHeight=menu.imageH();super.init();this.inventoryLabelY=18+(fR+rs)*18+g-11;
-        this.titleLabelX=(imageWidth-font.width(title))/2; // center title / 标题居中
-        this.inventoryLabelX=(imageWidth-font.width(playerInventoryTitle))/2; // center "物品栏" / "物品栏"居中
+        this.titleLabelX=(imageWidth-font.width(title))/2;
+        this.inventoryLabelX=(imageWidth-font.width(playerInventoryTitle))/2;
+        circuitBtns=null;
         if(menu.isCreative()&&!menu.isOutputBus()){
             countBox=new net.minecraft.client.gui.components.EditBox(font,leftPos+92,topPos+3,44,12,Component.empty());
             countBox.setMaxLength(7);
@@ -59,7 +59,7 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
             countOk.visible = true;
             setFocused(countBox);
             countBox.setFocused(true);
-            return; // no packet — popup handles it / 不发点击包，弹框接管
+            return;
         }
         super.slotClicked(slot, slotId, mouseButton, type);
     }
@@ -92,8 +92,8 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (countBox != null && countBox.visible && countBox.isFocused()) {
-            if (keyCode == 256) { closeCountPopup(); return true; }               // ESC closes popup / ESC 关弹框
-            if (keyCode == 257 || keyCode == 335) { confirmCount(); return true; } // Enter confirms / 回车确认
+            if (keyCode == 256) { closeCountPopup(); return true; }
+            if (keyCode == 257 || keyCode == 335) { confirmCount(); return true; }
             if (countBox.keyPressed(keyCode, scanCode, modifiers) || countBox.canConsumeInput()) return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -101,7 +101,6 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
 
     @Override public void render(GuiGraphics g,int mx,int my,float p){
         super.render(g,mx,my,p);
-        // Creative template slot tooltips show the configured count / 创造模板槽悬浮提示显示配置数量
         if(menu.isCreative()&&!menu.isOutputBus()){
             int cols=menu.busCols(),x=leftPos+menu.busX();
             int y=topPos+18+menu.fluidRows()*18;
@@ -127,6 +126,7 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
                 }
             }
         }
+        buildCircuitBtns();
         this.renderTooltip(g,mx,my);
         int x=(width-imageWidth)/2,y=(height-imageHeight)/2,fs=menu.getFluidSlots();
         for(int i=0;i<fs;i++){
@@ -161,9 +161,26 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
             g.fill(sx,sy,sx+16,sy+1,0xFF_FFD700);g.fill(sx,sy,sx+1,sy+16,0xFF_FFD700);
             g.fill(sx,sy+15,sx+16,sy+16,0xFF_FFD700);g.fill(sx+15,sy,sx+16,sy+16,0xFF_FFD700);}
         int rs=menu.busRows(),gap=(rs+fR)<=3?14:20,invY=slotY+rs*18+gap;
-        // Center player inventory exactly like addPlayerSlots does / 与 addPlayerSlots 完全一致的居中
         int invX=x+(imageWidth-162)/2;
         for(int r=0;r<3;r++)for(int c=0;c<9;c++)ScreenUtil.drawSlot(g,invX+c*18,invY+r*18);
         for(int c=0;c<9;c++)ScreenUtil.drawSlot(g,invX+c*18,invY+3*18+4);
+        if(!menu.isOutputBus()&&!menu.isCreative()&&!menu.isOversized()){
+            int bx=leftPos+6,by=topPos+4,bh=10,cv=menu.circuitValue();
+            String label="zh_cn".equals(net.minecraft.client.Minecraft.getInstance().getLanguageManager().getSelected())?"电路: ":"Circuit: ";
+            String text=label+cv; int bw=font.width(text)+4;
+            g.fill(bx,by,bx+bw,by+bh,cv>0?0xFF_886644:0xFF_444444);
+            g.drawString(font,text,bx+2,by+1,cv>0?0xFF_FFD700:0xFF_CCCCCC);
+        }
     }
+    @Override public boolean mouseClicked(double mx,double my,int btn){if(menu.isOutputBus()||menu.isCreative()||menu.isOversized())return super.mouseClicked(mx,my,btn);
+        String label="zh_cn".equals(net.minecraft.client.Minecraft.getInstance().getLanguageManager().getSelected())?"电路: ":"Circuit: ";
+        int bx=leftPos+6,by=topPos+4,bw=font.width(label+menu.circuitValue())+4,bh=10;
+        if(btn==0&&mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+bh){circuitOpen=!circuitOpen;positionCircuitBtns();return true;}
+        return super.mouseClicked(mx,my,btn);}
+    private void buildCircuitBtns(){if(circuitBtns!=null)return;circuitBtns=new java.util.ArrayList<>();for(int i=0;i<=9;i++){final int v=i;
+        var b=net.minecraft.client.gui.components.Button.builder(net.minecraft.network.chat.Component.literal(String.valueOf(v)),bt->{net.neoforged.neoforge.network.PacketDistributor.sendToServer(new SetCircuitPacket(menu.getPos(),v));circuitOpen=false;positionCircuitBtns();}).bounds(0,0,16,12).build();circuitBtns.add(b);addRenderableWidget(b);}positionCircuitBtns();}
+    private void positionCircuitBtns(){if(circuitBtns==null)return;int bx=leftPos+6,by=topPos-26;
+        for(int i=0;i<circuitBtns.size();i++){var b=circuitBtns.get(i);b.setX(bx+(i%5)*18);b.setY(by+(i/5)*14);b.visible=circuitOpen;}}
+    private java.util.List<net.minecraft.client.gui.components.Button> circuitBtns;
+    private boolean circuitOpen;
 }

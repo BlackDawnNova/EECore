@@ -496,5 +496,11 @@ public class EECore {
                 (payload, context) -> context.enqueueWork(
                         () -> com.endlessepoch.core.network.SetGhostCountPacket.handle(payload, context))
         );
+        registrar.playToServer(
+                com.endlessepoch.core.network.SetCircuitPacket.TYPE,
+                com.endlessepoch.core.network.SetCircuitPacket.CODEC,
+                (payload, context) -> context.enqueueWork(
+                        () -> com.endlessepoch.core.network.SetCircuitPacket.handle(payload, context))
+        );
     }
 }

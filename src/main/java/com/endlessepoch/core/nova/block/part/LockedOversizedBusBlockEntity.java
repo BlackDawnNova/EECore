@@ -49,9 +49,9 @@ public class LockedOversizedBusBlockEntity extends InputBusBlockEntity implement
 
     @Override
     public boolean isSlotLocked(int slot) {
-        if (slot < lockItems.length) return !lockItems[slot].isEmpty(); // item / 物品锁
+        if (slot < lockItems.length) return !lockItems[slot].isEmpty();
         int fi = slot - lockItems.length;
-        return fi >= 0 && fi < lockFluids.length && !lockFluids[fi].isEmpty(); // fluid / 流体锁
+        return fi >= 0 && fi < lockFluids.length && !lockFluids[fi].isEmpty();
     }
 
     // ── Fluid auto-lock for assemblies / 总成流体自动锁 ──

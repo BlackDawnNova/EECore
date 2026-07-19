@@ -21,7 +21,8 @@ public record RecipeSnapshot(
         long energyPerTick,     // base Ω per tick, 0 = free / 基础每tick能耗，0=免费
         long requiredTierIndex, // VoltageTier ordinal for overclock math / 需求电压序数，超频计算用
         long maxParallel,       // recipe-level parallel cap / 配方级并行上限
-        double maxHeat          // heat ceiling / 热量天花板
+        double maxHeat,         // heat ceiling / 热量天花板
+        long circuit            // circuit value, 0=any / 电路值，0=不限
 ) {
 
     /** Create from an ItemStack result list / 从结果列表创建 */

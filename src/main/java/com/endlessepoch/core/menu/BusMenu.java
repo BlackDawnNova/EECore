@@ -32,11 +32,9 @@ public class BusMenu extends AbstractContainerMenu {
         this.creative=bus.isCreative(); this.oversized=bus.isOversized();
         this.locked=bus instanceof com.endlessepoch.core.api.part.ILockedSlotBus;
         this.data=new SimpleContainerData(2); addDataSlots(data);
-        // Template data only for creative INPUT side / 模板数据仅创造输入侧
         this.templateCountData = creative && !isOutput && bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
                 ? templateCountData(cb) : new SimpleContainerData(0);
         if (creative && !isOutput) addDataSlots(templateCountData);
-        // Stored amount sync — works for both creative oversized and locked oversized / 巨量数据同步——兼创造和锁定
         this.storedAmountData = oversized ? storedAmountData(bus) : new SimpleContainerData(0);
         if (oversized) addDataSlots(storedAmountData);
         // Lock data must register AFTER fluidSlots is set, or getCount() reads 0 for fluid bins
@@ -53,7 +51,7 @@ public class BusMenu extends AbstractContainerMenu {
         super(Menus.BUS.get(), id); this.pos=buf.readBlockPos(); this.slotCount=buf.readVarInt();
         this.isOutput=buf.readBoolean(); this.creative=buf.readBoolean();
         this.oversized=buf.readBoolean(); this.fluidSlots=buf.readVarInt(); this.bus=null;
-        this.locked=oversized && !creative && !isOutput && (slotCount>0||fluidSlots>0); // items or fluids = locked / 有物品或流体槽=锁定
+        this.locked=oversized && !creative && !isOutput && (slotCount>0||fluidSlots>0);
         this.data=new SimpleContainerData(2); addDataSlots(data);
         this.clientTemplateCounts = new int[creative && !isOutput ? slotCount : 0];
         this.templateCountData = creative && !isOutput ? clientTemplateCountData() : new SimpleContainerData(0);
@@ -74,7 +72,9 @@ public class BusMenu extends AbstractContainerMenu {
         addPlayerSlots(inv);
     }
     @Override public void broadcastChanges(){if(bus!=null)syncFromBE();super.broadcastChanges();}
-    private void syncFromBE(){if(bus==null)return;var ts=((PartBlockEntity)bus).getFluidTanks();
+    private void syncFromBE(){if(bus==null)return;
+        int cv=bus.getCircuitValue(); if(cv!=data.get(1)) data.set(1,cv);
+        var ts=((PartBlockEntity)bus).getFluidTanks();
         if(lastFid==null){lastFid=new ResourceLocation[Math.max(1,fluidSlots)];lastFAmt=new int[Math.max(1,fluidSlots)];}
         for(int i=0;i<fluidSlots&&i<ts.size();i++){var f=ts.get(i);fAmt[i]=f.getFluidAmount();fCap[i]=f.getCapacity();fId[i]=f.getFluid().isEmpty()?null:BuiltInRegistries.FLUID.getKey(f.getFluid().getFluid());
             // Push non-click changes too (JEI drag, pipes) / 非点击来源的变更也推送（JEI 拖拽、管道）
@@ -87,6 +87,10 @@ public class BusMenu extends AbstractContainerMenu {
     public void setFluidData(int i,ResourceLocation id,int amt,int cap){if(i<fluidSlots){fId[i]=id;fAmt[i]=amt;fCap[i]=cap;}}
     public ResourceLocation getFluidId(int i){return i<fluidSlots?fId[i]:null;}
     public int getFluidSlots(){return fluidSlots;} public InputBusBlockEntity getBus(){return bus;} public int getSlotCount(){return slotCount;}
+    /** Circuit value of this bus (synced via ContainerData). / 总线电路值（通过 ContainerData 同步）。 */
+    public int circuitValue(){if(bus!=null)return bus.getCircuitValue();return data.get(1);}
+    /** Client-side stub for BusScreen mouseClicked / 客户端暂存。 */
+    public void circuitValue(int v){if(bus!=null)bus.setCircuitValue(v);else data.set(1,v);}
     /** Phantom infinite bus? / 是否为幻影无限总线。 */
     public boolean isCreative(){return creative;}
     /** Output-side bus? / 是否为输出侧总线。 */

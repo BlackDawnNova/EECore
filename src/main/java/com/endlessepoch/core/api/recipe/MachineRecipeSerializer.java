@@ -48,7 +48,8 @@ public class MachineRecipeSerializer implements RecipeSerializer<MachineRecipe> 
                 TIER_CODEC.optionalFieldOf("requiredTier", VoltageTier.ELV).forGetter(MachineRecipe::getRequiredTier),
                 Codec.DOUBLE.optionalFieldOf("maxHeat", 10.0).forGetter(MachineRecipe::getMaxHeat),
                 Codec.LONG.optionalFieldOf("energyPerTick", 0L).forGetter(MachineRecipe::getEnergyPerTick),
-                Codec.INT.optionalFieldOf("maxParallel", 1).forGetter(MachineRecipe::getMaxParallel)
+                Codec.INT.optionalFieldOf("maxParallel", 1).forGetter(MachineRecipe::getMaxParallel),
+                Codec.INT.optionalFieldOf("circuit", 0).forGetter(MachineRecipe::getCircuit)
         ).apply(instance, MachineRecipe::new));
 
         // 8 fields exceed StreamCodec.composite overloads — encode/decode manually
@@ -63,6 +64,7 @@ public class MachineRecipeSerializer implements RecipeSerializer<MachineRecipe> 
                     buf.writeDouble(recipe.getMaxHeat());
                     buf.writeVarLong(recipe.getEnergyPerTick());
                     buf.writeVarInt(recipe.getMaxParallel());
+                    buf.writeVarInt(recipe.getCircuit());
                 },
                 buf -> {
                     String group = ByteBufCodecs.STRING_UTF8.decode(buf);
@@ -73,8 +75,9 @@ public class MachineRecipeSerializer implements RecipeSerializer<MachineRecipe> 
                     double maxHeat = buf.readDouble();
                     long energyPerTick = buf.readVarLong();
                     int maxParallel = buf.readVarInt();
+                    int circuit = buf.readVarInt();
                     return new MachineRecipe(group, ingredient, results, time,
-                            tier != null ? tier : VoltageTier.ELV, maxHeat, energyPerTick, maxParallel);
+                            tier != null ? tier : VoltageTier.ELV, maxHeat, energyPerTick, maxParallel, circuit);
                 }
         );
     }

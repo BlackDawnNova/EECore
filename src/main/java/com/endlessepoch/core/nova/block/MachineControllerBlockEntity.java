@@ -841,13 +841,14 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 .map(com.endlessepoch.core.api.energy.eb.HeatConfig::maxHeat).orElse(10.0);
         int hw = getParallelCap();
         long totalRate = getEnergyRate();
+        int cv = 0; for (var ip : inputBusPos) { if (level.getBlockEntity(ip) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity ib) { cv = ib.getCircuitValue(); break; } }
         var task = new com.endlessepoch.core.api.energy.eb.batch.BatchTask(
                 com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition),
                 getEffectiveTier(), heat,
                 com.endlessepoch.core.Config.heatSpeedBoostMax,
                 overclockEnabled ? com.endlessepoch.core.Config.p3MaxOverclock : 0,
                 com.endlessepoch.core.Config.p3EnergyEnabled,
-                hw, totalRate,
+                hw, totalRate, cv,
                 java.util.List.copyOf(units));
         // Chunked submission via the per-machine limiter — never floods the global pool
         // 经单机限流器分块提交——不会一次性灌满全局池
@@ -906,13 +907,14 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 .map(com.endlessepoch.core.api.energy.eb.HeatConfig::maxHeat).orElse(10.0);
         int hw = getParallelCap();
         long totalRate = getEnergyRate();
+        int cv = 0; for (var ip : inputBusPos) { if (level.getBlockEntity(ip) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity ib) { cv = ib.getCircuitValue(); break; } }
         var task = new com.endlessepoch.core.api.energy.eb.batch.BatchTask(
                 com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition),
                 getEffectiveTier(), heat,
                 com.endlessepoch.core.Config.heatSpeedBoostMax,
                 overclockEnabled ? com.endlessepoch.core.Config.p3MaxOverclock : 0,
                 com.endlessepoch.core.Config.p3EnergyEnabled,
-                hw, totalRate,
+                hw, totalRate, cv,
                 java.util.List.copyOf(units));
         var results = com.endlessepoch.core.api.energy.eb.batch.BatchExecutor.computeInline(task);
         if (results.isEmpty()) {

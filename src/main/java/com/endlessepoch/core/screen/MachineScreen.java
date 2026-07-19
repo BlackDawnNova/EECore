@@ -49,7 +49,6 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
     }
 
     @Override protected void renderLabels(GuiGraphics g, int mx, int my) {
-        // Voltage-colored title / 电压色标题
         boolean cn = "zh_cn".equals(
                 net.minecraft.client.Minecraft.getInstance().getLanguageManager().getSelected());
         String name = menu instanceof MachineMenu mm
@@ -62,7 +61,6 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         int color = parseHex(
                 com.endlessepoch.core.api.tier.VoltageTier.values()[tierIdx].getHexColor());
         g.drawString(font, title, titleLabelX, titleLabelY, color);
-        // Player inventory label / 玩家背包
         g.drawString(font, this.playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFF_404040);
     }
 

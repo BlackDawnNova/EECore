@@ -50,7 +50,8 @@ public final class RecipeSnapshotCache {
                         mr.getEnergyPerTick(),
                         mr.getRequiredTier().ordinal(),
                         mr.getMaxParallel(),
-                        mr.getMaxHeat()
+                        mr.getMaxHeat(),
+                        mr.getCircuit()
                 );
                 for (long itemId : snap.inputItemIds()) {
                     CACHE.computeIfAbsent(itemId, k -> Collections.synchronizedList(new ArrayList<>())).add(snap);

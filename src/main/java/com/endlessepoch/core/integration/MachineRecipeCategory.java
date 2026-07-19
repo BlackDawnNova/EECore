@@ -88,12 +88,17 @@ public class MachineRecipeCategory extends AbstractRecipeCategory<MachineRecipe>
             g.drawString(font, "功率: -- Ω/t", 6, 87, WHITE);
         }
 
-        // Tier button — recipe required tier, tier color / 配方需求电压——对应颜色
         VoltageTier tier = recipe.getRequiredTier() != null ? recipe.getRequiredTier() : DEFAULT_TIER;
         String tierText = tier.name();
         int tierColor = parseHex(tier.getHexColor());
         int tw = font.width(tierText);
         g.drawString(font, tierText, W - tw - 6, 87, tierColor);
+        if (recipe.getCircuit() > 0) {
+            int cx = W - 6, cy = 63, n = recipe.getCircuit();
+            String ns = String.valueOf(n);
+            g.fill(cx - font.width(ns) - 6, cy, cx, cy + 10, 0xFF_886644);
+            g.drawString(font, ns, cx - font.width(ns) - 3, cy + 1, 0xFF_FFD700);
+        }
     }
 
     @Override

@@ -30,12 +30,17 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
 
     private final ItemStackHandler inventory;
     private final boolean output;
+    private int circuitValue;
 
     public InputBusBlockEntity(BlockPos pos, BlockState state, PartType type, int tier, int slotCount) {
         super(pos, state, type, tier);
         this.output = getAbilities().contains(PartAbility.ITEM_OUTPUT);
         this.inventory = createInventory(slotCount);
     }
+
+    /** Virtual circuit value, 0 = any recipe. / 虚拟电路值，0=不限。 */
+    public int getCircuitValue() { return circuitValue; }
+    public void setCircuitValue(int v) { this.circuitValue = Math.max(0, v); setChanged(); if (!output && level != null && !level.isClientSide()) wakeController(); }
 
     /** Inventory factory — creative subclass overrides with an infinite handler. / 库存工厂，创造子类覆写为无限句柄。 */
     protected ItemStackHandler createInventory(int slotCount) {
@@ -54,6 +59,12 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
             var be = level.getBlockEntity(getControllerPos());
             if (be instanceof MachineControllerBlockEntity mc) mc.publishProcessEvent();
         }
+    }
+
+    private void wakeController() {
+        if (level != null && !level.isClientSide() && getControllerPos() != null
+                && level.getBlockEntity(getControllerPos()) instanceof MachineControllerBlockEntity mc)
+            mc.publishProcessEvent();
     }
 
     public IItemHandler getInventory() { return inventory; }
@@ -112,11 +123,13 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider provider) {
         super.saveAdditional(tag, provider);
         tag.put("Inventory", inventory.serializeNBT(provider));
+        tag.putInt("circuitValue", circuitValue);
     }
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider provider) {
         super.loadAdditional(tag, provider);
+        circuitValue = tag.getInt("circuitValue");
         int configured = inventory.getSlots();
         inventory.deserializeNBT(provider, tag.getCompound("Inventory"));
         // Saved slot count differs (bus size changed between versions) — migrate stacks

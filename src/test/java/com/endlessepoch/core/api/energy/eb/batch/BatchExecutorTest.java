@@ -20,7 +20,7 @@ class BatchExecutorTest {
 
     private static RecipeSnapshot recipe(long idHash, long input, long tier, long duration, long eut) {
         return new RecipeSnapshot(idHash, new long[]{input}, new long[]{INGOT}, new long[]{1},
-                eut * duration, duration, 0, eut, tier, 1, 10.0);
+                eut * duration, duration, 0, eut, tier, 1, 10.0, 0);
     }
 
     private static InputUnit unit(long itemId, long count) {
@@ -28,7 +28,7 @@ class BatchExecutorTest {
     }
 
     private static BatchTask task(int machineTier, List<InputUnit> units) {
-        return new BatchTask(1L, machineTier, 0.0, 1.5, 8, true, 16384, Long.MAX_VALUE, units);
+        return new BatchTask(1L, machineTier, 0.0, 1.5, 8, true, 16384, Long.MAX_VALUE, 0, units);
     }
 
     private static final LongFunction<List<RecipeSnapshot>> LOOKUP = itemId -> {

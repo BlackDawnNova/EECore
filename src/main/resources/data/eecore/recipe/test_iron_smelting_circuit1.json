@@ -1,0 +1,9 @@
+{
+  "type": "eecore:machine",
+  "ingredient": { "item": "minecraft:iron_ore" },
+  "results": [{ "id": "minecraft:iron_ingot", "count": 2 }],
+  "processingTime": 100,
+  "requiredTier": "ELV",
+  "energyPerTick": 32,
+  "circuit": 1
+}
