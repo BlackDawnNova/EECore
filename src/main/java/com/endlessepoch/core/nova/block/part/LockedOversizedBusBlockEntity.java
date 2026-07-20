@@ -245,5 +245,17 @@ public class LockedOversizedBusBlockEntity extends InputBusBlockEntity implement
                 lockFluids[i] = t.isEmpty() ? FluidStack.EMPTY : FluidStack.parseOptional(provider, t);
             }
         }
+        // Migrate lock state from existing slot/tank contents / 从已有槽位/罐内容迁移锁状态
+        for (int i = 0; i < lockItems.length && i < storedAmount.length; i++) {
+            if (lockItems[i].isEmpty() && storedAmount[i] > 0) {
+                var s = getInventory().getStackInSlot(i);
+                if (!s.isEmpty()) lockItems[i] = s.copyWithCount(1);
+            }
+        }
+        var tanks = getFluidTanks();
+        for (int i = 0; i < lockFluids.length && i < tanks.size(); i++) {
+            if (lockFluids[i].isEmpty() && !tanks.get(i).isEmpty())
+                lockFluids[i] = tanks.get(i).getFluid().copy();
+        }
     }
 }

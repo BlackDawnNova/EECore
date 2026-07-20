@@ -127,7 +127,6 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
             }
         }
         buildCircuitBtns();
-        this.renderTooltip(g,mx,my);
         int x=(width-imageWidth)/2,y=(height-imageHeight)/2,fs=menu.getFluidSlots();
         for(int i=0;i<fs;i++){
             int sx=x+menu.fluidSlotX(i),sy=y+menu.fluidSlotY(i);

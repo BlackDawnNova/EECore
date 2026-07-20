@@ -69,6 +69,7 @@ public class LockedOversizedFluidBinBlockEntity extends InputBusBlockEntity impl
     @Override
     protected FluidTank createFluidTank(int capacity, boolean output) {
         return new FluidTank(capacity) {
+            @Override protected void onContentsChanged() { setChanged(); }
             @Override
             public int fill(FluidStack resource, FluidAction action) {
                 int filled = super.fill(resource, action);
@@ -134,6 +135,12 @@ public class LockedOversizedFluidBinBlockEntity extends InputBusBlockEntity impl
                 lockFluids[i] = t.isEmpty() ? FluidStack.EMPTY
                         : FluidStack.parseOptional(provider, t);
             }
+        }
+        // Migrate lock state from existing tank contents / 从已有罐内容迁移锁状态
+        var tanks = getFluidTanks();
+        for (int i = 0; i < lockFluids.length && i < tanks.size(); i++) {
+            if (lockFluids[i].isEmpty() && !tanks.get(i).isEmpty())
+                lockFluids[i] = tanks.get(i).getFluid().copy();
         }
     }
 }

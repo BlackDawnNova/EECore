@@ -34,7 +34,7 @@ public class BusMenu extends AbstractContainerMenu {
         this.data=new SimpleContainerData(2); addDataSlots(data);
         // Data-slot providers / 数据槽注册链
         for (var p : SLOT_PROVIDERS)
-            if (p.active(creative, isOutput, oversized, locked, slotCount, 0))
+            if (p.active(creative, isOutput, oversized, locked, slotCount, 0) && !p.postFluidSlots())
                 p.register(this, bus, true);
         var ts=((PartBlockEntity)bus).getFluidTanks();
         int fs=0; if(!ts.isEmpty()&&bus.getBlockState().getBlock() instanceof PartBlock pb)fs=pb.fluidSlots;
@@ -54,7 +54,7 @@ public class BusMenu extends AbstractContainerMenu {
         this.clientTemplateCounts=new int[creative&&!isOutput?slotCount:0];
         this.clientStoredAmounts=new long[oversized?slotCount:0];
         for (var p : SLOT_PROVIDERS)
-            if (p.active(creative, isOutput, oversized, locked, slotCount, 0))
+            if (p.active(creative, isOutput, oversized, locked, slotCount, 0) && !p.postFluidSlots())
                 p.register(this, null, false);
         this.clientLockStates=new boolean[locked?Math.max(1,slotCount+fluidSlots):0];
         for (var p : SLOT_PROVIDERS)

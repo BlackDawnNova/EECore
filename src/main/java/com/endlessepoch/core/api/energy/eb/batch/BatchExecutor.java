@@ -118,7 +118,7 @@ public final class BatchExecutor {
             RecipeSnapshot best = null;
             for (RecipeSnapshot s : candidates) {
                 if (!OverclockUtil.canProcess(t.machineTier(), s.requiredTierIndex())) continue;
-                if (s.circuit() > 0 && t.circuitValue() > 0 && s.circuit() != t.circuitValue()) continue;
+                if (s.circuit() > 0 && s.circuit() != t.circuitValue()) continue;
                 // circuit=0 recipe matches any; circuit=N matches only when bus circuit = N
                 // circuit=0 配方匹配任意值；circuit=N 仅当总线电路=N 时匹配
                 if (best == null || s.requiredTierIndex() > best.requiredTierIndex()) best = s;

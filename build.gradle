@@ -48,7 +48,17 @@ neoForge {
                     "新的世界"
             ]
             gameDirectory = project.file('run')
-            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        production {
+            client()
+            programArguments = [
+                    "--enable-native-access=ALL",
+                    "--width", "2560",
+                    "--height", "1440",
+                    "--username", "ForiLuSa"
+            ]
+            gameDirectory = file(mcInstance)
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -203,5 +213,20 @@ idea {
     module {
         downloadSources = true
         downloadJavadoc = true
+    }
+}
+
+def mcInstance = System.getenv('MC_INSTANCE') ?: project.findProperty('mcInstance')
+def prodModsDir = mcInstance ? "${mcInstance}/mods" : null
+
+if (prodModsDir) {
+    tasks.register('cleanOldEeCore', Delete) {
+        dependsOn build
+        delete fileTree(prodModsDir).matching { include 'eecore-*.jar' }
+    }
+    tasks.register('deploy', Copy) {
+        dependsOn cleanOldEeCore
+        from("${layout.buildDirectory.get()}/libs/${mod_id}-${mod_version}.jar")
+        into(prodModsDir)
     }
 }
