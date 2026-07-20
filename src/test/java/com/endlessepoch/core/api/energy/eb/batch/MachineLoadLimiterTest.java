@@ -15,7 +15,7 @@ class MachineLoadLimiterTest {
     private static BatchTask taskOf(int unitCount) {
         var units = new java.util.ArrayList<InputUnit>();
         for (int i = 0; i < unitCount; i++) units.add(new InputUnit(1, 1, 0, 0, i));
-        return new BatchTask(42L, 3, 0.0, 1.5, 8, true, 16384, Long.MAX_VALUE, 0, List.copyOf(units));
+        return new BatchTask(42L, 3, 0.0, 1.5, 8, true, 16384, Long.MAX_VALUE, 0, 1L, List.copyOf(units));
     }
 
     @Test

@@ -403,3 +403,53 @@ Register via `oversized_output_bus` PartType prefix; suffix `_output_bus` auto-b
 `/eecore stress <ticks>` — monitors a nearby formed machine for N ticks and reports throughput (ops/tick), TPS, shard count, and current dynamic mtLimit.
 
 监控附近成型机器 N tick，报告吞吐量、TPS、分片数、动态限流值。
+
+---
+
+## Phase 4: Event-Driven Scheduling / 事件驱动调度
+
+Batch writeback is triggered when ForkJoin results arrive, not by per-tick polling. `serverTick` drains the delivery queue and calls `tickBatch` only when `batchPending` is non-empty — idle machines consume zero CPU.
+
+批处理写回由 ForkJoin 结果到达触发，不再每 tick 轮询。`serverTick` 排空投递队列，仅在 `batchPending` 非空时调 `tickBatch`——闲置机器零 CPU 开销。
+
+### Plan Version & Speculative Execution / 计划版本与投机执行
+
+Each batch captures a `planVersion` snapshot. ForkJoin segments carry this version via `SpecResult`; the main thread validates per-segment. Mismatched segments are discarded losslessly (inputs only consumed at write-back).
+
+每批拍 `planVersion` 快照。ForkJoin 分段通过 `SpecResult` 携带版本号，主线程逐段校验。版本不匹配的段无损丢弃（物品仅写回时消耗）。
+
+### Flow Rate Tracker / 流速追踪
+
+Sliding-window volatility measurement (`p4FlowWindow` ticks). When speculative execution is enabled, high input volatility automatically reduces speculation to avoid wasted computation.
+
+滑动窗口波动率测量（`p4FlowWindow` tick）。投机开启时，输入剧烈波动自动降级投机等级以避免无效计算。
+
+### Object Pool / 对象池
+
+`ObjectPool` reuses `ArrayList`/`LinkedHashMap` instances to reduce GC pressure. Main-thread pool uses LIFO `ArrayDeque`; background threads hold isolated `ConcurrentLinkedQueue` pools. Capacity: `p4PoolCapacity` (default 4096).
+
+`ObjectPool` 复用 `ArrayList`/`LinkedHashMap` 实例减少 GC。主线程池用 LIFO `ArrayDeque`，后台线程持独立 `ConcurrentLinkedQueue` 池。容量 `p4PoolCapacity`（默认 4096）。
+
+### /eeadmin stats Command / 管理命令
+
+```
+/eeadmin stats
+```
+
+Requires permission level 4 (OP). Displays: TPS, CPU%, active machines, in-flight shards, mainThread budget remaining, and global batch completion count.
+
+需权限 4 (OP)。显示：TPS、CPU%、活跃机器数、在途分片数、主线程预算余量、全局批完成计数。
+
+### Parallel without Energy / 无能量时的并行
+
+When `p3EnergyEnabled` is `false` (default), parallel hatches and overclocking are no longer capped by energy rate. Set `p3EnergyEnabled = true` to enable energy-aware parallel scaling.
+
+`p3EnergyEnabled` 为 `false`（默认）时，并行仓和超频不再受能量速率限制。设为 `true` 开启能量自适应并行。
+
+### New Config / 新增配置
+
+| Key | Default | Range | Description |
+|-----|---------|-------|-------------|
+| `p4PoolCapacity` | 4096 | 256–65536 | Object pool size |
+| `p4FlowWindow` | 5 | 1–20 | Flow rate sliding window (ticks) |
+| `p4SpeculationEnabled` | true | — | Enable speculative execution |

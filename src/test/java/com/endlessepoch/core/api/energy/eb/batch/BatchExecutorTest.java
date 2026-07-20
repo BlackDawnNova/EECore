@@ -28,7 +28,7 @@ class BatchExecutorTest {
     }
 
     private static BatchTask task(int machineTier, List<InputUnit> units) {
-        return new BatchTask(1L, machineTier, 0.0, 1.5, 8, true, 16384, Long.MAX_VALUE, 0, units);
+        return new BatchTask(1L, machineTier, 0.0, 1.5, 8, true, 16384, Long.MAX_VALUE, 0, 1L, units);
     }
 
     private static final LongFunction<List<RecipeSnapshot>> LOOKUP = itemId -> {

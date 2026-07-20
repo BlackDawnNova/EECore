@@ -23,4 +23,6 @@ public record ShardResultUnit(
         return new ShardResultUnit(recipeIdHash, inputItemId, newOps, energyPerOp,
                 finalDuration, outputItemIds, outputCounts, maxHeat, speedMulX100, ocMulX100);
     }
+
+    public record AggKey(long recipeIdHash, long inputItemId) {}
 }

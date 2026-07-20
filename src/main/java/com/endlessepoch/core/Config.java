@@ -53,6 +53,9 @@ public class Config {
     public static volatile double p3CpuHighThreshold = 0.90;
     public static volatile double p3CpuCriticalThreshold = 0.95;
     public static volatile String p3PrimeOffsetMode = "PERFORMANCE";
+    public static volatile int p4PoolCapacity = 4096;
+    public static volatile int p4FlowWindow = 5;
+    public static volatile boolean p4SpeculationEnabled = true;
 
     // ── General / 通用 ──
     public static final ModConfigSpec.DoubleValue STEP_LOSS_FACTOR;
@@ -94,6 +97,10 @@ public class Config {
     public static final ModConfigSpec.DoubleValue P3_CPU_HIGH_THRESHOLD;
     public static final ModConfigSpec.DoubleValue P3_CPU_CRITICAL_THRESHOLD;
     public static final ModConfigSpec.ConfigValue<String> P3_PRIME_OFFSET_MODE;
+
+    public static final ModConfigSpec.IntValue P4_POOL_CAPACITY;
+    public static final ModConfigSpec.IntValue P4_FLOW_WINDOW;
+    public static final ModConfigSpec.BooleanValue P4_SPECULATION_ENABLED;
 
     // ── Debug / 调试 ──
     public static final ModConfigSpec.BooleanValue EB_DEBUG_LOG;
@@ -251,6 +258,21 @@ public class Config {
                                 && (s.equals("PERFORMANCE") || s.equals("SPEED") || s.equals("COMPROMISE")));
         b.pop();
 
+        b.comment("Phase 4 object pool / Phase 4 对象池").push("pool");
+        P4_POOL_CAPACITY = b
+                .comment("Capacity for List/Map reuse pools. Higher = less GC, more memory.",
+                        "List/Map 复用池容量上限。越大 GC 越少，占用内存越多。")
+                .defineInRange("p4PoolCapacity", 4096, 256, 65536);
+        P4_FLOW_WINDOW = b
+                .comment("Flow rate sliding window in ticks. Higher = smoother, lower = more responsive.",
+                        "流速滑动窗口（tick）。越大越平滑，越小越灵敏。")
+                .defineInRange("p4FlowWindow", 5, 1, 20);
+        P4_SPECULATION_ENABLED = b
+                .comment("Enable speculative execution. Disable to revert to Phase 3 batch-only mode.",
+                        "启用投机执行。关闭则回退到 Phase 3 纯批处理模式。")
+                .define("p4SpeculationEnabled", true);
+        b.pop();
+
         // ── Debug / 调试 ──
         b.comment("Debug and logging / 调试与日志").push("debug");
         EB_DEBUG_LOG = b
@@ -304,6 +326,9 @@ public class Config {
         p3CpuHighThreshold = P3_CPU_HIGH_THRESHOLD.get();
         p3CpuCriticalThreshold = P3_CPU_CRITICAL_THRESHOLD.get();
         p3PrimeOffsetMode = P3_PRIME_OFFSET_MODE.get();
+        p4PoolCapacity = P4_POOL_CAPACITY.get();
+        p4FlowWindow = P4_FLOW_WINDOW.get();
+        p4SpeculationEnabled = P4_SPECULATION_ENABLED.get();
 
         if (ebDebugLog) {
             EECore.LOGGER.info("[EB-Config] Debug logging enabled (interval: {} ticks)", ebDebugInterval);

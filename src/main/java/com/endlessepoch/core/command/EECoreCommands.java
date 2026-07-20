@@ -70,6 +70,7 @@ public final class EECoreCommands {
                                         StringArgumentType.getString(ctx, "filename")))));
         CommandAutoBuild.register(root);
         CommandStress.register(root);
+        EeAdminCommand.register(dispatcher);
         dispatcher.register(root);
     }
 

@@ -18,5 +18,6 @@ public record BatchTask(
         int hardwareCap,       // machine parallel-hatch cap / 硬件并行上限
         long totalRate,        // Σ voltage × amperage from energy inputs / 总供电速率
         int circuitValue,      // bus circuit value, 0 = any / 总线电路值，0=不限
+        long version,
         List<InputUnit> units  // immutable input snapshot / 不可变输入快照
 ) {}

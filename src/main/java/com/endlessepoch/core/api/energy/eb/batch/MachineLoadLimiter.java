@@ -49,7 +49,7 @@ public final class MachineLoadLimiter {
             var sub = List.copyOf(units.subList(from, Math.min(units.size(), from + size)));
             out.add(new BatchTask(task.posHash(), task.machineTier(), task.heatValue(),
                     task.speedBoostMax(), task.maxOverclock(), task.energyEnabled(),
-                    task.hardwareCap(), task.totalRate(), task.circuitValue(), sub));
+                    task.hardwareCap(), task.totalRate(), task.circuitValue(), task.version(), sub));
         }
         return out;
     }
@@ -118,6 +118,8 @@ public final class MachineLoadLimiter {
         QUEUES.clear();
     }
 
+    public static int activeCount() { return QUEUES.size(); }
+
     /**
      * Feed queued chunks to the ForkJoin pool while both the per-machine shard cap and
      * the global budget allow. Called from the main thread and from completions —
@@ -135,11 +137,12 @@ public final class MachineLoadLimiter {
                 // monitor, so the reverse order could dip the counter below zero.
                 // 提交前先计数——完成回调在锁外递减，反序会让计数瞬时为负。
                 q.inFlightShards.addAndGet(shards);
+                final long ver = head.version();
                 boolean ok = BatchExecutor.trySubmit(head, results -> {
                     q.inFlightShards.addAndGet(-shards);
                     if (!q.cancelled) {
-                        SegmentMergeManager.deliver(posHash, results);
-                        pump(posHash, q); // keep the machine fed / 续泵本机
+                        SegmentMergeManager.deliver(posHash, ver, results);
+                        pump(posHash, q);
                     }
                 });
                 if (!ok) { // global budget saturated — roll back, driver re-pumps / 全局额度饱和，回滚计数待驱动点续泵

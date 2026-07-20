@@ -98,8 +98,6 @@ public final class BatchExecutor {
         return Math.max(1, (int) (cap * concurrencyScale));
     }
 
-    /** Aggregation key: recipe × input item. / 聚合键：配方×输入物品。 */
-    private record AggKey(long recipeIdHash, long inputItemId) {}
 
     /**
      * Pure shard computation — deterministic selection (voltage-eligible, highest
@@ -110,7 +108,7 @@ public final class BatchExecutor {
      */
     static List<ShardResultUnit> computeLeaf(BatchTask t, int from, int to,
                                              LongFunction<List<RecipeSnapshot>> lookup) {
-        Map<AggKey, ShardResultUnit> agg = new LinkedHashMap<>();
+        Map<ShardResultUnit.AggKey, ShardResultUnit> agg = new LinkedHashMap<>();
         for (int i = from; i < to; i++) {
             InputUnit u = t.units().get(i);
             List<RecipeSnapshot> candidates = lookup.apply(u.itemId());
@@ -125,7 +123,8 @@ public final class BatchExecutor {
             }
             if (best == null) continue;
             int ocRaw = OverclockUtil.overclockCount(t.machineTier(), best.requiredTierIndex(), t.maxOverclock());
-            int oc = OverclockUtil.optimalOverclock(t.hardwareCap(), t.totalRate(),
+            long rate = t.energyEnabled() ? t.totalRate() : Long.MAX_VALUE;
+            int oc = OverclockUtil.optimalOverclock(t.hardwareCap(), rate,
                     best.durationTicks(), best.energyPerTick(), ocRaw);
             long energyPerOp = t.energyEnabled()
                     ? OverclockUtil.computeEnergyPerUnit(best.energyPerTick(), best.durationTicks(), oc)
@@ -137,7 +136,7 @@ public final class BatchExecutor {
             int speedMul = Math.max(100, (int) Math.round(ocMul * hf));
             var unit = new ShardResultUnit(best.recipeIdHash(), u.itemId(), u.count(),
                     energyPerOp, duration, best.outputItemIds(), best.outputCounts(), best.maxHeat(), speedMul, ocMul);
-            agg.merge(new AggKey(best.recipeIdHash(), u.itemId()), unit,
+            agg.merge(new ShardResultUnit.AggKey(best.recipeIdHash(), u.itemId()), unit,
                     (a, b) -> a.withOps(a.ops() + b.ops()));
         }
         return new ArrayList<>(agg.values());
@@ -145,10 +144,10 @@ public final class BatchExecutor {
 
     /** Merge two aggregated lists by recipe×item key. / 按聚合键合并两个结果列表。 */
     static List<ShardResultUnit> mergeResults(List<ShardResultUnit> a, List<ShardResultUnit> b) {
-        Map<AggKey, ShardResultUnit> agg = new LinkedHashMap<>();
-        for (var u : a) agg.merge(new AggKey(u.recipeIdHash(), u.inputItemId()), u,
+        Map<ShardResultUnit.AggKey, ShardResultUnit> agg = new LinkedHashMap<>();
+        for (var u : a) agg.merge(new ShardResultUnit.AggKey(u.recipeIdHash(), u.inputItemId()), u,
                 (x, y) -> x.withOps(x.ops() + y.ops()));
-        for (var u : b) agg.merge(new AggKey(u.recipeIdHash(), u.inputItemId()), u,
+        for (var u : b) agg.merge(new ShardResultUnit.AggKey(u.recipeIdHash(), u.inputItemId()), u,
                 (x, y) -> x.withOps(x.ops() + y.ops()));
         return new ArrayList<>(agg.values());
     }

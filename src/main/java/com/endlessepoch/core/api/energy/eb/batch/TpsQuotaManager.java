@@ -51,6 +51,7 @@ public final class TpsQuotaManager {
         lastNano = nanoNow;
         if (filled < WINDOW) return SCALE_FULL;
         double tps = tps(targetTickRate);
+        lastTps = tps;
         tier = nextTier(tier, tps, fullThreshold, reducedThreshold);
         return scaleOf(tier);
     }
@@ -95,6 +96,11 @@ public final class TpsQuotaManager {
     static double scaleOf(int tier) {
         return tier == 2 ? SCALE_FULL : tier == 1 ? SCALE_REDUCED : SCALE_EMERGENCY;
     }
+
+    private double lastTps = -1;
+
+    /** Recent TPS for /eeadmin stats. Returns -1 until window fills. / 最近 TPS，窗口填满前返回 -1。 */
+    public double lastTps() { return lastTps; }
 
     /** Current tier for logging/inspection. / 当前档位（日志/诊断用）。 */
     public int tier() { return tier; }
