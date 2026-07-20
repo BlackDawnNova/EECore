@@ -453,3 +453,29 @@ When `p3EnergyEnabled` is `false` (default), parallel hatches and overclocking a
 | `p4PoolCapacity` | 4096 | 256–65536 | Object pool size |
 | `p4FlowWindow` | 5 | 1–20 | Flow rate sliding window (ticks) |
 | `p4SpeculationEnabled` | true | — | Enable speculative execution |
+
+---
+
+## Multi-Type Batch Pipeline / 多类型批量管线
+
+Addon mods register their own `RecipeType` via `RecipeSnapshotCache.register()` to gain full ForkJoin batch acceleration — no longer limited to the main-thread subscriber path.
+附属Mod通过 `RecipeSnapshotCache.register()` 注册自己的 `RecipeType` 即可获得完整 ForkJoin 批量加速——不再局限主线程 subscriber 路径。
+
+### AbstractMachineRecipe / 抽象配方基类
+
+All batch-capable recipes must extend `AbstractMachineRecipe`. It carries the fields the EB pipeline needs: `ingredient`, `results`, `processingTime`, `requiredTier`, `energyPerTick`, `maxHeat`, `maxParallel`, `circuit`.
+所有可批处理的配方需继承 `AbstractMachineRecipe`。它携带 EB 管线所需的全部字段。
+
+```java
+// Addon mod: register custom recipe type / 附属Mod：注册自定义配方类型
+RecipeSnapshotCache.register(
+    MyModRecipeTypes.MY_TYPE.get(),
+    (id, recipe) -> RecipeSnapshot.from((AbstractMachineRecipe) recipe, id)
+);
+
+// Check if a machine profile is batch-capable / 检查机器档位是否可批处理
+RecipeSnapshotCache.isBatchCapable(machineType.recipeType());
+```
+
+Types not registered fall back to the subscriber light path automatically — no code change needed.
+未注册的类型自动回退 subscriber 轻路径，无需任何代码改动。

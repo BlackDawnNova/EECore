@@ -56,6 +56,7 @@ public class Config {
     public static volatile int p4PoolCapacity = 4096;
     public static volatile int p4FlowWindow = 5;
     public static volatile boolean p4SpeculationEnabled = true;
+    public static volatile boolean p4DisableEffects;
 
     // ── General / 通用 ──
     public static final ModConfigSpec.DoubleValue STEP_LOSS_FACTOR;
@@ -101,6 +102,7 @@ public class Config {
     public static final ModConfigSpec.IntValue P4_POOL_CAPACITY;
     public static final ModConfigSpec.IntValue P4_FLOW_WINDOW;
     public static final ModConfigSpec.BooleanValue P4_SPECULATION_ENABLED;
+    public static final ModConfigSpec.BooleanValue P4_DISABLE_EFFECTS;
 
     // ── Debug / 调试 ──
     public static final ModConfigSpec.BooleanValue EB_DEBUG_LOG;
@@ -271,6 +273,10 @@ public class Config {
                 .comment("Enable speculative execution. Disable to revert to Phase 3 batch-only mode.",
                         "启用投机执行。关闭则回退到 Phase 3 纯批处理模式。")
                 .define("p4SpeculationEnabled", true);
+        P4_DISABLE_EFFECTS = b
+                .comment("Disable machine visual effects (celestial etc.) to reduce client lag during benchmarks.",
+                        "禁用机器视觉特效（日月星辰等），压测时减少客户端卡顿。")
+                .define("p4DisableEffects", false);
         b.pop();
 
         // ── Debug / 调试 ──
@@ -329,6 +335,7 @@ public class Config {
         p4PoolCapacity = P4_POOL_CAPACITY.get();
         p4FlowWindow = P4_FLOW_WINDOW.get();
         p4SpeculationEnabled = P4_SPECULATION_ENABLED.get();
+        p4DisableEffects = P4_DISABLE_EFFECTS.get();
 
         if (ebDebugLog) {
             EECore.LOGGER.info("[EB-Config] Debug logging enabled (interval: {} ticks)", ebDebugInterval);

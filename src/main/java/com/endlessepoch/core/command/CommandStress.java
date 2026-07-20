@@ -1,6 +1,5 @@
 package com.endlessepoch.core.command;
 
-import com.endlessepoch.core.Config;
 import com.endlessepoch.core.api.energy.eb.batch.BatchExecutor;
 import com.endlessepoch.core.api.energy.eb.batch.TpsQuotaManager;
 import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
@@ -13,12 +12,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
-/**
- * /eecore stress — monitors a formed machine for N ticks and reports throughput.
- * 压测命令——监控已成型机器 N tick，输出吞吐统计。
- */
 public final class CommandStress {
 
     private CommandStress() {}
@@ -36,53 +33,44 @@ public final class CommandStress {
         var level = (ServerLevel) player.level();
         var pos = player.blockPosition();
 
-        MachineControllerBlockEntity mc = null;
-        int scanned = 0;
-        for (int r = 1; r <= 16 && mc == null; r++)
-            for (int dx = -r; dx <= r && mc == null; dx++)
-                for (int dz = -r; dz <= r && mc == null; dz++)
-                    for (int dy = -2; dy <= 2; dy++) {
-                        var be = level.getBlockEntity(pos.offset(dx, dy, dz));
-                        scanned++;
-                        if (be instanceof MachineControllerBlockEntity c) mc = c;
-                    }
-        if (mc == null) {
-            source.sendFailure(Component.literal("No controller within 16 blocks (scanned " + scanned + ")"));
-            return 0;
-        }
-        if (!mc.isFormed()) {
-            source.sendFailure(Component.literal("Machine is not formed"));
+        List<MachineControllerBlockEntity> machines = new ArrayList<>();
+        for (int dx = -128; dx <= 128; dx++)
+            for (int dz = -128; dz <= 128; dz++)
+                for (int dy = -2; dy <= 2; dy++) {
+                    var be = level.getBlockEntity(pos.offset(dx, dy, dz));
+                    if (be instanceof MachineControllerBlockEntity mc && mc.isFormed())
+                        machines.add(mc);
+                }
+        if (machines.isEmpty()) {
+            source.sendFailure(Component.literal("No formed machine within 128 blocks"));
             return 0;
         }
 
-        source.sendSuccess(() -> Component.literal(
-                "Stress: " + totalTicks + " ticks..."), false);
+        final int count = machines.size();
+        final long[] startOps = new long[1];
+        for (var m : machines) startOps[0] += m.getBatchOpsProcessed();
+        com.endlessepoch.core.EECore.LOGGER.info("[EB-STRESS] start {} ticks, {} machines, startOps={}", totalTicks, count, startOps[0]);
 
-        final MachineControllerBlockEntity target = mc;
-        final long startOps = target.getBatchOpsProcessed();
-        com.endlessepoch.core.EECore.LOGGER.info("[EB-STRESS] start {} ticks, startOps={}", totalTicks, startOps);
-
-        // One-shot listener — self-unregisters after reporting so repeated runs don't pile up on the bus
-        // 一次性监听器——报告后自注销，多次压测不在事件总线上累积
         var listener = new Consumer<ServerTickEvent.Post>() {
             private int ticks;
-
             @Override
             public void accept(ServerTickEvent.Post e) {
                 if (++ticks < totalTicks) return;
-                long done = target.getBatchOpsProcessed() - startOps;
+                long done = 0; int formed = 0;
+                for (var m : machines) { if (m.isFormed()) { done += m.getBatchOpsProcessed(); formed++; } }
+                done = Math.max(0, done - startOps[0]);
                 double rate = (double) done / totalTicks;
-                String msg = String.format("Stress %dt: %d ops, %.1f ops/tick, TPS %.1f, shards %d, mtLimit %d",
+                String msg = String.format("Stress %dt: %d ops, %.1f ops/tick, TPS %.1f, %d/%d machines, shards %d, mtLimit %d",
                         totalTicks, done, rate,
                         TpsQuotaManager.GLOBAL.tps(e.getServer().tickRateManager().tickrate()),
-                        BatchExecutor.activeShards(), com.endlessepoch.core.api.energy.eb.batch.MainThreadRateLimiter.currentLimit());
+                        formed, count, BatchExecutor.activeShards(),
+                        com.endlessepoch.core.api.energy.eb.batch.MainThreadRateLimiter.currentLimit());
                 source.sendSuccess(() -> Component.literal(msg), false);
                 com.endlessepoch.core.EECore.LOGGER.info("[EB-STRESS] {}", msg);
                 net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(this);
             }
         };
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(listener);
-
         return totalTicks;
     }
 }

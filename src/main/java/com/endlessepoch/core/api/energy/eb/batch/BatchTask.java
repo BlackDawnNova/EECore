@@ -19,5 +19,6 @@ public record BatchTask(
         long totalRate,        // Σ voltage × amperage from energy inputs / 总供电速率
         int circuitValue,      // bus circuit value, 0 = any / 总线电路值，0=不限
         long version,
+        Object recipeType, // RecipeType<?> stored as Object for test classpath / RecipeType<?> 存为 Object 避免测试 classpath 问题
         List<InputUnit> units  // immutable input snapshot / 不可变输入快照
 ) {}

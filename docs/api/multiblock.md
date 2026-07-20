@@ -126,20 +126,65 @@ MultiblockLoader.load(ResourceLocation.parse("mymod:my_machine"))
 Machine controllers process recipes fully event-driven — no per-tick polling. Triggers: item insertion, recipe completion, (re-)formation, world load, energy arrival.
 机器控制器全事件驱动加工，无逐 tick 轮询。触发源：物品进总线、完工续投、（重新）成型、读档恢复、能源仓收电唤醒。
 
+### Custom Recipe Type / 自定义配方类型
+
+Addon mods extend `AbstractMachineRecipe` and register their own recipe type. The EB batch pipeline auto-discovers registered types and applies ForkJoin + overclock + heat without per-mod wiring.
+附属Mod继承 `AbstractMachineRecipe` 注册自己的配方类型。EB 批量管线自动发现已注册类型，无需逐 mod 接线。
+
+**Step 1: Recipe class** / 第一步：配方类
+
+```java
+public class MyRecipe extends AbstractMachineRecipe {
+    public MyRecipe(String group, Ingredient ingredient, List<ItemStack> results,
+                    int processingTime, VoltageTier requiredTier, double maxHeat,
+                    long energyPerTick, int maxParallel, int circuit) {
+        super(group, ingredient, results, processingTime, requiredTier,
+              maxHeat, energyPerTick, maxParallel, circuit);
+    }
+
+    @Override public RecipeType<?> getType() { return MyModRecipeTypes.MY_TYPE.get(); }
+    @Override public RecipeSerializer<?> getSerializer() { return MyModRecipeTypes.MY_SERIALIZER.get(); }
+}
+```
+
+**Step 2: Serializer** / 第二步：序列化器
+
+Copy `MachineRecipeSerializer`, change the constructor reference from `MachineRecipe::new` to `MyRecipe::new`. All field codecs are identical.
+
+**Step 3: Register for batch pipeline** / 第三步：注册到批量管线
+
+```java
+RecipeSnapshotCache.register(MyModRecipeTypes.MY_TYPE.get(),
+    (id, recipe) -> RecipeSnapshot.from((AbstractMachineRecipe) recipe, id));
+```
+
+**Step 4: MachineType** / 第四步：注册机器类型
+
+```java
+MachineTypeRegistry.register(MachineType.of(
+    "mymod", "my_machine",
+    MyModRecipeTypes.MY_TYPE.get(),  // your recipe type
+    Items.MY_ICON,
+    "mymod.profile.my_machine",
+    (be) -> {}
+));
+```
+
 ### Recipe JSON / 配方定义
 
-`data/<namespace>/recipe/*.json`, type `eecore:machine`:
+`data/<namespace>/recipe/*.json`:
 
 ```json
 {
-  "type": "eecore:machine",
+  "type": "mymod:my_machine",
   "ingredient": { "item": "minecraft:iron_ore" },
   "results": [{ "id": "minecraft:iron_ingot", "count": 1 }],
   "processingTime": 200,
   "requiredTier": "LV",
   "maxHeat": 10.0,
   "energyPerTick": 32,
-  "maxParallel": 1
+  "maxParallel": 1,
+  "circuit": 0
 }
 ```
 
@@ -150,6 +195,7 @@ Machine controllers process recipes fully event-driven — no per-tick polling. 
 | `maxHeat` | 10.0 | Heat ceiling for the heat-boost system / 热机系统热量天花板 |
 | `energyPerTick` | 0 | Ω/t at base tier, 0 = free / 基础电压功率，0=免费 |
 | `maxParallel` | 1 | Recipe-level parallel cap / 配方级并行上限 |
+| `circuit` | 0 | Circuit value filter, 0=any / 电路值过滤，0=不限 |
 
 When multiple recipes match one input, selection is deterministic: among voltage-eligible candidates the **highest requiredTier wins** — same ore yields better recipes on higher-tier machines.
 同一输入匹配多条配方时确定性选择：电压达标者中**最高 requiredTier 优先**——机器电压越高，同样的矿出更好的配方。

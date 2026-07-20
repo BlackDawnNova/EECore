@@ -281,6 +281,13 @@ public class EECore {
                         EECoreRecipeTypes.BOILER.get(),
                         net.minecraft.world.level.block.Blocks.BLAST_FURNACE,
                         "eecore.profile.boiler", (be) -> {}));
+
+        // Register built-in recipe types for batch pipeline / 注册内置配方类型到批处理管线
+        com.endlessepoch.core.api.recipe.RecipeSnapshotCache.register(
+                EECoreRecipeTypes.MACHINE.get(),
+                (id, recipe) -> recipe instanceof com.endlessepoch.core.api.recipe.AbstractMachineRecipe amr
+                        ? com.endlessepoch.core.api.recipe.RecipeSnapshot.from(amr, id)
+                        : null);
     }
 
     /**

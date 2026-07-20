@@ -123,7 +123,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                                 int machineTier = getEffectiveTier();
                                 // Deterministic: voltage-eligible match with highest requiredTier wins
                                 // 确定性选择：电压达标的匹配中取最高 requiredTier（配方按电压分层）
-                                com.endlessepoch.core.api.recipe.MachineRecipe bestMr = null;
+                                com.endlessepoch.core.api.recipe.AbstractMachineRecipe bestMr = null;
                                 net.minecraft.world.item.crafting.Recipe<net.minecraft.world.item.crafting.SingleRecipeInput> vanillaMatch = null;
                                 int minRejectedTier = Integer.MAX_VALUE; // voltage-rejected candidates / 被电压拒绝的候选
                                 for (var holder : level.getRecipeManager().getAllRecipesFor(
@@ -131,7 +131,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                                               net.minecraft.world.item.crafting.Recipe<net.minecraft.world.item.crafting.SingleRecipeInput>>getRecipeType())) {
                                     var r = holder.value();
                                     if (!r.matches(recipeInput, level)) continue;
-                                    if (r instanceof com.endlessepoch.core.api.recipe.MachineRecipe mr) {
+                                    if (r instanceof com.endlessepoch.core.api.recipe.AbstractMachineRecipe mr) {
                                         // Voltage gate: skip recipes above machine tier / 电压门槛：跳过超出机器电压的配方
                                         if (!com.endlessepoch.core.api.energy.eb.batch.OverclockUtil.canProcess(
                                                 machineTier, mr.getRequiredTier().ordinal())) {
@@ -473,6 +473,10 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     public void toggleOverclock() { overclockEnabled = !overclockEnabled; setChanged(); }
     public boolean isHeatEnabled() { return heatEnabled; }
     public boolean isOverclockEnabled() { return overclockEnabled; }
+    private boolean effectsEnabled = true;
+    public boolean isEffectEnabled() { return effectsEnabled; }
+    public boolean hasEffect() { return machineId != null && com.endlessepoch.core.api.multiblock.MachineRegistry.get(machineId).map(def -> def.hasEffect()).orElse(false); }
+    public void toggleEffect() { effectsEnabled = !effectsEnabled; setChanged(); if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3); }
 
     public java.util.List<ResourceLocation> getSupportedTypes() { return supportedTypes; }
 
@@ -585,7 +589,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
         if (!batchPending.isEmpty()) tickBatch(tick);
         else if (completionTick > 0 && tick >= completionTick) completeRecipe(tick);
-        if (isMachineProfile() && tick % 5 == 0) flowTracker.record(countPendingItems());
+        if (isBatchCapable() && tick % 5 == 0) flowTracker.record(countPendingItems());
 
         if (++breakCheckTick >= 100) {
             breakCheckTick = 0;
@@ -703,7 +707,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (inputBusPos.isEmpty()) return;
         if (batchActive) return;
 
-        if (isMachineProfile()) {
+        if (isBatchCapable()) {
             long pending = countPendingItems();
             if (pending >= 32) {
                 // Heavy tier (≥32): full ForkJoin batch with prime-offset stagger
@@ -765,9 +769,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     // ── Batch pipeline (Phase 3) / 批处理管线 ──
 
-    /** Whether the active profile runs eecore:machine recipes (snapshot cache scope). / 当前档位是否为机器配方（快照缓存仅覆盖此类型）。 */
-    private boolean isMachineProfile() {
-        return (Object) getRecipeType() == com.endlessepoch.core.registry.EECoreRecipeTypes.MACHINE.get();
+    /** Whether the active profile's recipe type is registered for batch processing. / 当前档位配方类型是否已注册可批处理。 */
+    private boolean isBatchCapable() {
+        return com.endlessepoch.core.api.recipe.RecipeSnapshotCache.isBatchCapable(getRecipeType());
     }
 
     /** Total items across input buses (creative buses report their template counts). / 输入总线物品总数（创造总线按模板数量计）。 */
@@ -781,7 +785,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                     if (stack.isEmpty()) continue;
                     if (bus instanceof com.endlessepoch.core.api.part.ILockedSlotBus lsb && !lsb.isSlotLocked(s)) continue;
                     long c = bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
-                            ? cb.getTemplateCount(s) : stack.getCount();
+                            ? cb.getTemplateCount(s) : bus.getStoredAmount(s);
                     busTotal += c;
                 }
                 total += busTotal;
@@ -806,7 +810,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                     if (stack.isEmpty()) continue;
                     // Creative buses feed their configured template count / 创造总线按配置的模板数量入批
                     long unitCount = bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
-                            ? cb.getTemplateCount(s) : stack.getCount();
+                            ? cb.getTemplateCount(s) : bus.getStoredAmount(s);
                     units.add(new com.endlessepoch.core.api.energy.eb.batch.InputUnit(
                             com.endlessepoch.core.api.energy.eb.ItemSnapshotUtil.itemId(stack),
                             unitCount,
@@ -833,6 +837,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 overclockEnabled ? com.endlessepoch.core.Config.p3MaxOverclock : 0,
                 com.endlessepoch.core.Config.p3EnergyEnabled,
                 hw, totalRate, cv, batchSnapshotVersion,
+                getRecipeType(),
                 java.util.List.copyOf(units));
         if (!com.endlessepoch.core.api.energy.eb.batch.MachineLoadLimiter.submit(task))
             return false;
@@ -862,7 +867,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                     var stack = bus.getInventory().getStackInSlot(s);
                     if (stack.isEmpty()) continue;
                     long unitCount = bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
-                            ? cb.getTemplateCount(s) : stack.getCount();
+                            ? cb.getTemplateCount(s) : bus.getStoredAmount(s);
                     units.add(new com.endlessepoch.core.api.energy.eb.batch.InputUnit(
                             com.endlessepoch.core.api.energy.eb.ItemSnapshotUtil.itemId(stack),
                             unitCount,
@@ -889,6 +894,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 overclockEnabled ? com.endlessepoch.core.Config.p3MaxOverclock : 0,
                 com.endlessepoch.core.Config.p3EnergyEnabled,
                 hw, totalRate, cv, batchSnapshotVersion,
+                getRecipeType(),
                 java.util.List.copyOf(units));
         var results = com.endlessepoch.core.api.energy.eb.batch.BatchExecutor.computeInline(task);
         if (results.isEmpty()) {
@@ -1158,7 +1164,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                         // Creative templates present their configured count, not the count-1 placeholder
                         // 创造模板按配置数量计，而非 count=1 占位堆
                         total += bus instanceof com.endlessepoch.core.nova.block.part.CreativeBusBlockEntity cb
-                                ? cb.getTemplateCount(s) : stack.getCount();
+                                ? cb.getTemplateCount(s) : bus.getStoredAmount(s);
                         if (total >= cap) return cap;
                     }
                 }
@@ -1387,6 +1393,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         tag.putBoolean("paused", paused);
         tag.putBoolean("heatEnabled", heatEnabled);
         tag.putBoolean("overclockEnabled", overclockEnabled);
+        tag.putBoolean("effectsEnabled", effectsEnabled);
         tag.putInt("backpressureState", backpressure.getState().ordinal());
         energyStorage.saveToNBT(tag);
         heatComponent.saveToNBT(tag);
@@ -1422,6 +1429,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (tag.contains("batchEnabled")) { /* forward compat: old B-button saves, value discarded / 旧版 B 按钮存档，值抛弃 */ }
         if (tag.contains("heatEnabled")) heatEnabled = tag.getBoolean("heatEnabled");
         if (tag.contains("overclockEnabled")) overclockEnabled = tag.getBoolean("overclockEnabled");
+        if (tag.contains("effectsEnabled")) effectsEnabled = tag.getBoolean("effectsEnabled");
         // Recover backpressure from new ordinal or migrate old outputBlocked boolean
         // 从新序号恢复背压，或从旧 outputBlocked 布尔迁移
         if (tag.contains("backpressureState")) {

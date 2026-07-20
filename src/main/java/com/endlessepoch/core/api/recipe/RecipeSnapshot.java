@@ -1,5 +1,6 @@
 package com.endlessepoch.core.api.recipe;
 
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 
@@ -40,6 +41,26 @@ public record RecipeSnapshot(
         return Arrays.stream(ingredient.getItems())
                 .mapToLong(s -> (long) net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(s.getItem()))
                 .distinct().toArray();
+    }
+
+    /** Create snapshot from any AbstractMachineRecipe subclass — usable by addon extractors. / 从任意的 AbstractMachineRecipe 子类创建快照——附属Mod提取器可直接调用。 */
+    public static RecipeSnapshot from(AbstractMachineRecipe r, ResourceLocation recipeId) {
+        var mv = r.getRequiredTier().getMinVoltage();
+        long voltage = mv.bitLength() >= 63 ? Long.MAX_VALUE : mv.longValue();
+        return new RecipeSnapshot(
+                recipeId.hashCode() & 0x7FFFFFFFFFFFFFFFL,
+                ingredientItemIds(r.getIngredient()),
+                itemIdsFrom(r.getResults().toArray(new ItemStack[0])),
+                countsFrom(r.getResults().toArray(new ItemStack[0])),
+                r.getEnergyPerTick() * r.getProcessingTime(),
+                r.getProcessingTime(),
+                voltage,
+                r.getEnergyPerTick(),
+                r.getRequiredTier().ordinal(),
+                r.getMaxParallel(),
+                r.getMaxHeat(),
+                r.getCircuit()
+        );
     }
 
     @Override

@@ -49,7 +49,8 @@ public final class MachineLoadLimiter {
             var sub = List.copyOf(units.subList(from, Math.min(units.size(), from + size)));
             out.add(new BatchTask(task.posHash(), task.machineTier(), task.heatValue(),
                     task.speedBoostMax(), task.maxOverclock(), task.energyEnabled(),
-                    task.hardwareCap(), task.totalRate(), task.circuitValue(), task.version(), sub));
+                    task.hardwareCap(), task.totalRate(), task.circuitValue(), task.version(),
+                    task.recipeType(), sub));
         }
         return out;
     }

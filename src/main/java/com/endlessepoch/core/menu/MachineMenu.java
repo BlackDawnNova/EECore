@@ -23,7 +23,7 @@ public class MachineMenu extends AbstractContainerMenu {
         super(Menus.MACHINE.get(), id);
         this.mc = mc; this.pos = mc.getBlockPos();
         this.nameEn = ""; this.nameZh = "";
-        this.data = new SimpleContainerData(19);
+        this.data = new SimpleContainerData(20);
         addDataSlots(data);
         addSlots(inv);
         syncFromBE();
@@ -38,7 +38,7 @@ public class MachineMenu extends AbstractContainerMenu {
         for (int i = 0; i < count; i++)
             types.add(net.minecraft.resources.ResourceLocation.parse(buf.readUtf()));
         this.clientSupported = java.util.List.copyOf(types);
-        this.data = new SimpleContainerData(19);
+        this.data = new SimpleContainerData(20);
         addDataSlots(data);
         addSlots(inv);
     }
@@ -64,6 +64,8 @@ public class MachineMenu extends AbstractContainerMenu {
     public boolean isEnergyBlocked() { return data.get(11) != 0; }
     public boolean isHeatEnabled() { return data.get(13) != 0; }
     public boolean isOverclockEnabled() { return data.get(14) != 0; }
+    public boolean isEffectEnabled() { return data.get(12) != 0; }
+    public boolean hasEffect() { return data.get(19) != 0; }
     public int getEffectiveTier() { return data.get(15); }
     /** Live effective parallel (energy-adaptive). / 当前有效并行（能量自适应后）。 */
     public int getEffectiveParallel() { return Math.max(1, data.get(16)); }
@@ -92,6 +94,7 @@ public class MachineMenu extends AbstractContainerMenu {
         if (id == 0) { mc.togglePause(); syncFromBE(); return true; }
         if (id == 2) { mc.toggleOverclock(); syncFromBE(); return true; }
         if (id == 11) { mc.toggleHeat();  syncFromBE(); return true; }
+        if (id == 12) { mc.toggleEffect(); syncFromBE(); return true; }
         if (id >= 3) {
             var types = getSupportedProfiles();
             int idx = id - 3;
@@ -132,13 +135,14 @@ public class MachineMenu extends AbstractContainerMenu {
         if (boost != data.get(9)) data.set(9, boost);
         data.set(10, mc.getVoltageBlockedTier() + 1);
         data.set(11, mc.isEnergyBlocked() ? 1 : 0);
-        data.set(12, 0); // B button retired, always 0 / B 按钮已退役，恒为 0
+        data.set(12, mc.isEffectEnabled() ? 1 : 0);
         data.set(13, mc.isHeatEnabled() ? 1 : 0);
         data.set(14, mc.isOverclockEnabled() ? 1 : 0);
         data.set(15, mc.getEffectiveTier());
         data.set(16, mc.getDisplayEffectiveParallel());
         data.set(17, mc.getParallelCap());
         data.set(18, mc.isBatchActive() ? 1 : 0);
+        data.set(19, mc.hasEffect() ? 1 : 0);
     }
 
     private void addSlots(Inventory inv) {

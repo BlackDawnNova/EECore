@@ -24,6 +24,7 @@ public final class CelestialRenderer {
     @SubscribeEvent
     public static void onRenderLevel(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+        if (com.endlessepoch.core.Config.p4DisableEffects) return;
         var level = Minecraft.getInstance().level; if (level == null) return;
         var player = Minecraft.getInstance().player; if (player == null) return;
 
@@ -37,6 +38,7 @@ public final class CelestialRenderer {
                 var chunk = level.getChunk(pcx + dx, pcz + dz);
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
                     if (!(be instanceof IMultiBlockController ctrl) || !ctrl.isFormed()) continue;
+                    if (be instanceof MachineControllerBlockEntity mcbe && !mcbe.isEffectEnabled()) continue;
 
                     var effect = findEffect(be);
                     if (effect == null) continue;

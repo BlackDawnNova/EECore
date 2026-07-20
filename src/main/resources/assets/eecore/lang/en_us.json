@@ -133,6 +133,8 @@
   "eecore.gui.heat_off": "Heat: OFF",
   "eecore.gui.oc_on": "Overclock: ON",
   "eecore.gui.oc_off": "Overclock: OFF",
+  "eecore.gui.fx_on": "Effects: ON",
+  "eecore.gui.fx_off": "Effects: OFF",
   "eecore.gui.pause": "Pause",
   "eecore.gui.resume": "Resume",
   "eecore.gui.switch_profile": "Switch Machine Type",

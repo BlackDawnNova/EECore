@@ -32,9 +32,9 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             TEX_PLAY  = ResourceLocation.fromNamespaceAndPath("eecore", "btn_play");
     private static final int SX = 170;
     private static final int[] SY = {11, 45, 79, 113, 147, 181};
-    private static final int IDX_PROFILE = 0, IDX_OC = 1, IDX_HEAT = 4, IDX_PAUSE = 5;
+    private static final int IDX_PROFILE = 0, IDX_OC = 1, IDX_FX = 2, IDX_HEAT = 4, IDX_PAUSE = 5;
 
-    private boolean dropdownOpen, hoverProfile, hoverPause, hoverHeat, hoverOc;
+    private boolean dropdownOpen, hoverProfile, hoverPause, hoverHeat, hoverOc, hoverFx;
     private int hoverDropIdx = -1;
     private int pressedBtn = -1;
 
@@ -85,6 +85,10 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             boolean on = menu instanceof MachineMenu mm && mm.isOverclockEnabled();
             g.renderTooltip(font, Component.translatable(on ? "eecore.gui.oc_on" : "eecore.gui.oc_off"), mx, my);
         }
+        if (hoverFx) {
+            boolean on = menu instanceof MachineMenu mm && mm.isEffectEnabled();
+            g.renderTooltip(font, Component.translatable(on ? "eecore.gui.fx_on" : "eecore.gui.fx_off"), mx, my);
+        }
         if (dropdownOpen) {
             drawDropdown(g, left(), top(), mx, my);
             if (hoverDropIdx >= 0 && menu instanceof MachineMenu mm) {
@@ -100,7 +104,7 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         g.blit(BG, x, y, 0, 0, imageWidth, imageHeight, imageWidth, imageHeight);
 
         hoverProfile = false; hoverPause = false;
-        hoverHeat = false; hoverOc = false; hoverDropIdx = -1;
+        hoverHeat = false; hoverOc = false; hoverFx = false; hoverDropIdx = -1;
 
         // Sidebar slots / 侧边栏槽位
         for (int i = 0; i < SY.length; i++) {
@@ -122,6 +126,10 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
                 boolean on = menu instanceof MachineMenu mm && mm.isOverclockEnabled();
                 g.blitSprite(on ? TEX_O_ON : TEX_O, bx + 1, by + 1, 12, 12);
                 if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverOc = true;
+            } else if (i == IDX_FX && menu instanceof MachineMenu mm && mm.hasEffect()) {
+                boolean on = mm.isEffectEnabled();
+                drawButton(g, bx + 1, by + 1, "FX", on ? 0xFF_FFCC00 : 0xFF_888888, overBtn(mx, my, bx + 1, by + 1, 14, 14), pressedBtn == IDX_FX);
+                if (overBtn(mx, my, bx + 1, by + 1, 14, 14)) hoverFx = true;
             }
         }
 
@@ -266,6 +274,7 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             // Other buttons / 其他按钮
             if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_PAUSE] + 1, 14, 14)) { pressedBtn = IDX_PAUSE; sendClick(0); return true; }
             if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_OC] + 1, 14, 14)) { pressedBtn = IDX_OC; sendClick(2); return true; }
+            if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_FX] + 1, 14, 14)) { pressedBtn = IDX_FX; sendClick(12); return true; }
             if (overBtn((int)mx, (int)my, x + SX + 1, y + SY[IDX_HEAT] + 1, 14, 14)) { pressedBtn = IDX_HEAT; sendClick(11); return true; }
         }
         return super.mouseClicked(mx, my, btn);

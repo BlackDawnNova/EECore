@@ -132,6 +132,8 @@
   "eecore.gui.heat_off": "热量加速：关",
   "eecore.gui.oc_on": "超频：开",
   "eecore.gui.oc_off": "超频：关",
+  "eecore.gui.fx_on": "特效：开",
+  "eecore.gui.fx_off": "特效：关",
   "eecore.gui.pause": "暂停",
   "eecore.gui.resume": "恢复",
   "eecore.gui.switch_profile": "切换机器种类",

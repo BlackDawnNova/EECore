@@ -74,6 +74,10 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
     public boolean isCreative() { return false; }
     /** BigInteger-capable storage? / 是否为 BigInteger 容量存储。 */
     public boolean isOversized() { return false; }
+    /** Real stored count for slot i — oversized subclasses override this. / 槽i真实数量，巨量子类覆写。 */
+    public long getStoredAmount(int slot) {
+        return slot >= 0 && slot < inventory.getSlots() ? inventory.getStackInSlot(slot).getCount() : 0;
+    }
 
     /**
      * Direction-restricted view for pipes/hoppers: input buses are insert-only, output

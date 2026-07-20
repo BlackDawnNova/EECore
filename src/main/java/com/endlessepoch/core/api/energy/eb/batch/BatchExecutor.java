@@ -4,6 +4,7 @@ import com.endlessepoch.core.Config;
 import com.endlessepoch.core.api.energy.eb.Schedulers;
 import com.endlessepoch.core.api.recipe.RecipeSnapshot;
 import com.endlessepoch.core.api.recipe.RecipeSnapshotCache;
+import net.minecraft.world.item.crafting.RecipeType;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -52,7 +53,9 @@ public final class BatchExecutor {
                         shards, task.units().size(), task.posHash());
             List<ShardResultUnit> out;
             try {
-                out = new ShardTask(task, 0, task.units().size(), RecipeSnapshotCache::get).invoke();
+                var rt = (RecipeType<?>) task.recipeType();
+                out = new ShardTask(task, 0, task.units().size(),
+                        id -> RecipeSnapshotCache.get(rt, id)).invoke();
             } catch (Throwable e) {
                 com.endlessepoch.core.EECore.LOGGER.error("[EB-P3] batch compute failed @{}", task.posHash(), e);
                 out = List.of();
@@ -81,7 +84,8 @@ public final class BatchExecutor {
         List<ShardResultUnit> out = null;
         for (int i = 0; i < task.units().size(); i += SHARD_SIZE) {
             int to = Math.min(i + SHARD_SIZE, task.units().size());
-            var leaf = computeLeaf(task, i, to, RecipeSnapshotCache::get);
+            var leaf = computeLeaf(task, i, to,
+                    id -> RecipeSnapshotCache.get((RecipeType<?>) task.recipeType(), id));
             out = (out == null) ? leaf : mergeResults(out, leaf);
         }
         return out != null ? out : List.of();
