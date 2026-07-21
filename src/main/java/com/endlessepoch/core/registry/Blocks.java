@@ -250,4 +250,22 @@ public class Blocks {
     public static final Supplier<? extends Block> OVERSIZED_LOCKED_INPUT_ASSEMBLY =
             registerPartBlock("oversized_locked_input_assembly", 1, 16, Integer.MAX_VALUE, 16, 0, "Oversized Locked Input Assembly", "巨量锁定输入总成");
 
+    // AE2 interface / AE2 接口 (buffer managed by BE / 缓存由 BE 管理)
+    public static final Supplier<? extends Block> AE_INTERFACE =
+            registerPartBlock("ae_interface", 1, 0, 0, 0, 0, 1, "EE Dispatch Node", "EE 调度节点");
+
+    // Dispatch center blocks / 调度中心
+    public static final Supplier<? extends Block> SUPERCOMPUTING_UNIT =
+            registerPartBlock("supercomputing_unit", 1, 0, 0, 0, 0, "Supercomputing Unit", "超算单元");
+    public static final Supplier<? extends Block> PATTERN_UNIT =
+            registerPartBlock("pattern_unit", 1, 0, 0, 0, 0, "Pattern Unit", "样板单元");
+    public static final Supplier<? extends Block> QUANTITY_UNIT =
+            registerPartBlock("quantity_unit", 1, 0, 0, 0, 0, "Quantity Unit", "数量单元");
+    public static final Supplier<? extends Block> PARALLEL_UNIT =
+            registerPartBlock("parallel_unit", 1, 0, 0, 0, 0, "Parallel Unit", "并行单元");
+    public static final Supplier<? extends Block> DISPATCH_ME_PORT =
+            registerPartBlock("dispatch_me_port", 1, 0, 0, 0, 0, "ME Communication Port", "ME通信端口");
+    public static final Supplier<? extends Block> DISPATCH_CASING =
+            registerPartBlock("dispatch_casing", 1, 0, 0, 0, 0, "Dispatch Casing", "调度外壳");
+
 }

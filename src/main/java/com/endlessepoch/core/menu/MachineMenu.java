@@ -23,7 +23,7 @@ public class MachineMenu extends AbstractContainerMenu {
         super(Menus.MACHINE.get(), id);
         this.mc = mc; this.pos = mc.getBlockPos();
         this.nameEn = ""; this.nameZh = "";
-        this.data = new SimpleContainerData(20);
+        this.data = new SimpleContainerData(21);
         addDataSlots(data);
         addSlots(inv);
         syncFromBE();
@@ -38,7 +38,7 @@ public class MachineMenu extends AbstractContainerMenu {
         for (int i = 0; i < count; i++)
             types.add(net.minecraft.resources.ResourceLocation.parse(buf.readUtf()));
         this.clientSupported = java.util.List.copyOf(types);
-        this.data = new SimpleContainerData(20);
+        this.data = new SimpleContainerData(21);
         addDataSlots(data);
         addSlots(inv);
     }
@@ -66,6 +66,7 @@ public class MachineMenu extends AbstractContainerMenu {
     public boolean isOverclockEnabled() { return data.get(14) != 0; }
     public boolean isEffectEnabled() { return data.get(12) != 0; }
     public boolean hasEffect() { return data.get(19) != 0; }
+    public boolean isFormed() { return data.get(20) != 0; }
     public int getEffectiveTier() { return data.get(15); }
     /** Live effective parallel (energy-adaptive). / 当前有效并行（能量自适应后）。 */
     public int getEffectiveParallel() { return Math.max(1, data.get(16)); }
@@ -143,6 +144,7 @@ public class MachineMenu extends AbstractContainerMenu {
         data.set(17, mc.getParallelCap());
         data.set(18, mc.isBatchActive() ? 1 : 0);
         data.set(19, mc.hasEffect() ? 1 : 0);
+        data.set(20, mc.isFormed() ? 1 : 0);
     }
 
     private void addSlots(Inventory inv) {

@@ -17,6 +17,28 @@ public class MultiBlockFormHandler {
         Level level = controllerBE.getLevel();
         BlockPos pos = controllerBE.getBlockPos();
 
+        if (pattern.isFrameBased()) {
+            var fr = MultiBlockValidator.validateFrame(level, pattern, pos, facing);
+            if (fr == null) { if (controller.isFormed()) controller.onMultiblockBroken(); return false; }
+            if (!controller.isFormed()) {
+                if (player != null) controller.stampOwner(player.getUUID(), player.getName().getString());
+                ResourceLocation machineId = controllerBE instanceof MachineControllerBlockEntity mcbe ? mcbe.getMachineId() : null;
+                for (int x = 0; x < fr.width(); x++)
+                    for (int y = 0; y < fr.height(); y++)
+                        for (int z = 0; z < fr.depth(); z++) {
+                            BlockPos wp = pos.offset(fr.originX(), fr.originY(), fr.originZ()).offset(x, y, z);
+                            BlockEntity be = level.getBlockEntity(wp);
+                            if (be instanceof IPart part && machineId != null)
+                                part.onFormed(machineId, pos);
+                        }
+                BlockPos frOrigin = pos.offset(fr.originX(), fr.originY(), fr.originZ());
+                if (level instanceof net.minecraft.server.level.ServerLevel sl)
+                    MultiBlockBreakDetector.stampFrame(sl, frOrigin, pos, fr.width(), fr.height(), fr.depth(), facing);
+                controller.onMultiblockFormed();
+            }
+            return true;
+        }
+
         if (!MultiBlockValidator.validate(level, pattern, pos, facing)) {
             if (controller.isFormed()) controller.onMultiblockBroken();
             return false;

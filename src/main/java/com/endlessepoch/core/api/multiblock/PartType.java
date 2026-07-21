@@ -22,6 +22,13 @@ public final class PartType {
     public static final PartType OUTPUT_ASSEMBLY = registerEe("output_assembly", "eecore.part.output_assembly");
     public static final PartType PARALLEL_HATCH = registerEe("parallel_hatch", "eecore.part.parallel_hatch");
     public static final PartType CASING = registerEe("casing", "eecore.part.casing");
+    public static final PartType AE_INTERFACE = registerEe("ae_interface", "eecore.part.ae_interface");
+    public static final PartType SUPERCOMPUTING_UNIT = registerEe("supercomputing_unit", "eecore.part.supercomputing_unit");
+    public static final PartType PATTERN_UNIT = registerEe("pattern_unit", "eecore.part.pattern_unit");
+    public static final PartType QUANTITY_UNIT = registerEe("quantity_unit", "eecore.part.quantity_unit");
+    public static final PartType PARALLEL_UNIT = registerEe("parallel_unit", "eecore.part.parallel_unit");
+    public static final PartType DISPATCH_ME_PORT = registerEe("dispatch_me_port", "eecore.part.dispatch_me_port");
+    public static final PartType DISPATCH_CASING = registerEe("dispatch_casing", "eecore.part.dispatch_casing");
 
     private final ResourceLocation id;
     private final String translationKey;

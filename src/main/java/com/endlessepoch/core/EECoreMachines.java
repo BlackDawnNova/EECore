@@ -14,11 +14,13 @@ public final class EECoreMachines {
     /** Call from constructor — register items before DeferredRegister freezes. / 构造器中调用。 */
     public static void registerAll() {
         CREATIVE_TEST.registerItem();
+        DISPATCH_CENTER.registerItem();
     }
 
     /** Call from commonSetup — apply tag bindings after blocks are available. / commonSetup 中调用。 */
     public static void applyBindings() {
         CREATIVE_TEST.applyBindings();
+        DISPATCH_CENTER.applyBindings();
     }
 
     // Machine Definitions / 机器定义
@@ -47,6 +49,20 @@ public final class EECoreMachines {
             .limit("EE-3", PartCategory.PARALLEL_HATCH, 1)
             .out("eecore:creative_test");
 
+    /** Dispatch Center / 调度中心 */
+    public static final MachineDef DISPATCH_CENTER = new MachineDef()
+            .ecs("eecore", "ceshi")
+            .name("Dispatch Center", "调度中心")
+            .tier(1)
+            .frame("A", 2, 16, 2, 16, 2, 16)
+            .where("A", () -> com.endlessepoch.core.registry.Blocks.DISPATCH_CASING.get())
+            .where("B", () -> com.endlessepoch.core.registry.Blocks.SUPERCOMPUTING_UNIT.get())
+            .or(() -> com.endlessepoch.core.registry.Blocks.PATTERN_UNIT.get())
+            .or(() -> com.endlessepoch.core.registry.Blocks.QUANTITY_UNIT.get())
+            .or(() -> com.endlessepoch.core.registry.Blocks.PARALLEL_UNIT.get())
+            .limit("B", () -> com.endlessepoch.core.registry.Blocks.SUPERCOMPUTING_UNIT.get(), 4)
+            .out("eecore:dispatch_center");
+
     // Internal helper / 内部辅助
 
     /** Holds machine registration parameters. / 持有机器注册参数。 */
@@ -57,6 +73,9 @@ public final class EECoreMachines {
         private String[] supported;
         private float cx, cy, cz;
         private boolean cSet;
+        private boolean frameBased;
+        private String frameCasingTag;
+        private int frameMinW=2, frameMaxW=32, frameMinH=2, frameMaxH=16, frameMinD=2, frameMaxD=32;
         private String lastTag;
         // Tag → block suppliers / 标签→方块供应器
         private final java.util.Map<String, java.util.List<Supplier<? extends net.minecraft.world.level.block.Block>>> tagSuppliers = new java.util.LinkedHashMap<>();
@@ -75,6 +94,11 @@ public final class EECoreMachines {
         MachineDef effect(String e) { effect = e; return this; }
         MachineDef supports(String... ids) { supported = ids; return this; }
         MachineDef center(float x, float y, float z) { cx = x; cy = y; cz = z; cSet = true; return this; }
+        MachineDef frame(String casingTag, int minW, int maxW, int minH, int maxH, int minD, int maxD) {
+            this.frameBased=true; this.frameCasingTag=casingTag;
+            this.frameMinW=minW; this.frameMaxW=maxW; this.frameMinH=minH; this.frameMaxH=maxH;
+            this.frameMinD=minD; this.frameMaxD=maxD; return this;
+        }
         MachineDef out(String id) {
             var rl = ResourceLocation.parse(id);
             outNs = rl.getNamespace(); outPath = rl.getPath(); return this;
@@ -129,6 +153,7 @@ public final class EECoreMachines {
             if (effect != null) b.effect(effect);
             if (cSet) b.center(cx, cy, cz);
             if (supported != null) b.supports(supported);
+            if (frameBased) b.frame(frameCasingTag, frameMinW, frameMaxW, frameMinH, frameMaxH, frameMinD, frameMaxD);
             b.register(getOutId());
         }
 

@@ -11,10 +11,11 @@ public class EcsDump {
         StringBuilder sb = new StringBuilder();
 
         sb.append("=== ECS Dump ===\n");
-        sb.append(String.format("Size: %dx%dx%d  Ctrl: (%d,%d,%d)  Block types: %d\n",
+        sb.append(String.format("Size: %dx%dx%d  Ctrl: (%d,%d,%d)  Block types: %d  Format: %s\n",
                 data.width, data.height, data.depth,
                 data.controllerX, data.controllerY, data.controllerZ,
-                data.palette.size()));
+                data.palette.size(),
+                data.frameBased ? "Frame-based" : "Fixed"));
 
         sb.append("\n--- Tagged Entries ---\n");
         int tagged = 0;

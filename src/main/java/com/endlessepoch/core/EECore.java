@@ -252,6 +252,24 @@ public class EECore {
         EECoreMachines.applyBindings();
         com.endlessepoch.core.api.multiblock.MachineRegistry.autoRegisterAll();
 
+        // Auto-include AE interface in all machine patterns (limit 1 per machine) / 所有机器自动添加AE接口（上限1）
+        var aeBlock = com.endlessepoch.core.registry.Blocks.AE_INTERFACE.get();
+        var aeState = aeBlock.defaultBlockState();
+        for (var def : com.endlessepoch.core.api.multiblock.MachineRegistry.getAll()) {
+            var patOpt = def.getPattern();
+            if (patOpt.isEmpty()) continue;
+            var pattern = patOpt.get();
+            for (char c : pattern.getDefinitions().keySet()) {
+                if (!pattern.getTags(c).isEmpty())
+                    pattern.addAlternatives(c, aeState);
+            }
+            // Per-block limit = 1 through every tag on this pattern / 每个标签限1个
+            for (char c : pattern.getDefinitions().keySet()) {
+                for (String tag : pattern.getTags(c))
+                    pattern.setBlockLimit(tag, aeBlock, 1);
+            }
+        }
+
         LOGGER.info(MOD_NAME + " initialized");
         LOGGER.info("Omega system: 12 tiers ELV~QV, 1Ω = 2FE");
         LOGGER.info("NovaNet: node registry active, test multiblock registered");

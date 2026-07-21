@@ -84,7 +84,8 @@ public final class EECoreCodec {
         }
 
         return new EcsRawData(pattern.width, pattern.height, pattern.depth,
-                pattern.controllerX, pattern.controllerY, pattern.controllerZ, palette, voxels);
+                pattern.controllerX, pattern.controllerY, pattern.controllerZ, palette, voxels,
+                pattern.isFrameBased());
     }
 
     /**
@@ -150,6 +151,8 @@ public final class EECoreCodec {
 
         MultiBlockPattern pattern = new MultiBlockPattern(w, h, d,
                 raw.controllerX, raw.controllerY, raw.controllerZ, layers2d, definitions);
+        if (raw.frameBased)
+            pattern.setFrameBasedFlag();
         // Auto-add all registered controller blocks as alternatives for 'K' / K位自动匹配任意控制器
         if (definitions.containsKey(EcsFormat.CHAR_CONTROLLER)) {
             for (Block cb : MultiBlockRegistry.getControllerBlocks())

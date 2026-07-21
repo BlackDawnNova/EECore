@@ -21,6 +21,10 @@ public final class MultiBlockPattern {
     private final java.util.List<BlockPos> nonAirPositions;
     private final java.util.List<BlockPos> nonAirControllers;
 
+    private boolean frameBased;
+    private String casingTag;
+    private int minW = 1, maxW = 32, minH = 1, maxH = 16, minD = 1, maxD = 32;
+
     /** @param layers [layer][row] = char string / 层数据 [层][行] = 字符 */
     public MultiBlockPattern(int width, int height, int depth,
                              int controllerX, int controllerY, int controllerZ,
@@ -233,4 +237,18 @@ public final class MultiBlockPattern {
                 layers[y][z] = layerData[y].substring(z * width, (z + 1) * width);
         return layers;
     }
+
+    public void setFrameBasedFlag() { this.frameBased = true; }
+    public void setFrameBased(String casingTag, int minW, int maxW, int minH, int maxH, int minD, int maxD) {
+        this.frameBased = true;
+        this.casingTag = casingTag;
+        this.minW = minW; this.maxW = maxW;
+        this.minH = minH; this.maxH = maxH;
+        this.minD = minD; this.maxD = maxD;
+    }
+    public boolean isFrameBased() { return frameBased; }
+    public String getCasingTag() { return casingTag; }
+    public int getMinW() { return minW; } public int getMaxW() { return maxW; }
+    public int getMinH() { return minH; } public int getMaxH() { return maxH; }
+    public int getMinD() { return minD; } public int getMaxD() { return maxD; }
 }

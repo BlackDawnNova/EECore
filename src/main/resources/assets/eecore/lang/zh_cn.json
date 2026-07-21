@@ -112,6 +112,7 @@
   "block.eecore.sv_machine_casing": "施温格级机器外壳",
   "block.eecore.bv_machine_casing": "真空衰变级机器外壳",
   "block.eecore.qv_machine_casing": "普朗克机器外壳",
+  "block.eecore.ae_interface": "EE-调度节点",
   "block.eecore.input_bus": "输入总线",
   "block.eecore.output_bus": "输出总线",
   "block.eecore.input_assembly": "输入总成",
@@ -122,6 +123,7 @@
   "eecore.profile.boiler": "蒸汽锅炉",
   "eecore.gui.status.working": "运行中",
   "eecore.gui.status.paused": "已暂停",
+  "eecore.gui.status.unformed": "未成型",
   "eecore.gui.status.idle": "待机",
   "eecore.gui.status.output_full": "输出空间不足",
   "eecore.gui.status.voltage_low": "电压不足 — 需要 %s 级电压，请升级",
@@ -271,5 +273,14 @@
   "block.eecore.oversized_output_bus": "巨量输出总线",
   "block.eecore.oversized_locked_input_bus": "巨量锁定输入总线",
   "block.eecore.oversized_locked_input_bin": "巨量锁定输入仓",
-  "block.eecore.oversized_locked_input_assembly": "巨量锁定输入总成"
+  "block.eecore.oversized_locked_input_assembly": "巨量锁定输入总成",
+  "eecore.ecs.format.fixed": "固定式",
+  "eecore.ecs.format.frame": "框架式",
+  "eecore.ecs.format.title": "选择结构格式",
+  "block.eecore.supercomputing_unit": "超算单元",
+  "block.eecore.pattern_unit": "样板单元",
+  "block.eecore.quantity_unit": "数量单元",
+  "block.eecore.parallel_unit": "并行单元",
+  "block.eecore.dispatch_me_port": "ME通信端口",
+  "block.eecore.dispatch_casing": "调度外壳"
 }

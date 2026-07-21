@@ -81,6 +81,6 @@ public final class QuadBuilder {
         int bx = ((int)(x * 127) & 0xFF);
         int by = ((int)(y * 127) & 0xFF);
         int bz = ((int)(z * 127) & 0xFF);
-        return (bx << 16) | (by << 8) | bz;
+        return bx | (by << 8) | (bz << 16); // match NormalFace.pack: X|Y<<8|Z<<16 / 对齐原版法线编码
     }
 }

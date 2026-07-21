@@ -26,11 +26,16 @@ public class ResourceGenerator {
      */
     public static final java.nio.file.Path PROJECT_ROOT;
     static {
-        java.nio.file.Path cwd = java.nio.file.Path.of("").toAbsolutePath();
-        if (cwd.endsWith("run") && java.nio.file.Files.exists(cwd.resolve("../build.gradle"))) {
-            PROJECT_ROOT = cwd.resolve("..").normalize().toAbsolutePath();
+        String prop = System.getProperty("eecore.project.dir");
+        if (prop != null && !prop.isBlank()) {
+            PROJECT_ROOT = java.nio.file.Path.of(prop).toAbsolutePath();
         } else {
-            PROJECT_ROOT = cwd;
+            java.nio.file.Path cwd = java.nio.file.Path.of("").toAbsolutePath();
+            if (cwd.endsWith("run") && java.nio.file.Files.exists(cwd.resolve("../build.gradle"))) {
+                PROJECT_ROOT = cwd.resolve("..").normalize().toAbsolutePath();
+            } else {
+                PROJECT_ROOT = cwd;
+            }
         }
     }
 
@@ -64,7 +69,11 @@ public class ResourceGenerator {
                         .resolve(java.nio.file.Path.of("", subPath));
                 java.nio.file.Files.createDirectories(d);
                 java.nio.file.Files.writeString(d.resolve(fileName + ".json"), json);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                com.endlessepoch.core.EECore.LOGGER.warn(
+                    "writeJsonNs failed: {}/{}/{}.json (PROJECT_ROOT={}) — {}",
+                    namespace, subPath, fileName, PROJECT_ROOT, e.getMessage());
+            }
         }
     }
 
@@ -158,10 +167,7 @@ public class ResourceGenerator {
         Items.addToTag(PartBlock.toolTagForTier(tier), id);
     }
 
-    /**
-     * Generate block model + item model + update blockstate for a machine controller.
-     * 为机器控制器生成方块模型+物品模型+更新 blockstate。
-     */
+    /** Generate block + item models + update blockstate for a machine controller. / 生成方块+物品模型+更新 blockstate。 */
     static void writeMachineModel(String itemId, int tier) {
         String casingName = VoltageTier.fromOrdinal(tier).name().toLowerCase();
         String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
@@ -186,28 +192,29 @@ public class ResourceGenerator {
                     "eecore:block/machines/" + itemId + "/overlay_front_e");
         }
 
-        // Item model / 物品模型
-        String itemModel = "{\"parent\":\"block/block\"," +
+        String itemModel = "{\"parent\":\"eecore:item/ee_machine_item\"," +
             "\"textures\":{" +
-            "\"particle\":\"" + casingTex + "\"," +
             "\"all\":\"" + casingTex + "\"," +
-            "\"front\":\"" + overlayFront + "\"}," +
-            "\"elements\":[" +
-            "{\"from\":[0,0,0.04],\"to\":[16,16,16]," +
-            "\"faces\":{" +
-            "\"down\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"up\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"north\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"south\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"west\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}," +
-            "\"east\":{\"uv\":[0,0,16,16],\"texture\":\"#all\"}}}," +
-            "{\"from\":[2,2,0],\"to\":[14,14,0.02]," +
-            "\"faces\":{" +
-            "\"north\":{\"uv\":[2,2,14,14],\"texture\":\"#front\"}}}]}";
+            "\"front\":\"" + overlayFront + "\"}}";
         writeJson("models/item", itemId, itemModel);
 
         // Update blockstate / 更新 blockstate
         writeBlockstate();
+    }
+
+    /**
+     * Write machine item model for addon mods (different namespace).
+     * 为附属 mod 写入物品模型（不同命名空间）。
+     */
+    public static void writeMachineItemModel(String itemId, int tier, String overlayNs) {
+        String casingName = com.endlessepoch.core.api.tier.VoltageTier.fromOrdinal(tier).name().toLowerCase();
+        String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
+        String overlayTex = overlayNs + ":block/machines/" + itemId + "/overlay_front";
+        String json = "{\"parent\":\"eecore:item/ee_machine_item\"," +
+            "\"textures\":{" +
+            "\"all\":\"" + casingTex + "\"," +
+            "\"front\":\"" + overlayTex + "\"}}";
+        writeJson("models/item", itemId, json); // model file in eecore namespace, texture in overlayNs
     }
 
     /**
@@ -275,7 +282,11 @@ public class ResourceGenerator {
                         .resolve(java.nio.file.Path.of("", subPath));
                 java.nio.file.Files.createDirectories(d);
                 java.nio.file.Files.writeString(d.resolve(fileName + ".json"), json);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                com.endlessepoch.core.EECore.LOGGER.warn(
+                    "writeDataNs failed: {}/{}/{}.json (PROJECT_ROOT={}) — {}",
+                    namespace, subPath, fileName, PROJECT_ROOT, e.getMessage());
+            }
         }
     }
 

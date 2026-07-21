@@ -25,6 +25,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.loot.LootParams;
 import org.jetbrains.annotations.Nullable;
@@ -193,6 +194,22 @@ public class MachineControllerBlock extends Block implements EntityBlock {
                 pattern.get(), machineId, pos, mc.getFacing(), level,
                 (net.minecraft.server.level.ServerPlayer) player, mc.wasEverFormed());
         return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    public ItemStack getCloneItemStack(net.minecraft.world.level.LevelReader level, BlockPos pos, BlockState state) {
+        var be = level.getBlockEntity(pos);
+        if (be instanceof MachineControllerBlockEntity mc && mc.getMachineId() != null) {
+            ResourceLocation mid = mc.getMachineId();
+            String path = mid.getPath();
+            for (var sup : com.endlessepoch.core.registry.Items.MACHINE_ITEMS) {
+                Item item = sup.get();
+                ResourceLocation iid = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
+                if (iid != null && iid.getPath().equals(path))
+                    return new ItemStack(item);
+            }
+        }
+        return super.getCloneItemStack(level, pos, state);
     }
 
     @Override

@@ -22,8 +22,9 @@ EECore 多方块框架：定义 → 自动注册 → 搭建 → 成形。
 ```
 ① Write .ecs structure file → data/<ns>/structures/<name>.ecs
 ② EECoreMachines.java: .ecs("ns", "name").tier(N).name(en, zh).register()
-③ clean build runClient → controller item appears in Machines tab
-④ Place controller → build structure → Sneak+Right-click → form
+③ build.gradle: machines list +1 entry (itemId, tier, modelIndex)
+④ ./gradlew deploy → controller item appears in Machines tab
+⑤ Place controller → build structure → Sneak+Right-click → form
 ```
 
 **Integration pack / 整合包:**
@@ -226,7 +227,22 @@ Each parallel hatch directly defines the machine's parallel count: LV=16, MV=32,
 
 ---
 
-## Textures / 贴图
+## Item Models / 物品模型
+
+### Shared Parent Geometry / 共用几何父模型
+
+Machine item models use `ee_machine_item.json` — a single shared parent with the correct 3D geometry (body cube + front overlay panel). Each machine provides only a child JSON that overrides the `#all` (casing) and `#front` (overlay) texture paths. Same pattern as `ee_base_12` for blocks.
+机器物品模型共用 `ee_machine_item.json` 父模型定义 3D 几何（外壳体 + 前覆面板）。每台机器只需子 JSON 覆写 `#all`（外壳）和 `#front`（覆面）贴图路径。跟方块模型 `ee_base_12` 同模式。
+
+```
+assets/<modid>/models/item/
+  ee_machine_item.json            ← shared geometry, baked once / 共用几何，烘培一次
+  creative_test.json              ← child: {"parent":"eecore:item/ee_machine_item","textures":{...}}
+  dispatch_center.json            ← child: same structure, different textures / 同样结构，不同贴图
+```
+
+Children are auto-generated at build time by the Gradle `genMachineModels` task — no per-machine JSON written by hand.
+子 JSON 由 Gradle `genMachineModels` 任务在构建时自动生成——无需手写。
 
 ### Machine Textures / 机器贴图
 
@@ -238,8 +254,17 @@ assets/<modid>/textures/block/machines/<machine_id>/
   overlay_front_e.png     ← emissive version (optional, can be animated) / 发光版（可选，可动画）
 ```
 
-No model JSON needed per machine — generated automatically on first `runClient`.
-无需为每台机器手写模型 JSON——首次 `runClient` 自动生成。
+### Addon Mod Item Model / 附属 Mod 物品模型
+
+```java
+// Generate item model JSON at registration time / 注册时生成物品模型 JSON
+ResourceGenerator.writeMachineItemModel("my_machine", 1, "mymod");
+//                                      itemId,        tier, namespace
+// Writes models/item/my_machine.json → {"parent":"eecore:item/ee_machine_item","textures":{"all":"eecore:block/casings/voltage/lv/side","front":"mymod:block/machines/my_machine/overlay_front"}}
+```
+
+The casing texture always comes from EECore's voltage-tier casings; only the overlay uses the addon mod's namespace.
+外壳贴图始终来自 EECore 电压等级；仅覆面使用附属 Mod 命名空间
 
 ### Part Textures / 部件贴图
 
@@ -309,7 +334,7 @@ MultiblockLoader.load(...).effect(myEffect).register(...);
 ## .ecs File Format / 文件格式
 
 ```
-[hdr] Magic "EECS" + version(3) + flags(bit0=deflate)
+[hdr] Magic "EECS" + version(3) + flags(bit0=deflate, bit1=frame-based)
 [crc] CRC32 (header+payload)
 [payload]
   VarInt: width, height, depth, ctrlX/Y/Z
@@ -330,6 +355,50 @@ Addon mods can use `EcsRawCodec` from the `ecsformat` package (pure JDK, no MC d
 
 ---
 
+## Frame-Based Multiblocks / 框架式多方块
+
+Frame-based multiblocks use a closed casing shell instead of a fixed grid. The player builds a shell of casing blocks, places the controller and functional parts inside, and right-clicks to form. Dimensions are free-form within configured ranges.
+
+框架式多方块用封闭外壳取代固定网格。玩家搭建外壳，内部放置控制器和功能部件，右键成形。尺寸在设定范围内自由。
+
+### Saving / 保存
+
+In the structure visualizer, click Save and select **Frame-based** format (press 2 or click). The saved `.ecs` file carries `flags bit1=1` (FLAG_FRAME_BASED).
+
+### Registration / 注册
+
+```java
+new MachineDef()
+    .ecs("eecore", "dispatch")                      // .ecs file
+    .name("Dispatch Center", "调度中心")
+    .frame("CASING", 2, 16, 2, 16, 2, 16)          // shell TAG + W/H/D range
+    .where("CASING", Blocks.DISPATCH_CASING)         // TAG→shell blocks
+    .or(Blocks.DISPATCH_ME_PORT)                     // .or() adds more shell blocks
+    .where("UNIT", Blocks.SUPERCOMPUTING_UNIT)       // TAG→interior blocks
+    .or(Blocks.PATTERN_UNIT)
+    .or(Blocks.QUANTITY_UNIT)
+    .or(Blocks.PARALLEL_UNIT)
+    .limit("UNIT", Blocks.SUPERCOMPUTING_UNIT, 4)    // per-block limits
+    .limit("UNIT", Blocks.PATTERN_UNIT, 2)
+    .out("eecore:dispatch_center");
+```
+
+### Verification / 验证
+
+- Six-direction scan from controller finds casing shell boundaries
+- All six faces must be full of shell blocks (no gaps)
+- Interior blocks are counted by TAG and validated against limits
+- Use `EcsDump ceshi.ecs` to check decoded format type
+
+### EcsDump / 解码工具
+
+```bash
+java -cp build/classes/java/main EcsDump input.ecs
+# Output: Size, Ctrl, Block types, Format: Frame-based|Fixed, Tags
+```
+
+---
+
 ## API Reference / API 参考
 
 ### MultiBlockPattern
@@ -340,6 +409,18 @@ pattern.addAlternatives('B', ironBlock, steelBlock);
 pattern.getAlternatives('B');   // → {original, alternatives}
 pattern.getTags('C');           // → ["tag_name"]
 pattern.setTags('C', List.of("myaddon:input_hatch"));
+```
+
+### ResourceGenerator
+
+```java
+// Machine item model — addon mods / 附属 Mod 物品模型
+ResourceGenerator.writeMachineItemModel("my_machine", 1, "mymod");
+//                                      itemId,        tier, namespace
+// Writes <namespace>/models/item/<itemId>.json
+
+// Machine controller — block + item model + blockstate / 机器控制器——方块+物品模型+blockstate
+ResourceGenerator.writeMachineModel("my_machine", 1); // EECore namespace
 ```
 
 ### EECoreCodec

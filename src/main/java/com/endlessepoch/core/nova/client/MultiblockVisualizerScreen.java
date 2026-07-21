@@ -122,6 +122,14 @@ public class MultiblockVisualizerScreen extends Screen {
     private static final int KEY_DN = 264;
     private static final int KEY_DEL = 261;
 
+    private boolean formatSelectShow;
+    private int formatSelectChoice;
+    private static final String[] FORMAT_NAMES = {
+            net.minecraft.network.chat.Component.translatable("eecore.ecs.format.fixed").getString(),
+            net.minecraft.network.chat.Component.translatable("eecore.ecs.format.frame").getString()
+    };
+    private static final int FORMAT_DIALOG_H = FORMAT_NAMES.length * 18 + 50;
+
     // Confirm dialog state / 确认弹窗
     private boolean confirmShow = false;
     private boolean confirmIsSave = false;
@@ -302,7 +310,25 @@ public class MultiblockVisualizerScreen extends Screen {
         drawLayerControls(g);
 
         drawFloatingPanel(g, mx, my);
+        drawFormatSelectDialog(g, mx, my);
         drawConfirmDialog(g);
+    }
+
+    private void drawFormatSelectDialog(GuiGraphics g, int mx, int my) {
+        if (!formatSelectShow) return;
+        int cx = (width - 160) / 2, cy = (height - FORMAT_DIALOG_H) / 2;
+        drawDialogBox(g, cx, cy, 160, FORMAT_DIALOG_H, Component.translatable("eecore.ecs.format.title"));
+        var font = Minecraft.getInstance().font;
+        for (int i = 0; i < FORMAT_NAMES.length; i++) {
+            int iy = cy + 28 + i * 20;
+            boolean hover = mx >= cx + 10 && mx <= cx + 150 && my >= iy && my <= iy + 16;
+            g.fill(cx + 10, iy, cx + 150, iy + 16, hover ? 0x664488FF : 0x22111133);
+            font.drawInBatch(Component.literal((formatSelectChoice == i ? "§b● " : "§8○ ") + FORMAT_NAMES[i]),
+                    cx + 14, iy + 3, 0xFFFFFFFF, false, g.pose().last().pose(),
+                    Minecraft.getInstance().renderBuffers().bufferSource(),
+                    Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+        }
+        Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
     }
 
     private void drawHeader(GuiGraphics g) {
@@ -377,7 +403,8 @@ public class MultiblockVisualizerScreen extends Screen {
             rotationSkip = Math.min(rotationSkip, 32);
         }
 
-        RenderSystem.enableDepthTest();
+        if (layerView >= 0) RenderSystem.disableDepthTest();
+        else RenderSystem.enableDepthTest();
         PoseStack model = new PoseStack();
         model.translate(erL + rwLoc / 2f, erT + rhLoc / 2f, 0);
         float halfVp = vpSize / 2f;
@@ -423,7 +450,8 @@ public class MultiblockVisualizerScreen extends Screen {
             pickRayDirection = pickRay.direction();
         }
 
-        for (var pos : cachedScene.getSurfacePositions()) {
+        var renderPositions = layerView >= 0 ? cachedScene.getPositions() : cachedScene.getSurfacePositions();
+        for (var pos : renderPositions) {
                     int x = pos.getX(), y = pos.getY(), z = pos.getZ();
                     if (layerView >= 0 && y != layerView) continue;
 
@@ -601,6 +629,17 @@ public class MultiblockVisualizerScreen extends Screen {
         font.drawInBatch(Component.literal("☒"), px + PANEL_W - 14, py + 6, 0xFFFF6666, false,
                 pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
 
+        // Show format type when frame-based / 框架式显示格式类型
+        if (pickResult != null && selectedIndex >= 0) {
+            var pat = patterns.get(selectedIndex).getValue();
+            if (pat != null && pat.isFrameBased()) {
+                font.drawInBatch(Component.translatable("eecore.ecs.format.frame")
+                        .copy().withStyle(net.minecraft.ChatFormatting.AQUA),
+                        px + 6, py + 16, 0xFFFFFFFF, false, pose, buf,
+                        Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+            }
+        }
+
         if (!replaceMode) {
             if (editModeActive) {
                 boolean isCtrl = pickBlockState != null && selectedIndex >= 0
@@ -679,23 +718,23 @@ public class MultiblockVisualizerScreen extends Screen {
                 font.drawInBatch(Component.literal("§7可替换方块"), px + 8, py + 28, 0xCCCCCCCC, false,
                         pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
                 buf.endBatch();
-                var itemRenderer = mc.getItemRenderer();
+                var groups = groupByCategory(defBlocks);
                 int cols = 4;
                 int cellW = (PANEL_W - 12) / cols, cellH = 22;
                 int gridX = px + 6, gridY = py + 38;
-                int idx = 0;
-                for (var bs : defBlocks) {
-                    if (idx >= cols * 4) break;
-                    int col = idx % cols, row = idx / cols;
-                    int ix = gridX + col * cellW, iy = gridY + row * cellH;
-                    var itemStack = new net.minecraft.world.item.ItemStack(bs.getBlock());
-                    g.fill(ix, iy, ix + cellW - 1, iy + cellH - 1, 0x22111133);
-                    if (!itemStack.isEmpty()) g.renderFakeItem(itemStack, ix + 2, iy + 2);
-                    if (mx >= ix && mx < ix + cellW && my >= iy && my < iy + cellH) {
-                        font.drawInBatch(bs.getBlock().getName(), mx + 8, my - 12, 0xFFFFFFFF, false,
-                                g.pose().last().pose(), buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+                long now = System.currentTimeMillis();
+                for (int i = 0; i < Math.min(groups.size(), 16); i++) {
+                    var group = groups.get(i);
+                    int col = i % cols, row = i / cols;
+                    int cx = gridX + col * cellW, cy = gridY + row * cellH;
+                    int cycleIdx = (int) ((now / 2000) % group.blocks.size());
+                    var bs = group.blocks.get(cycleIdx);
+                    g.fill(cx, cy, cx + cellW - 1, cy + cellH - 1, 0x22111133);
+                    var item = new net.minecraft.world.item.ItemStack(bs.getBlock());
+                    if (!item.isEmpty()) g.renderFakeItem(item, cx + 2, cy + 2);
+                    if (mx >= cx && mx < cx + cellW && my >= cy && my < cy + cellH) {
+                        g.renderTooltip(font, bs.getBlock().getName(), mx + 8, my - 12);
                     }
-                    idx++;
                 }
             }
         } else {
@@ -753,7 +792,8 @@ public class MultiblockVisualizerScreen extends Screen {
         if (cachedScene == null) return;
         // Collect fluid positions first / 先收集流体位置
         var fluidPositions = new java.util.ArrayList<BlockPos>();
-        for (var pos : cachedScene.getSurfacePositions()) {
+        var fluidScanPositions = layerView >= 0 ? cachedScene.getPositions() : cachedScene.getSurfacePositions();
+        for (var pos : fluidScanPositions) {
             if (layerView >= 0 && pos.getY() != layerView) continue;
             var st = cachedScene.getBlockState(pos);
             var fluid = st.getFluidState();
@@ -984,6 +1024,17 @@ public class MultiblockVisualizerScreen extends Screen {
             }
         }
 
+        if (btn == 0 && formatSelectShow) {
+            int cx = (width - 160) / 2, cy = (height - FORMAT_DIALOG_H) / 2;
+            for (int i = 0; i < FORMAT_NAMES.length; i++) {
+                int iy = cy + 28 + i * 20;
+                if (mx >= cx + 10 && mx <= cx + 150 && my >= iy && my <= iy + 16) {
+                    formatSelectChoice = i; formatSelectShow = false; confirmShow = true; return true;
+                }
+            }
+            return true;
+        }
+
         if (btn == 0 && confirmShow) {
             int cx = (width - CONFIRM_W) / 2, cy = (height - CONFIRM_H) / 2;
             if (mx >= cx + 16 && mx <= cx + 76 && my >= cy + 56 && my <= cy + 72) {
@@ -994,6 +1045,7 @@ public class MultiblockVisualizerScreen extends Screen {
                     if (confirmIsSave) {
                         String name = saveFileName.trim().isEmpty() ? id.getPath() : saveFileName.trim().replaceAll("[^a-zA-Z0-9_/-]", "_").toLowerCase();
                         var saveId = ResourceLocation.fromNamespaceAndPath(id.getNamespace(), name);
+                        if (formatSelectChoice == 1) pat.setFrameBasedFlag();
                         com.endlessepoch.core.api.multiblock.PatternStorage.save(saveId, pat);
                         Minecraft.getInstance().player.displayClientMessage(
                                 Component.literal("§a结构已保存: " + name), true);
@@ -1074,7 +1126,8 @@ public class MultiblockVisualizerScreen extends Screen {
             if (onBtn(mx, my, px2 + 10, py2 + ph - 20, PANEL_W - 20) && selectedIndex >= 0) {
                 var pat = patterns.get(selectedIndex);
                 saveFileName = pat.getKey().getPath().replace("scanned_", "");
-                confirmShow = true; confirmIsSave = true; confirmTargetIdx = selectedIndex; return true; }
+                confirmTargetIdx = selectedIndex; confirmIsSave = true;
+                formatSelectShow = true; return true; }
         }
         if (btn == 0 && panelVisible && replaceMode) {
             int px2 = Math.max(0, Math.min(width - PANEL_W, panelX));
@@ -1248,6 +1301,10 @@ public class MultiblockVisualizerScreen extends Screen {
             }
         }
 
+        if (formatSelectShow && k >= 49 && k <= 48 + FORMAT_NAMES.length) {
+            formatSelectChoice = k - 49; formatSelectShow = false; confirmShow = true; return true;
+        }
+
         // Save dialog — backspace only (char input via charTyped) / 保存弹窗 — 退格键
         if (confirmShow && confirmIsSave && k == 259 && !saveFileName.isEmpty()) {
             saveFileName = saveFileName.substring(0, saveFileName.length() - 1);
@@ -1260,9 +1317,8 @@ public class MultiblockVisualizerScreen extends Screen {
                     .getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
             var pat = patterns.get(selectedIndex).getValue();
 
-            // Enter: add new tag (only if no tag yet) / 添加标记（仅限无标记时）
             if ((k == 257 || k == 335) && !tagInput.isEmpty()) {
-                if (!pat.getTags(pickedChar).isEmpty()) return true; // already tagged
+                if (!pat.getTags(pickedChar).isEmpty()) return true;
                 java.util.List<String> tags = new java.util.ArrayList<>(pat.getTags(pickedChar));
                 tags.add(tagInput);
                 pat.setTags(pickedChar, tags);
@@ -1390,4 +1446,42 @@ public class MultiblockVisualizerScreen extends Screen {
     }
 
     @Override public boolean isPauseScreen() { return false; }
+
+    // ── Block category grouping for visualizer / 可视化器方块分类 ──
+
+    private record BlockGroup(String label, java.util.List<BlockState> blocks) {}
+
+    private static java.util.List<BlockGroup> groupByCategory(java.util.Set<BlockState> blocks) {
+        java.util.Map<String, java.util.List<BlockState>> cats = new java.util.LinkedHashMap<>();
+        for (var bs : blocks) {
+            String path = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(bs.getBlock()).getPath();
+            String cat = categorize(path);
+            cats.computeIfAbsent(cat, k -> new java.util.ArrayList<>()).add(bs);
+        }
+        // Order by priority / 按优先级排序
+        String[] order = {"总线", "总成", "流体仓", "能源仓", "并行仓", "AE链接", "其他"};
+        java.util.List<BlockGroup> result = new java.util.ArrayList<>();
+        for (String cat : order) {
+            var list = cats.remove(cat);
+            if (list != null && !list.isEmpty())
+                result.add(new BlockGroup(cat, java.util.List.copyOf(list)));
+        }
+        // Remaining uncategorized / 剩余未分类
+        for (var e : cats.entrySet()) {
+            if (!e.getValue().isEmpty())
+                result.add(new BlockGroup(e.getKey(), java.util.List.copyOf(e.getValue())));
+        }
+        return result;
+    }
+
+    private static String categorize(String path) {
+        if (path.contains("ae_interface")) return "AE链接";
+        if (path.contains("assembly")) return "总成";
+        if (path.contains("parallel") && path.contains("hatch")) return "并行仓";
+        if (path.contains("energy_input") || path.contains("energy_output")) return "能源仓";
+        if (path.contains("fluid_input") || path.contains("fluid_output") || path.contains("input_bin")) return "流体仓";
+        if (path.contains("input_bus") || path.contains("output_bus")) return "总线";
+        if (path.contains("casing")) return "外壳";
+        return "其他";
+    }
 }

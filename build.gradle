@@ -49,6 +49,7 @@ neoForge {
             ]
             gameDirectory = project.file('run')
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'eecore.project.dir', project.projectDir.absolutePath
         }
         production {
             client()
@@ -60,6 +61,7 @@ neoForge {
             ]
             gameDirectory = file(mcInstance)
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'eecore.project.dir', project.projectDir.absolutePath
         }
 
         server {
@@ -216,6 +218,74 @@ idea {
     }
 }
 
+// ===== Machine model generation — runs before processResources =====
+// Mirror of EECoreMachines.registerAll(). Adding a machine here + in Java is all
+// that's needed for "one-click registration": models auto-generated at build time.
+// 机器模型自动生成——在 processResources 前运行。与 EECoreMachines.registerAll() 同步维护。
+
+tasks.register('genMachineModels') {
+    group = 'eecore'
+    description = 'Generate block models + blockstate + item stubs for all built-in machines.'
+    doLast {
+        def tierNames = ['elv', 'lv', 'mv', 'hv', 'ehv', 'uhv', 'phv', 'xhv', 'plv', 'sv', 'bv', 'qv']
+        def resBase = java.nio.file.Path.of(System.getProperty('user.dir'), 'src/main/resources')
+
+        // modelIndex = allocation order in EECoreMachines.registerAll()
+        def machines = [
+            [itemId: 'creative_test',     tier: 1, index: 4],
+            [itemId: 'dispatch_center',   tier: 1, index: 5],
+        ]
+
+        // Item models — child of ee_machine_item with per-machine textures
+        // 物品模型——继承 ee_machine_item 共用几何，只覆写贴图
+        def itemDir = resBase.resolve('assets/eecore/models/item')
+        java.nio.file.Files.createDirectories(itemDir)
+        for (def m : machines) {
+            def casing = tierNames[m.tier]
+            java.nio.file.Files.writeString(itemDir.resolve("${m.itemId}.json"),
+                    '{"parent":"eecore:item/ee_machine_item","textures":{"all":"eecore:block/casings/voltage/' + casing + '/side","front":"eecore:block/machines/' + m.itemId + '/overlay_front"}}')
+        }
+
+        for (def m : machines) {
+            def casing = tierNames[m.tier]
+            def casingTex = "eecore:block/casings/voltage/${casing}/side"
+
+            def blockDir = resBase.resolve("assets/eecore/models/block/machines/${m.itemId}")
+            java.nio.file.Files.createDirectories(blockDir)
+            java.nio.file.Files.writeString(blockDir.resolve('controller.json'),
+                    '{"parent":"eecore:block/ee_base_12","textures":{"particle":"' + casingTex + '","all":"' + casingTex + '","front":"eecore:block/machines/' + m.itemId + '/overlay_front"}}')
+        }
+
+        // Blockstate — all 32 model indices / 方块状态——32 个模型索引
+        def sb = new StringBuilder('{\n  "variants": {\n')
+        for (int idx = 0; idx <= 31; idx++) {
+            def ref = 'eecore:block/machine_controller'
+            if (idx == 1) ref = 'eecore:block/ee_base_12'
+            else if (idx == 2) ref = 'eecore:block/ee_base_16'
+            else if (idx != 0 && idx != 3) {
+                for (def m : machines) {
+                    if (m.index == idx) { ref = "eecore:block/machines/${m.itemId}/controller"; break }
+                }
+            }
+            sb.append('    "facing=north,model=' + idx + '": { "model": "' + ref + '", "y": 0 },\n')
+            sb.append('    "facing=east,model=' + idx + '":  { "model": "' + ref + '", "y": 90 },\n')
+            sb.append('    "facing=south,model=' + idx + '": { "model": "' + ref + '", "y": 180 },\n')
+            sb.append('    "facing=west,model=' + idx + '":  { "model": "' + ref + '", "y": 270 }')
+            if (idx < 31) sb.append(',\n\n')
+            else sb.append('\n')
+        }
+        sb.append('  }\n}')
+        def bsDir = resBase.resolve('assets/eecore/blockstates')
+        java.nio.file.Files.createDirectories(bsDir)
+        java.nio.file.Files.writeString(bsDir.resolve('machine_controller.json'), sb.toString())
+
+        logger.lifecycle('genMachineModels: {} machines -> block + blockstate + item stubs', machines.size())
+    }
+}
+
+processResources.dependsOn genMachineModels
+
+// ===== Production deploy =====
 def mcInstance = System.getenv('MC_INSTANCE') ?: project.findProperty('mcInstance')
 def prodModsDir = mcInstance ? "${mcInstance}/mods" : null
 

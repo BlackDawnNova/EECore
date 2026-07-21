@@ -283,6 +283,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         batchActive = false;
         batchQuotaAcc = 0;
         lastEffParallel = 0;
+        currentHeatBoost = 100;
         batchTotal = 0;
         batchProcessed = 0;
         batchSnapshotVersion = -1;
@@ -315,7 +316,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     public void setMachineId(ResourceLocation id) { this.machineId = id; setChanged(); }
     public void setSupportedTypes(java.util.List<ResourceLocation> types) {
         this.supportedTypes = java.util.List.copyOf(types);
-        if (!supportedTypes.contains(currentProfileId) && !supportedTypes.isEmpty())
+        if (supportedTypes.isEmpty()) {
+            currentProfileId = null; // structural machine with no recipes / 结构型机器无需加工
+        } else if (!supportedTypes.contains(currentProfileId))
             currentProfileId = supportedTypes.get(0);
         setChanged();
     }
@@ -583,19 +586,30 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
         long ph = com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition);
         com.endlessepoch.core.api.energy.eb.batch.SpecResult seg;
+        boolean anyDelivered = false;
         while ((seg = com.endlessepoch.core.api.energy.eb.batch.SegmentMergeManager.poll(ph)) != null) {
+            anyDelivered = true;
             if (batchActive && seg.version() == batchSnapshotVersion)
                 batchPending.addAll(seg.results());
         }
         if (!batchPending.isEmpty()) tickBatch(tick);
+        else if (batchActive && anyDelivered) {
+            // ForkJoin returned no results / ForkJoin 返回空结果
+            LOGGER.warn("[EB] batch delivered empty — no recipe match @{}", worldPosition.toShortString());
+            invalidateBatch();
+        }
         else if (completionTick > 0 && tick >= completionTick) completeRecipe(tick);
         if (isBatchCapable() && tick % 5 == 0) flowTracker.record(countPendingItems());
 
         if (++breakCheckTick >= 100) {
             breakCheckTick = 0;
             var pattern = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.get(machineId);
-            if (pattern.isPresent() && !com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(
-                    level, pattern.get(), worldPosition, getFacing())) {
+            if (pattern.isEmpty()) return;
+            var pat = pattern.get();
+            boolean intact = pat.isFrameBased()
+                    ? com.endlessepoch.core.api.multiblock.MultiBlockValidator.validateFrame(level, pat, worldPosition, getFacing()) != null
+                    : com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(level, pat, worldPosition, getFacing());
+            if (!intact) {
                 onMultiblockBroken();
                 com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.notifyBreak(this, worldPosition, level);
                 if (wasEverFormed && ownerUUID != null) {
@@ -613,6 +627,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private <C extends net.minecraft.world.item.crafting.RecipeInput,
              T extends net.minecraft.world.item.crafting.Recipe<C>>
     net.minecraft.world.item.crafting.RecipeType<T> getRecipeType() {
+        if (currentProfileId == null) return null;
         var prof = com.endlessepoch.core.api.machine.MachineTypeRegistry.get(currentProfileId);
         return (net.minecraft.world.item.crafting.RecipeType<T>)
                 prof.map(com.endlessepoch.core.api.machine.MachineType::recipeType)
@@ -707,8 +722,21 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (inputBusPos.isEmpty()) return;
         if (batchActive) return;
 
+        if (currentProfileId == null) return;
         if (isBatchCapable()) {
             long pending = countPendingItems();
+            if (pending == 0) {
+                currentHeatBoost = 100;
+                voltageBlockedTier = -1;
+                tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.IDLE);
+                return;
+            }
+            if (!hasAnyMatchingRecipe()) {
+                currentHeatBoost = 100;
+                tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.RECIPE_MISMATCH);
+                voltageBlockedTier = -1;
+                return;
+            }
             if (pending >= 32) {
                 // Heavy tier (≥32): full ForkJoin batch with prime-offset stagger
                 // 重档（≥32）：完整 ForkJoin 批处理 + 质数偏移错峰
@@ -771,7 +799,26 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     /** Whether the active profile's recipe type is registered for batch processing. / 当前档位配方类型是否已注册可批处理。 */
     private boolean isBatchCapable() {
+        if (currentProfileId == null) return false;
         return com.endlessepoch.core.api.recipe.RecipeSnapshotCache.isBatchCapable(getRecipeType());
+    }
+
+    /** Quick pre-check: does ANY input bus item have a matching recipe? / 快速预检：输入总线里是否有任何物品能匹配到配方？ */
+    private boolean hasAnyMatchingRecipe() {
+        var rt = getRecipeType();
+        if (rt == null) return false;
+        for (var ip : inputBusPos) {
+            if (level.getBlockEntity(ip) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
+                for (int s = 0; s < bus.getInventory().getSlots(); s++) {
+                    var stack = bus.getInventory().getStackInSlot(s);
+                    if (stack.isEmpty()) continue;
+                    long id = com.endlessepoch.core.api.energy.eb.ItemSnapshotUtil.itemId(stack);
+                    if (com.endlessepoch.core.api.recipe.RecipeSnapshotCache.get(rt, id) != null)
+                        return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** Total items across input buses (creative buses report their template counts). / 输入总线物品总数（创造总线按模板数量计）。 */
@@ -899,6 +946,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         var results = com.endlessepoch.core.api.energy.eb.batch.BatchExecutor.computeInline(task);
         if (results.isEmpty()) {
             voltageBlockedTier = -1;
+            if (!processingInput.isEmpty()) {
+                processingInput = net.minecraft.world.item.ItemStack.EMPTY; progress = 0; maxProgress = 0; setChanged();
+            }
             return;
         }
         batchPending.addAll(results);
@@ -951,14 +1001,13 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             batchTotal = batchProcessed + remaining; // snap to matched ops / 校正为实际匹配数
         }
         if (batchPending.isEmpty()) {
-            if (!computing) {
-                batchActive = false;
-                                batchQuotaAcc = 0;
-                batchCompletions++;
-                globalBatchCompletions++;
-                setChanged();
-                publishProcessEvent();
-            }
+            if (computing) return;
+            batchActive = false;
+            batchQuotaAcc = 0;
+            batchCompletions++;
+            globalBatchCompletions++;
+            setChanged();
+            publishProcessEvent();
             return;
         }
         if (paused) return;
@@ -1017,7 +1066,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (done > 0) setChanged();
         if (!computing && batchPending.isEmpty()) {
             batchActive = false;
-                        batchQuotaAcc = 0;
+            batchQuotaAcc = 0;
             batchCompletions++;
             globalBatchCompletions++;
             setChanged();
@@ -1301,10 +1350,13 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private void tryFormation() {
         if (machineId == null) return;
         var pattern = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.get(machineId);
-        if (pattern.isPresent() && com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(
-                level, pattern.get(), worldPosition, getFacing())) {
+        if (pattern.isEmpty()) return;
+        var pat = pattern.get();
+        boolean ok = pat.isFrameBased()
+                || com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(level, pat, worldPosition, getFacing());
+        if (ok) {
             com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.tryForm(
-                    this, pattern.get(), getFacing(), null);
+                    this, pat, getFacing(), null);
             if (formed) {
                 // scanParts + publishProcessEvent are now in onMultiblockFormed()
                 if (ownerUUID != null) {

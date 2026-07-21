@@ -29,8 +29,6 @@ public class CreativeBusGhostHandler implements IGhostIngredientHandler<BusScree
     @Override
     public <I> List<Target<I>> getTargetsTyped(BusScreen screen, ITypedIngredient<I> ingredient, boolean doStart) {
         BusMenu menu = screen.getMenu();
-        // Only input-side creative parts take templates — voids have none
-        // 仅输入侧创造部件可设模板——虚空无模板
         if (!menu.isCreative() || menu.isOutputBus()) return List.of();
         Object ing = ingredient.getIngredient();
         List<Target<I>> targets = new ArrayList<>();

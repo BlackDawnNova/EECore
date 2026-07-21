@@ -158,6 +158,9 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
             } else if (mm.isEnergyBlocked()) {
                 statusText = Component.translatable("eecore.gui.status.energy_low").getString();
                 statusColor = 0xFF_FFCC00;
+            } else if (!mm.isFormed()) {
+                statusText = Component.translatable("eecore.gui.status.unformed").getString();
+                statusColor = 0xFF_FF3333;
             } else {
                 statusText = Component.translatable("eecore.gui.status.idle").getString();
                 statusColor = 0xFF_888888;

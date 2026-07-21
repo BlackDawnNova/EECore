@@ -34,6 +34,9 @@ public final class MultiblockLoader {
     private IMachineEffect effect;
     private String itemId;
     private String[] supportedTypes;
+    private boolean frameBased;
+    private String frameCasingTag;
+    private int frameMinW=2, frameMaxW=32, frameMinH=2, frameMaxH=16, frameMinD=2, frameMaxD=32;
     private final Map<String, Map<Block, Integer>> perBlockLimits = new LinkedHashMap<>();
     private final Map<String, Map<PartCategory, Integer>> categoryLimits = new LinkedHashMap<>();
 
@@ -98,6 +101,11 @@ public final class MultiblockLoader {
     public MultiblockLoader effect(IMachineEffect e) { this.effect = e; return this; }
     public MultiblockLoader itemId(String id) { this.itemId = id; return this; }
     public MultiblockLoader supports(String... ids) { this.supportedTypes = ids; return this; }
+    public MultiblockLoader frame(String casingTag, int minW, int maxW, int minH, int maxH, int minD, int maxD) {
+        this.frameBased = true; this.frameCasingTag = casingTag;
+        this.frameMinW=minW; this.frameMaxW=maxW; this.frameMinH=minH; this.frameMaxH=maxH; this.frameMinD=minD; this.frameMaxD=maxD;
+        return this;
+    }
 
     /**
      * Register: loads .ecs, creates MachineDefinition, registers pattern + controller item.
@@ -116,6 +124,9 @@ public final class MultiblockLoader {
             EECore.LOGGER.error("MultiblockLoader: .ecs not found for {}", ecsFile);
             return null;
         }
+        // Auto-apply frame settings from .ecs flag / .ecs标志自动应用frame设置
+        if (pattern.isFrameBased() && frameBased)
+            pattern.setFrameBased(frameCasingTag, frameMinW, frameMaxW, frameMinH, frameMaxH, frameMinD, frameMaxD);
 
         // 2. Apply tag alternatives / 应用 TAG 替选块
         for (var e : tagBindings.entrySet())
@@ -141,6 +152,7 @@ public final class MultiblockLoader {
         for (var e : categoryLimits.entrySet())
             for (var ce : e.getValue().entrySet())
                 pattern.setCategoryLimit(e.getKey(), ce.getKey(), ce.getValue());
+
 
         // 3. Create MachineDefinition / 创建定义
         String en = nameEn != null ? nameEn : machineId.getPath();

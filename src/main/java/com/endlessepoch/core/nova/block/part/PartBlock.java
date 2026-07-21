@@ -18,6 +18,10 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -182,7 +186,21 @@ public class PartBlock extends Block implements EntityBlock {
             return new CreativeHatchBlockEntity(pos, state, partType, tier);
         if (isCreativeParallel(partType))
             return new CreativeParallelHatchBlockEntity(pos, state, partType, tier);
+        if (partType.getId().getPath().endsWith("ae_interface"))
+            return new AeInterfaceBlockEntity(pos, state, partType, tier);
         return new PartBlockEntity(pos, state, partType, tier);
+    }
+
+    @Nullable
+    @Override
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
+                                                                    BlockEntityType<T> bet) {
+        if (level.isClientSide()) return null;
+        // Only ae_interface parts need server tick / 仅 ae_interface 需要服务端 tick
+        if (!partType.getId().getPath().endsWith("ae_interface")) return null;
+        return (lvl, pos, st, be) -> {
+            if (be instanceof AeInterfaceBlockEntity ae) ae.serverTick();
+        };
     }
 
     @Override
@@ -240,6 +258,10 @@ public class PartBlock extends Block implements EntityBlock {
                 }); return InteractionResult.SUCCESS;
             }
         }
+        if (partType.getId().getPath().startsWith("dispatch") || partType.getId().getPath().startsWith("supercomputing")
+                || partType.getId().getPath().startsWith("pattern_unit") || partType.getId().getPath().startsWith("quantity")
+                || partType.getId().getPath().startsWith("parallel_unit"))
+            return InteractionResult.PASS;
         return InteractionResult.sidedSuccess(level.isClientSide());
     }
 

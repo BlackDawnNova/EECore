@@ -45,7 +45,7 @@ public class BlockPlaceHandler {
             if (Math.abs(pos.getZ() - cp.getZ()) > maxR) continue;
             BlockEntity be = level.getBlockEntity(cp);
             if (be instanceof MachineControllerBlockEntity mc && mc.getMachineId() != null) {
-                mc.schedulePatternCheck(20);
+                mc.schedulePatternCheck(5);
             } else {
                 controllers.remove(cp);
             }

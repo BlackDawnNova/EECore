@@ -31,7 +31,8 @@ public final class EcsRawCodec {
         } else {
             body = payload;
         }
-        byte flags = (byte) (compress ? EcsFormat.FLAG_COMPRESSED : 0);
+        byte flags = (byte) ((compress ? EcsFormat.FLAG_COMPRESSED : 0)
+                | (data.frameBased ? EcsFormat.FLAG_FRAME_BASED : 0));
         baos.write(flags);
         baos.write(body);
         CRC32 crc = new CRC32();
@@ -58,7 +59,7 @@ public final class EcsRawCodec {
             body = new byte[raw.length - 4];
             System.arraycopy(raw, 0, body, 0, body.length);
         }
-        return decodePayload(body, version);
+        return decodePayload(body, version, flags);
     }
 
     public static EcsRawData read(Path path) throws IOException {
@@ -119,10 +120,11 @@ public final class EcsRawCodec {
         return baos.toByteArray();
     }
 
-    private static EcsRawData decodePayload(byte[] payload, int version) throws IOException {
+    private static EcsRawData decodePayload(byte[] payload, int version, int flags) throws IOException {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(payload));
         int w = readVarInt(in), h = readVarInt(in), d = readVarInt(in);
         int cx = readVarInt(in), cy = readVarInt(in), cz = readVarInt(in);
+        boolean frameBased = (flags & EcsFormat.FLAG_FRAME_BASED) != 0;
         int palSize = readVarInt(in);
         // palSize > 256 → 16-bit character encoding / 调色板 > 256 判定字符编码宽度
         boolean use16Bit = palSize > 256;
@@ -165,7 +167,7 @@ public final class EcsRawCodec {
             in.readFully(raw, 0, readLen);
             for (int i = 0; i < readLen; i++) voxelData[i] = (short) (raw[i] & 0xFF);
         }
-        return new EcsRawData(w, h, d, cx, cy, cz, palette, voxelData);
+        return new EcsRawData(w, h, d, cx, cy, cz, palette, voxelData, frameBased);
     }
 
     static void writeVarInt(DataOutputStream out, int value) throws IOException {

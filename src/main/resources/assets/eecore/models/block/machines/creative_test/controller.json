@@ -1,1 +1,1 @@
-{"parent":"eecore:block/ee_base_12_front_emissive","textures":{"particle":"eecore:block/casings/voltage/lv/side","all":"eecore:block/casings/voltage/lv/side","front":"eecore:block/machines/creative_test/overlay_front","overlay_emissive":"eecore:block/machines/creative_test/overlay_front_e"}}
+{"parent":"eecore:block/ee_base_12","textures":{"particle":"eecore:block/casings/voltage/lv/side","all":"eecore:block/casings/voltage/lv/side","front":"eecore:block/machines/creative_test/overlay_front"}}

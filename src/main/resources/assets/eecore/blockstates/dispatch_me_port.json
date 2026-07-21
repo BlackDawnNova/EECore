@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"eecore:block/dispatch_me_port","y":0},"facing=east":{"model":"eecore:block/dispatch_me_port","y":90},"facing=south":{"model":"eecore:block/dispatch_me_port","y":180},"facing=west":{"model":"eecore:block/dispatch_me_port","y":270}}}

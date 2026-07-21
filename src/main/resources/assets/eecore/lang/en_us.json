@@ -112,6 +112,7 @@
   "block.eecore.sv_machine_casing": "SV Machine Casing",
   "block.eecore.bv_machine_casing": "BV Machine Casing",
   "block.eecore.qv_machine_casing": "QV Machine Casing",
+  "block.eecore.ae_interface": "EE Dispatch Node",
   "block.eecore.input_bus": "Input Bus",
   "block.eecore.output_bus": "Output Bus",
   "block.eecore.input_assembly": "Input Assembly",
@@ -126,6 +127,7 @@
   "eecore.gui.status.idle": "Idle",
   "eecore.gui.status.output_full": "No Output Space",
   "eecore.gui.status.voltage_low": "Insufficient voltage — requires %s, please upgrade",
+  "eecore.gui.status.unformed": "Unformed",
   "eecore.gui.status.energy_low": "Insufficient energy — please power the energy input hatch",
   "eecore.gui.batch_on": "Batch: ON",
   "eecore.gui.batch_off": "Batch: OFF",
@@ -272,5 +274,14 @@
   "block.eecore.oversized_output_bus": "Oversized Output Bus",
   "block.eecore.oversized_locked_input_bus": "Oversized Locked Input Bus",
   "block.eecore.oversized_locked_input_bin": "Oversized Locked Input Bin",
-  "block.eecore.oversized_locked_input_assembly": "Oversized Locked Input Assembly"
+  "block.eecore.oversized_locked_input_assembly": "Oversized Locked Input Assembly",
+  "eecore.ecs.format.fixed": "Fixed",
+  "eecore.ecs.format.frame": "Frame-based",
+  "eecore.ecs.format.title": "Select Format",
+  "block.eecore.supercomputing_unit": "Supercomputing Unit",
+  "block.eecore.pattern_unit": "Pattern Unit",
+  "block.eecore.quantity_unit": "Quantity Unit",
+  "block.eecore.parallel_unit": "Parallel Unit",
+  "block.eecore.dispatch_me_port": "ME Communication Port",
+  "block.eecore.dispatch_casing": "Dispatch Casing"
 }

@@ -1,6 +1,7 @@
 package com.endlessepoch.core.api.multiblock;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 
 import java.util.*;
@@ -36,6 +37,17 @@ public final class MultiBlockBreakDetector {
                         default    -> controllerPos.offset(rx, ry, rz);
                     };
                     FORMED_BLOCKS.put(wp, controllerPos);
+                }
+    }
+
+    public static void stampFrame(ServerLevel level, BlockPos origin, BlockPos controllerPos,
+                                   int w, int h, int d, Direction facing) {
+        for (int y = 0; y < h; y++)
+            for (int z = 0; z < d; z++)
+                for (int x = 0; x < w; x++) {
+                    BlockPos wp = origin.offset(x, y, z);
+                    if (!level.getBlockState(wp).isAir())
+                        FORMED_BLOCKS.put(wp, controllerPos);
                 }
     }
 

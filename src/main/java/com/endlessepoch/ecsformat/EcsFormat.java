@@ -9,6 +9,7 @@ public final class EcsFormat {
     public static final byte VOXEL_COMPRESSED = 2; // v3+: non-air only, 8-bit palette index
     public static final byte VOXEL_16BIT_COMPRESSED = 3; // v3+: non-air only, 16-bit palette index
     public static final byte FLAG_COMPRESSED = 0x01;
+    public static final byte FLAG_FRAME_BASED = 0x02;
     public static final byte VOXEL_8BIT = 0;
     public static final byte VOXEL_16BIT = 1;
     public static final String EXTENSION = ".ecs";

@@ -1,0 +1,1 @@
+{"variants":{"facing=north":{"model":"eecore:block/pattern_unit","y":0},"facing=east":{"model":"eecore:block/pattern_unit","y":90},"facing=south":{"model":"eecore:block/pattern_unit","y":180},"facing=west":{"model":"eecore:block/pattern_unit","y":270}}}
