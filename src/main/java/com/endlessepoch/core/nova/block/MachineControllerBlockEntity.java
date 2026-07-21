@@ -91,7 +91,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private volatile net.minecraft.world.item.ItemStack bgInput;
 
     // Batch mode (Phase 3) / 批处理模式
-    private boolean batchActive;
+    private enum State { IDLE, BATCHING, SUBSCRIBER }
+    private State state = State.IDLE;
+    private boolean batchActive() { return state == State.BATCHING; }
     private boolean batchDeferred; // prime-offset stagger postponed the start / 被质数偏移错峰推迟，serverTick 续试
     private long kickoffAt;        // staggered world-load kickoff tick, 0=idle / 读档启动散列目标 tick，0=空闲
     private int lastEffParallel;   // live effective parallel for GUI / 供 GUI 显示的当前有效并行
@@ -239,7 +241,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                                 return;
                             }
                             if (cost > 0) consumeEnergy(cost, false); // deduct after item committed / 物品消耗后实扣
-                            processingInput = bgInput; cachedResults = bgResults;
+                            processingInput = bgInput; cachedResults = bgResults; MachineControllerBlockEntity.this.state = State.SUBSCRIBER;
                             maxProgress = bgDuration;
                             recipeStartedTick = level.getGameTime();
                             completionTick = recipeStartedTick + bgDuration;
@@ -280,7 +282,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         com.endlessepoch.core.api.energy.eb.batch.MachineLoadLimiter.cancel(ph);
         com.endlessepoch.core.api.energy.eb.batch.SegmentMergeManager.clear(ph);
         batchPending.clear();
-        batchActive = false;
+        state = State.IDLE;
         batchQuotaAcc = 0;
         lastEffParallel = 0;
         currentHeatBoost = 100;
@@ -291,7 +293,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     }
 
     private void clearBatchState() {
-        batchActive = false;
+        state = State.IDLE;
         batchDeferred = false;
         kickoffAt = 0;
         lastEffParallel = 0;
@@ -355,7 +357,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     public void onMultiblockBroken() {
         formed = false;
         autoFormCheckTick = 0;
-        processingInput = net.minecraft.world.item.ItemStack.EMPTY; progress = 0; maxProgress = 0;
+        state = State.IDLE; processingInput = net.minecraft.world.item.ItemStack.EMPTY; progress = 0; maxProgress = 0;
         cachedResults = java.util.List.of();
         inputBusPos.clear(); outputBusPos.clear();
         energyInputPos.clear(); energyOutputPos.clear();
@@ -397,16 +399,16 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     }
 
     public boolean isOutputBlocked() { return backpressure.getState() == com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.OUTPUT_FULL; }
-    public boolean hasWork() { return batchActive || !processingInput.isEmpty(); }
+    public boolean hasWork() { return state != State.IDLE; }
     public long getBatchOpsProcessed() { return totalOpsProcessed; }
     long totalOpsProcessed;
     public int getProgress() {
-        if (batchActive) return batchTotal <= 0 ? 0 : (int) (batchProcessed * 1000 / Math.max(1, batchTotal));
+        if (batchActive()) return batchTotal <= 0 ? 0 : (int) (batchProcessed * 1000 / Math.max(1, batchTotal));
         return progress;
     }
-    public int getMaxProgress() { return batchActive ? 1000 : maxProgress; }
+    public int getMaxProgress() { return batchActive() ? 1000 : maxProgress; }
     public int getProcessingItemId() {
-        if (batchActive) {
+        if (batchActive()) {
             var head = batchPending.peekFirst();
             return head != null ? (int) head.inputItemId() : 0;
         }
@@ -415,11 +417,11 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     }
 
     /** Batch pipeline currently running. / 批处理进行中。 */
-    public boolean isBatchActive() { return batchActive; }
+    public boolean isBatchActive() { return batchActive(); }
 
     /** Effective parallel for GUI: live batch value, else hardware cap. / GUI 显示的有效并行：批中取实时值，否则硬件上限。 */
     public int getDisplayEffectiveParallel() {
-        return batchActive && lastEffParallel > 0 ? lastEffParallel : getParallelCap();
+        return batchActive() && lastEffParallel > 0 ? lastEffParallel : getParallelCap();
     }
 
     public ResourceLocation getCurrentProfileId() { return currentProfileId; }
@@ -473,7 +475,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (!paused) publishProcessEvent();
     }
     public void toggleHeat() { heatEnabled = !heatEnabled; setChanged(); }
-    public void toggleOverclock() { overclockEnabled = !overclockEnabled; setChanged(); }
+    public void toggleOverclock() { overclockEnabled = !overclockEnabled; invalidateBatch(); publishProcessEvent(); setChanged(); }
     public boolean isHeatEnabled() { return heatEnabled; }
     public boolean isOverclockEnabled() { return overclockEnabled; }
     private boolean effectsEnabled = true;
@@ -536,88 +538,92 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     public void serverTick() {
         if (level == null || level.isClientSide()) return;
+        tryFormIfScheduled();
+        if (!formed || machineId == null) { tryAutoForm(); return; }
 
-        if (scheduledCheckTick > 0 && --scheduledCheckTick == 0) {
-            tryFormation();
-        }
-
-        if (!formed && machineId != null && ++autoFormCheckTick >= 100) {
-            autoFormCheckTick = 0;
-            tryFormation();
-        }
-
-        if (!formed || machineId == null) {
-            return;
-        }
-
-        // Unformed machines pay zero heartbeat — onMultiblockFormed resyncs instead
-        // 未成型机器零心跳——由 onMultiblockFormed 的 resync 对时
         long tick = level.getGameTime();
-        // World load restores formed via NBT without onMultiblockFormed — stagger the
-        // first kickoff across 2 seconds by posHash so machines don't all pile onto
-        // the same tick.
-        // 读档恢复 formed 但不触发 onMultiblockFormed——按 posHash 散列到 2 秒窗口，
-        // 防止多机同时苏醒挤爆单 tick。
+        handleKickoff(tick);
+        ebFlow.flush(tick);
+        retryDeferredBatch(tick);
+        drainDeliveredSegments();
+        tickMachine(tick);
+        flowTrackerTick(tick);
+        checkStructureIntegrity();
+    }
+
+    private void tryFormIfScheduled() {
+        if (scheduledCheckTick > 0 && --scheduledCheckTick == 0) tryFormation();
+    }
+
+    private void tryAutoForm() {
+        if (machineId != null && ++autoFormCheckTick >= 100) { autoFormCheckTick = 0; tryFormation(); }
+    }
+
+    private void handleKickoff(long tick) {
         if (needsKickoff) {
             needsKickoff = false;
             ebFlow.resync(tick);
-            int delay = (int) (Math.floorMod(
-                    com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition), 40));
-            batchDeferred = delay > 0;
-            if (batchDeferred) {
-                kickoffAt = tick + delay;
-            } else {
-                publishProcessEvent(); // slot 0 → fire now / 槽位 0 → 立即踢
-            }
+            int delay = (int)(Math.floorMod(com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition), 40));
+            if (delay > 0) { kickoffAt = tick + delay; batchDeferred = true; }
+            else publishProcessEvent();
         }
-        if (kickoffAt > 0 && tick >= kickoffAt) {
-            kickoffAt = 0;
-            batchDeferred = false;
-            publishProcessEvent();
-        }
-        ebFlow.flush(tick);
-        // Prime-offset deferred batch start — retry when the stagger slot opens
-        // 被质数偏移推迟的批启动——错峰时隙到点续试
-        if (batchDeferred && com.endlessepoch.core.api.energy.eb.batch.PrimeOffsetScheduler.canProcess(
+        if (kickoffAt > 0 && tick >= kickoffAt) { kickoffAt = 0; batchDeferred = false; publishProcessEvent(); }
+    }
+
+    private void retryDeferredBatch(long tick) {
+        if (!batchDeferred) return;
+        if (com.endlessepoch.core.api.energy.eb.batch.PrimeOffsetScheduler.canProcess(
                 com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition), tick,
                 com.endlessepoch.core.Config.p3PrimeOffsetMode)) {
             batchDeferred = false;
             publishProcessEvent();
         }
+    }
+
+    private void drainDeliveredSegments() {
         long ph = com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition);
         com.endlessepoch.core.api.energy.eb.batch.SpecResult seg;
-        boolean anyDelivered = false;
+        boolean any = false;
         while ((seg = com.endlessepoch.core.api.energy.eb.batch.SegmentMergeManager.poll(ph)) != null) {
-            anyDelivered = true;
-            if (batchActive && seg.version() == batchSnapshotVersion)
+            any = true;
+            if (batchActive() && seg.version() == batchSnapshotVersion)
                 batchPending.addAll(seg.results());
         }
-        if (!batchPending.isEmpty()) tickBatch(tick);
-        else if (batchActive && anyDelivered) {
-            // ForkJoin returned no results / ForkJoin 返回空结果
-            LOGGER.warn("[EB] batch delivered empty — no recipe match @{}", worldPosition.toShortString());
+        if (!batchPending.isEmpty()) return;
+        if (batchActive() && any) {
+            LOGGER.warn("[EB] batch delivered empty @{}", worldPosition.toShortString());
             invalidateBatch();
         }
-        else if (completionTick > 0 && tick >= completionTick) completeRecipe(tick);
-        if (isBatchCapable() && tick % 5 == 0) flowTracker.record(countPendingItems());
+    }
 
-        if (++breakCheckTick >= 100) {
-            breakCheckTick = 0;
-            var pattern = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.get(machineId);
-            if (pattern.isEmpty()) return;
-            var pat = pattern.get();
-            boolean intact = pat.isFrameBased()
-                    ? com.endlessepoch.core.api.multiblock.MultiBlockValidator.validateFrame(level, pat, worldPosition, getFacing()) != null
-                    : com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(level, pat, worldPosition, getFacing());
-            if (!intact) {
-                onMultiblockBroken();
-                com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.notifyBreak(this, worldPosition, level);
-                if (wasEverFormed && ownerUUID != null) {
-                    var player = level.getPlayerByUUID(ownerUUID);
-                    if (player instanceof net.minecraft.server.level.ServerPlayer sp) {
-                        com.endlessepoch.core.api.multiblock.MultiBlockValidator.validateAndPreview(
-                                pattern.get(), machineId, worldPosition, getFacing(), level, sp, true);
-                    }
+    private void tickMachine(long tick) {
+        switch (state) {
+            case BATCHING -> { if (!batchPending.isEmpty()) tickBatch(tick); }
+            case SUBSCRIBER -> { if (completionTick > 0 && tick >= completionTick) completeRecipe(tick); }
+        }
+    }
+
+    private void flowTrackerTick(long tick) {
+        if (isBatchCapable() && tick % 5 == 0) flowTracker.record(countPendingItems());
+    }
+
+    private void checkStructureIntegrity() {
+        if (++breakCheckTick < 100) return;
+        breakCheckTick = 0;
+        var pattern = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.get(machineId);
+        if (pattern.isEmpty()) return;
+        var pat = pattern.get();
+        boolean intact = pat.isFrameBased()
+                ? com.endlessepoch.core.api.multiblock.MultiBlockValidator.validateFrame(level, pat, worldPosition, getFacing()) != null
+                : com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(level, pat, worldPosition, getFacing());
+        if (!intact) {
+            onMultiblockBroken();
+            com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.notifyBreak(this, worldPosition, level);
+            if (wasEverFormed && ownerUUID != null) {
+                var player = level.getPlayerByUUID(ownerUUID);
+                if (player instanceof net.minecraft.server.level.ServerPlayer sp) {
+                    com.endlessepoch.core.api.multiblock.MultiBlockValidator.validateAndPreview(
+                            pattern.get(), machineId, worldPosition, getFacing(), level, sp, true);
                 }
             }
         }
@@ -706,93 +712,71 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return (int) Math.min(hardware, Math.min(sustained, com.endlessepoch.core.Config.p3MaxParallelPerMachine));
     }
 
-    /**
-     * Called by InputBus when items arrive. Two-tier dispatch: <32 inline compute with
-     * parallel write-back → ≥32 full ForkJoin batch. The light/heavy write-back split
-     * lives inside writeBackOps, not here.
-     * Non-machine profiles (vanilla recipes) keep the Subscriber-based light path.
-     * 物品进总线时发布事件。两档分发：<32 内联计算+并行写回→≥32 全 ForkJoin 批处理。
-     * 写回轻/重路径是 writeBackOps 内部的另一层切分，与此无关。
-     * 非机器配方（原版）保留 Subscriber 轻路径。
-     */
     public void publishProcessEvent() {
         if (level == null || level.isClientSide() || !formed) return;
         if (paused) return;
         if (inputBusPos.isEmpty()) scanParts();
         if (inputBusPos.isEmpty()) return;
-        if (batchActive) return;
+        if (state != State.IDLE || currentProfileId == null) return;
 
-        if (currentProfileId == null) return;
-        if (isBatchCapable()) {
-            long pending = countPendingItems();
-            if (pending == 0) {
-                currentHeatBoost = 100;
-                voltageBlockedTier = -1;
-                tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.IDLE);
+        if (isBatchCapable()) { tryBatchPath(); return; }
+        trySubscriberPath();
+    }
+
+    private void tryBatchPath() {
+        long pending = countPendingItems();
+        if (pending == 0) { setIdle(); return; }
+        if (!hasAnyMatchingRecipe()) { setBlocked(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.RECIPE_MISMATCH); return; }
+
+        if (pending >= 32) {
+            if (!com.endlessepoch.core.api.energy.eb.batch.PrimeOffsetScheduler.canProcess(
+                    com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition),
+                    level.getGameTime(), com.endlessepoch.core.Config.p3PrimeOffsetMode)) {
+                batchDeferred = true;
                 return;
             }
-            if (!hasAnyMatchingRecipe()) {
-                currentHeatBoost = 100;
-                tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.RECIPE_MISMATCH);
-                voltageBlockedTier = -1;
-                return;
-            }
-            if (pending >= 32) {
-                // Heavy tier (≥32): full ForkJoin batch with prime-offset stagger
-                // 重档（≥32）：完整 ForkJoin 批处理 + 质数偏移错峰
-                if (!com.endlessepoch.core.api.energy.eb.batch.PrimeOffsetScheduler.canProcess(
-                        com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition),
-                        level.getGameTime(), com.endlessepoch.core.Config.p3PrimeOffsetMode)) {
-                    if (!batchDeferred && Config.ebDebugLog && LOGGER.isDebugEnabled())
-                        LOGGER.debug("[EB-DBG] batch deferred by prime offset @{}",
-                                worldPosition.toShortString());
-                    batchDeferred = true;
-                    return;
-                }
-                if (startBatch()) return;
-            }
-            if (pending >= 1) {
-                startInlineBatch();
-            } else {
-                // Out of inputs — clear the stale multiplier so the ⚡ label disappears
-                // 断料——清除滞留倍率，⚡ 标签随之消失
-                currentHeatBoost = 100;
-                lastSpeedHeat = -1;
-                lastSpeedOcMul = -1;
-                voltageBlockedTier = -1;
-                tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.IDLE);
-            }
-            return;
+            if (startBatch()) return;
         }
+        if (pending >= 1) startInlineBatch();
+        else setIdle();
+    }
 
-        // Non-machine-profile: Subscriber-based light path (vanilla recipes etc.)
-        // 非机器配方：Subscriber 轻路径（原版配方等）
+    private void trySubscriberPath() {
         for (var ip : inputBusPos) {
-            var be = level.getBlockEntity(ip);
-            if (be instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
+            if (level.getBlockEntity(ip) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
                 for (int s = 0; s < bus.getInventory().getSlots(); s++) {
                     var stack = bus.getInventory().getStackInSlot(s);
                     if (stack.isEmpty()) continue;
                     long h = com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition);
                     var tv = com.endlessepoch.core.api.tier.VoltageTier.values()[getEffectiveTier()].getMinVoltage();
                     long voltage = tv.bitLength() >= 63 ? Long.MAX_VALUE : tv.longValue();
-                    var ev = new com.endlessepoch.core.api.energy.eb.EeEvent(
+                    ebFlow.publish(new com.endlessepoch.core.api.energy.eb.EeEvent(
                             com.endlessepoch.core.api.energy.eb.EeEvent.EventType.ITEM_IN,
                             System.nanoTime(), level.getGameTime(), h,
                             com.endlessepoch.core.api.energy.eb.ItemSnapshotUtil.itemId(stack), 1,
                             com.endlessepoch.core.api.energy.eb.ItemSnapshotUtil.nbtHash(stack),
                             voltage,
                             com.endlessepoch.core.Config.heatEnabled
-                                    ? heatComponent.getHeat(currentProfileId, level.getGameTime()) : 0.0);
-                    ebFlow.publish(ev);
+                                    ? heatComponent.getHeat(currentProfileId, level.getGameTime()) : 0.0));
                     return;
                 }
             }
         }
-        // No items in any bus — clear stale hints / 总线已空，清除滞留提示
         voltageBlockedTier = -1;
-        if (completionTick == 0) currentHeatBoost = 100; // idle only, keep it while cooking / 仅空闲清除，加工中保留
+        if (completionTick == 0) currentHeatBoost = 100;
         tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.IDLE);
+    }
+
+    private void setIdle() {
+        currentHeatBoost = 100;
+        voltageBlockedTier = -1;
+        tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.IDLE);
+    }
+
+    private void setBlocked(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State why) {
+        currentHeatBoost = 100;
+        voltageBlockedTier = -1;
+        tickBackpressure(why);
     }
 
     // ── Batch pipeline (Phase 3) / 批处理管线 ──
@@ -888,7 +872,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 java.util.List.copyOf(units));
         if (!com.endlessepoch.core.api.energy.eb.batch.MachineLoadLimiter.submit(task))
             return false;
-        batchActive = true;
+        state = State.BATCHING;
         batchTotal = totalItems;
         batchProcessed = 0;
         batchQuotaAcc = 0;
@@ -947,12 +931,12 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (results.isEmpty()) {
             voltageBlockedTier = -1;
             if (!processingInput.isEmpty()) {
-                processingInput = net.minecraft.world.item.ItemStack.EMPTY; progress = 0; maxProgress = 0; setChanged();
+                state = State.IDLE; processingInput = net.minecraft.world.item.ItemStack.EMPTY; progress = 0; maxProgress = 0; setChanged();
             }
             return;
         }
         batchPending.addAll(results);
-        batchActive = true;
+        state = State.BATCHING;
         batchTotal = totalItems;
         batchProcessed = 0;
         batchQuotaAcc = 0;
@@ -1002,7 +986,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
         if (batchPending.isEmpty()) {
             if (computing) return;
-            batchActive = false;
+            state = State.IDLE;
             batchQuotaAcc = 0;
             batchCompletions++;
             globalBatchCompletions++;
@@ -1065,7 +1049,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
         if (done > 0) setChanged();
         if (!computing && batchPending.isEmpty()) {
-            batchActive = false;
+            state = State.IDLE;
             batchQuotaAcc = 0;
             batchCompletions++;
             globalBatchCompletions++;
@@ -1337,7 +1321,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
         if (com.endlessepoch.core.Config.heatEnabled && heatEnabled && currentProfileId != null)
             heatComponent.bulkHeat(currentProfileId, pendingMaxHeat, recipeStartedTick, tick);
-        processingInput = net.minecraft.world.item.ItemStack.EMPTY;
+        state = State.IDLE; processingInput = net.minecraft.world.item.ItemStack.EMPTY;
         progress = 0; maxProgress = 0; completionTick = 0;
         tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.IDLE);
         setChanged();
@@ -1438,7 +1422,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (ownerUUID != null) tag.putUUID("ownerUUID", ownerUUID);
         if (ownerName != null) tag.putString("ownerName", ownerName);
         if (machineId != null) tag.putString("machineId", machineId.toString());
-        tag.putString("profile", currentProfileId.toString());
+        if (currentProfileId != null) tag.putString("profile", currentProfileId.toString());
         net.minecraft.nbt.ListTag st = new net.minecraft.nbt.ListTag();
         for (var t : supportedTypes) st.add(net.minecraft.nbt.StringTag.valueOf(t.toString()));
         tag.put("supportedTypes", st);

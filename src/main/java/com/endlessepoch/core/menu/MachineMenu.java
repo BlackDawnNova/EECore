@@ -117,14 +117,15 @@ public class MachineMenu extends AbstractContainerMenu {
         data.set(4, mc.getProcessingItemId());
         var supported = mc.getSupportedTypes();
         data.set(5, supported.size());
-        data.set(6, supported.indexOf(mc.getCurrentProfileId()));
+        var profile = mc.getCurrentProfileId();
+        data.set(6, profile != null ? supported.indexOf(profile) : 0);
         data.set(7, mc.isOutputBlocked() ? 1 : 0);
         // Heat: only update when changed (lazy, not per-tick) / 热量仅在变化时更新
         var hc = mc.getHeatComponent();
-        if (com.endlessepoch.core.Config.heatEnabled) {
-            double heat = hc.getHeatRaw(mc.getCurrentProfileId());
+        if (com.endlessepoch.core.Config.heatEnabled && profile != null) {
+            double heat = hc.getHeatRaw(profile);
             double maxH = java.util.Optional.ofNullable(
-                            com.endlessepoch.core.api.energy.eb.HeatMapCache.get(mc.getCurrentProfileId()))
+                            com.endlessepoch.core.api.energy.eb.HeatMapCache.get(profile))
                     .map(com.endlessepoch.core.api.energy.eb.HeatConfig::maxHeat).orElse(10.0);
             int mille = heat > 0 ? Math.min(1000, (int)(heat / Math.max(1.0, maxH) * 1000)) : 0;
             if (mille != data.get(8)) data.set(8, mille); // only sync on change / 仅变化时同步
