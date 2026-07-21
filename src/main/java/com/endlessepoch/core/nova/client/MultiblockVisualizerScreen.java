@@ -38,6 +38,7 @@ import java.util.*;
 @OnlyIn(Dist.CLIENT)
 public class MultiblockVisualizerScreen extends Screen {
 
+    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
     private static final int GRID_COLS = 5;
     private static final int GRID_SCREEN_FRAC = 4;
     private static final int GRID_CELL_ROWS = 3;
@@ -122,20 +123,8 @@ public class MultiblockVisualizerScreen extends Screen {
     private static final int KEY_DN = 264;
     private static final int KEY_DEL = 261;
 
-    private boolean formatSelectShow;
-    private int formatSelectChoice;
-    private static final String[] FORMAT_NAMES = {
-            net.minecraft.network.chat.Component.translatable("eecore.ecs.format.fixed").getString(),
-            net.minecraft.network.chat.Component.translatable("eecore.ecs.format.frame").getString()
-    };
-    private static final int FORMAT_DIALOG_H = FORMAT_NAMES.length * 18 + 50;
-
-    // Confirm dialog state / 确认弹窗
-    private boolean confirmShow = false;
-    private boolean confirmIsSave = false;
-    private int confirmTargetIdx = -1;
-    private String saveFileName = "";
-    private static final int CONFIRM_W = 200, CONFIRM_H = 80;
+    private final VisualizerFormatSelector formatSelector = new VisualizerFormatSelector();
+    private final VisualizerConfirmDialog confirmDialog = new VisualizerConfirmDialog();
 
     // Edit mode toggle / 编辑模式开关 (Alt+`)
     private boolean editModeActive = false;
@@ -180,6 +169,7 @@ public class MultiblockVisualizerScreen extends Screen {
     private int listL, listR, listT, listB;
     private int renderL, renderR, renderT, renderB;
     private int futureL, futureR, futureT, futureB;
+    private int fmtBtnX, fmtBtnY, fmtBtnW;
     private EECoreSceneWorld cachedScene;
     private ResourceLocation cachedPatternId;
     private int listScrollOffset;
@@ -310,25 +300,9 @@ public class MultiblockVisualizerScreen extends Screen {
         drawLayerControls(g);
 
         drawFloatingPanel(g, mx, my);
-        drawFormatSelectDialog(g, mx, my);
-        drawConfirmDialog(g);
-    }
-
-    private void drawFormatSelectDialog(GuiGraphics g, int mx, int my) {
-        if (!formatSelectShow) return;
-        int cx = (width - 160) / 2, cy = (height - FORMAT_DIALOG_H) / 2;
-        drawDialogBox(g, cx, cy, 160, FORMAT_DIALOG_H, Component.translatable("eecore.ecs.format.title"));
-        var font = Minecraft.getInstance().font;
-        for (int i = 0; i < FORMAT_NAMES.length; i++) {
-            int iy = cy + 28 + i * 20;
-            boolean hover = mx >= cx + 10 && mx <= cx + 150 && my >= iy && my <= iy + 16;
-            g.fill(cx + 10, iy, cx + 150, iy + 16, hover ? 0x664488FF : 0x22111133);
-            font.drawInBatch(Component.literal((formatSelectChoice == i ? "§b● " : "§8○ ") + FORMAT_NAMES[i]),
-                    cx + 14, iy + 3, 0xFFFFFFFF, false, g.pose().last().pose(),
-                    Minecraft.getInstance().renderBuffers().bufferSource(),
-                    Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-        }
-        Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
+        formatSelector.draw(g, -200, -200);
+        if (confirmDialog.show && confirmDialog.targetIdx >= 0)
+            confirmDialog.draw(g, patterns.get(confirmDialog.targetIdx).getKey().getPath());
     }
 
     private void drawHeader(GuiGraphics g) {
@@ -580,33 +554,6 @@ public class MultiblockVisualizerScreen extends Screen {
         buf.endBatch();
     }
 
-    private void drawConfirmDialog(GuiGraphics g) {
-        if (!confirmShow || confirmTargetIdx < 0) return;
-
-        var mc = Minecraft.getInstance();
-        mc.renderBuffers().bufferSource().endBatch();
-        RenderSystem.clearDepth(1.0);
-        RenderSystem.clear(256, false);
-
-        int cx = (width - CONFIRM_W) / 2, cy = (height - CONFIRM_H) / 2;
-        String title = confirmIsSave ? "§e确认保存修改?" : "§e确认删除此结构?";
-        drawDialogBox(g, cx, cy, CONFIRM_W, CONFIRM_H, Component.literal(title));
-
-        var buf = mc.renderBuffers().bufferSource();
-        var pose = g.pose().last().pose();
-
-        String disp = confirmIsSave ? "§f" + saveFileName + "§7_" : "§7" + patterns.get(confirmTargetIdx).getKey().getPath();
-        font.drawInBatch(Component.literal(disp), cx + 12, cy + 32, 0xCCCCCCCC, false,
-                pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-
-        font.drawInBatch(Component.literal("§a✔ 确认"), cx + 20, cy + 58, 0xFFFFFFFF, false,
-                pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-        font.drawInBatch(Component.literal("§c✘ 取消"), cx + CONFIRM_W - 60, cy + 58, 0xFFFFFFFF, false,
-                pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-
-        buf.endBatch();
-    }
-
     protected void drawFloatingPanel(GuiGraphics g, int mx, int my) {
         if (!panelVisible || pickResult == null || pickBlockState == null) return;
 
@@ -645,139 +592,75 @@ public class MultiblockVisualizerScreen extends Screen {
                 boolean isCtrl = pickBlockState != null && selectedIndex >= 0
                         && patterns.get(selectedIndex).getValue().getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ()) == 'K';
                 int colW = 84, gap = 8, margin = (PANEL_W - colW * 2 - gap) / 2;
-                int x1 = px + margin, x2 = x1 + colW + gap, y1 = py + 52, y2 = py + 72;
+                int x1 = px + margin, x2 = x1 + colW + gap;
                 var mat = g.pose().last().pose();
+                int flowY = py + 30;
                 if (isCtrl) {
                     drawButton(g, buf, mat, "§e 替换", x1, py + (ph - 16) / 2, PANEL_W - 2 * margin, false);
                 } else {
-                    drawButton(g, buf, mat, "§7 替换", x1, y1, colW, false);
-                    drawButton(g, buf, mat, "§7 批量", x2, y1, colW, false);
-                    drawButton(g, buf, mat, "§c 单删", x1, y2, colW, false);
-                    drawButton(g, buf, mat, "§c 批删", x2, y2, colW, false);
+                    drawButton(g, buf, mat, "§7 替换", x1, flowY, colW, false);
+                    drawButton(g, buf, mat, "§7 批量", x2, flowY, colW, false);
+                    drawButton(g, buf, mat, "§c 单删", x1, flowY + 20, colW, false);
+                    drawButton(g, buf, mat, "§c 批删", x2, flowY + 20, colW, false);
+                    flowY += 42;
                 }
                 // Tag button / 标记按钮
                 if (!isCtrl) {
-                    int tagY = py + 94;
-                    drawButton(g, buf, mat, (tagModeActive ? "§b" : "§7") + " 标记", x1, tagY, colW * 2 + gap, false);
+                    drawButton(g, buf, mat, (tagModeActive ? "§b" : "§7") + " 标记", x1, flowY, colW * 2 + gap, false);
+                    flowY += 20;
                     if (tagModeActive) {
                         char pickedChar = patterns.get(selectedIndex).getValue()
                                 .getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
                         var pat = patterns.get(selectedIndex).getValue();
                         java.util.List<String> tags = pat.getTags(pickedChar);
-                        int tagUiY = py + 116;
                         String labelText = "§7标记 [" + pickedChar + "]:";
                         font.drawInBatch(Component.literal(labelText),
-                                px + (PANEL_W - font.width(labelText)) / 2, tagUiY, 0xFFCCCCCC, false, mat, buf,
+                                px + (PANEL_W - font.width(labelText)) / 2, flowY, 0xFFCCCCCC, false, mat, buf,
                                 Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-                        tagUiY += 14;
+                        flowY += 14;
                         int indX = px + 8;
                         for (String tag : tags) {
                             String label = "✕ " + tag;
                             int tw = font.width(label) + 8;
-                            if (indX + tw > px + PANEL_W - 8) { indX = px + 8; tagUiY += 14; }
-                            g.fill(indX, tagUiY, indX + tw, tagUiY + 12, 0x44333366);
+                            if (indX + tw > px + PANEL_W - 8) { indX = px + 8; flowY += 14; }
+                            g.fill(indX, flowY, indX + tw, flowY + 12, 0x44333366);
                             font.drawInBatch(Component.literal(label),
-                                    indX + 2, tagUiY + 2, 0xFFFFFFFF, false, mat, buf,
+                                    indX + 2, flowY + 2, 0xFFFFFFFF, false, mat, buf,
                                     Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
                             indX += tw + 4;
                         }
-                        // Only allow input if no tag yet / 无标记时才显示输入框
                         if (tags.isEmpty()) {
-                            tagUiY += 22;
+                            flowY += 18;
                             String showTagInput = tagInput.isEmpty() ? "§8新标记..." : "§f" + tagInput + "▌";
-                            g.fill(px + 8, tagUiY, px + PANEL_W - 8, tagUiY + 14, 0x22111133);
-                            g.renderOutline(px + 8, tagUiY, PANEL_W - 16, 14, 0xFF666666);
+                            g.fill(px + 8, flowY, px + PANEL_W - 8, flowY + 14, 0x22111133);
+                            g.renderOutline(px + 8, flowY, PANEL_W - 16, 14, 0xFF666666);
                             font.drawInBatch(Component.literal(showTagInput),
-                                    px + 10, tagUiY + 2, 0xFFFFFFFF, false, mat, buf,
+                                    px + 10, flowY + 2, 0xFFFFFFFF, false, mat, buf,
                                     Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-                            tagUiY += 20;
+                            flowY += 20;
                             font.drawInBatch(Component.literal("§8Enter添加"),
-                                    px + (PANEL_W - font.width("§8Enter添加")) / 2, tagUiY, 0xFF888888, false, mat, buf,
+                                    px + (PANEL_W - font.width("§8Enter添加")) / 2, flowY, 0xFF888888, false, mat, buf,
                                     Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
                         }
                     }
                 }
+                String fmtLabel = "§e模式选择(" + (formatSelector.isFrameMode() ? "框架式" : "固定式") + ")";
+                int fbY = py + ph - 38;
+                g.fill(px + 10, fbY - 1, px + PANEL_W - 10, fbY + 16, 0xAA222244);
+                g.renderOutline(px + 10, fbY - 1, PANEL_W - 20, 16, 0xFF9999AA);
+                int ftw = font.width(fmtLabel.replaceAll("§.", ""));
+                font.drawInBatch(Component.literal(fmtLabel), px + (PANEL_W - ftw) / 2, fbY + 3, 0xFFFFCC44,
+                        false, g.pose().last().pose(), mc.renderBuffers().bufferSource(),
+                        Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+                mc.renderBuffers().bufferSource().endBatch();
+                fmtBtnX = px + 10; fmtBtnY = fbY; fmtBtnW = PANEL_W - 20;
                 // Save button / 保存按钮
                 drawButton(g, buf, mat, "§b 💾 保存", px + 10, py + ph - 20, PANEL_W - 20, false);
             } else {
-                // Browse mode — show pattern definition blocks / 浏览模式 — 显示结构中的可用方块
-                buf.endBatch();
-                var pat = selectedIndex >= 0 ? patterns.get(selectedIndex).getValue() : null;
-                java.util.Set<net.minecraft.world.level.block.state.BlockState> defBlocks
-                        = new java.util.LinkedHashSet<>();
-                if (pickResult != null && pat != null) {
-                    char c = pat.getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
-                    if (c == com.endlessepoch.ecsformat.EcsFormat.CHAR_CONTROLLER) {
-                        for (var cb : com.endlessepoch.core.api.multiblock.MultiBlockRegistry.getControllerBlocks())
-                            defBlocks.add(cb.defaultBlockState());
-                    } else {
-                        defBlocks = pat.getAlternatives(c);
-                    }
-                }
-
-                font.drawInBatch(Component.literal("§7可替换方块"), px + 8, py + 28, 0xCCCCCCCC, false,
-                        pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-                buf.endBatch();
-                var groups = groupByCategory(defBlocks);
-                int cols = 4;
-                int cellW = (PANEL_W - 12) / cols, cellH = 22;
-                int gridX = px + 6, gridY = py + 38;
-                long now = System.currentTimeMillis();
-                for (int i = 0; i < Math.min(groups.size(), 16); i++) {
-                    var group = groups.get(i);
-                    int col = i % cols, row = i / cols;
-                    int cx = gridX + col * cellW, cy = gridY + row * cellH;
-                    int cycleIdx = (int) ((now / 2000) % group.blocks.size());
-                    var bs = group.blocks.get(cycleIdx);
-                    g.fill(cx, cy, cx + cellW - 1, cy + cellH - 1, 0x22111133);
-                    var item = new net.minecraft.world.item.ItemStack(bs.getBlock());
-                    if (!item.isEmpty()) g.renderFakeItem(item, cx + 2, cy + 2);
-                    if (mx >= cx && mx < cx + cellW && my >= cy && my < cy + cellH) {
-                        g.renderTooltip(font, bs.getBlock().getName(), mx + 8, my - 12);
-                    }
-                }
+                drawBrowseAlternatives(g, px, py, mx, my);
             }
         } else {
-            String showQ = searchQuery;
-            if (showQ.length() > 26) showQ = showQ.substring(showQ.length() - 26);
-            String searchText = searchQuery.isEmpty() ? "§8[输入搜索...]" : "§f" + showQ + "_";
-            font.drawInBatch(Component.literal("§7> " + searchText), px + 8, py + 28, 0xFFFFFFFF, false,
-                    pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-            buf.endBatch();
-
-            var itemRenderer = mc.getItemRenderer();
-            int cols = 4, rows = 4;
-            int cellW = (PANEL_W - 12) / cols, cellH = 22;
-            int gridX = px + 6, gridY = py + 38;
-            int total = searchResults.size();
-            int pageSize = cols * rows;
-            searchScroll = Math.min(searchScroll, Math.max(0, total - pageSize));
-
-            for (int idx = 0; idx < pageSize; idx++) {
-                int i = searchScroll + idx;
-                if (i >= total) break;
-                int col = idx % cols, row = idx / cols;
-                int ix = gridX + col * cellW, iy = gridY + row * cellH;
-                var block = searchResults.get(i);
-                var itemStack = new net.minecraft.world.item.ItemStack(block);
-                boolean hovered = mx >= ix && mx < ix + cellW && my >= iy && my < iy + cellH;
-                boolean selected = i == searchIdx;
-
-                g.fill(ix, iy, ix + cellW - 1, iy + cellH - 1, selected ? 0x88444488 : hovered ? 0x44333366 : 0x22111133);
-                if (selected) g.renderOutline(ix, iy, cellW - 1, cellH - 1, 0xFFFFEE88);
-
-                if (!itemStack.isEmpty()) {
-                    g.renderFakeItem(itemStack, ix + 2, iy + 2);
-                }
-
-                if (hovered) {
-                    font.drawInBatch(block.getName(), mx + 8, my - 12, 0xFFFFFFFF, false,
-                            g.pose().last().pose(), buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-                }
-            }
-
-            font.drawInBatch(Component.literal("§8[取消]"), px + PANEL_W - 46, py + ph - 14, 0xFFAAAAAA, false,
-                    pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+            drawReplaceSearch(g, px, py, ph, mx, my);
         }
 
         buf.endBatch();
@@ -1009,8 +892,73 @@ public class MultiblockVisualizerScreen extends Screen {
         }
     }
 
+    private void drawReplaceSearch(GuiGraphics g, int px, int py, int ph, int mx, int my) {
+        var buf = Minecraft.getInstance().renderBuffers().bufferSource();
+        var pose = g.pose().last().pose();
+        String showQ = searchQuery;
+        if (showQ.length() > 26) showQ = showQ.substring(showQ.length() - 26);
+        font.drawInBatch(Component.literal("§7> " + (searchQuery.isEmpty() ? "§8[输入搜索...]" : "§f" + showQ + "_")),
+                px + 8, py + 28, 0xFFFFFFFF, false, pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+        buf.endBatch();
+        int cols = 4, rows = 4, cellW = (PANEL_W - 12) / cols, cellH = 22;
+        int gridX = px + 6, gridY = py + 38;
+        int total = searchResults.size(), pageSize = cols * rows;
+        searchScroll = Math.min(searchScroll, Math.max(0, total - pageSize));
+        for (int idx = 0; idx < pageSize; idx++) {
+            int i = searchScroll + idx; if (i >= total) break;
+            int ix = gridX + (idx % cols) * cellW, iy = gridY + (idx / cols) * cellH;
+            var block = searchResults.get(i);
+            boolean hovered = mx >= ix && mx < ix + cellW && my >= iy && my < iy + cellH;
+            g.fill(ix, iy, ix + cellW - 1, iy + cellH - 1, (i == searchIdx) ? 0x88444488 : hovered ? 0x44333366 : 0x22111133);
+            if (i == searchIdx) g.renderOutline(ix, iy, cellW - 1, cellH - 1, 0xFFFFEE88);
+            var itemStack = new net.minecraft.world.item.ItemStack(block);
+            if (!itemStack.isEmpty()) g.renderFakeItem(itemStack, ix + 2, iy + 2);
+            if (hovered) font.drawInBatch(block.getName(), mx + 8, my - 12, 0xFFFFFFFF, false,
+                    g.pose().last().pose(), buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+        }
+        buf.endBatch();
+        font.drawInBatch(Component.literal("§8[取消]"), px + PANEL_W - 46, py + ph - 14, 0xFFAAAAAA, false,
+                pose, Minecraft.getInstance().renderBuffers().bufferSource(), Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+    }
+
+    private void drawBrowseAlternatives(GuiGraphics g, int px, int py, int mx, int my) {
+        var pat = selectedIndex >= 0 ? patterns.get(selectedIndex).getValue() : null;
+        java.util.Set<net.minecraft.world.level.block.state.BlockState> defBlocks = new java.util.LinkedHashSet<>();
+        if (pickResult != null && pat != null) {
+            char c = pat.getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
+            if (c == com.endlessepoch.ecsformat.EcsFormat.CHAR_CONTROLLER)
+                for (var cb : com.endlessepoch.core.api.multiblock.MultiBlockRegistry.getControllerBlocks())
+                    defBlocks.add(cb.defaultBlockState());
+            else defBlocks = pat.getAlternatives(c);
+        }
+        var buf = Minecraft.getInstance().renderBuffers().bufferSource();
+        var pose = g.pose().last().pose();
+        font.drawInBatch(Component.literal("§7可替换方块"), px + 8, py + 28, 0xCCCCCCCC, false,
+                pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+        buf.endBatch();
+        var groups = groupByCategory(defBlocks);
+        int cols = 4, cellW = (PANEL_W - 12) / cols, cellH = 22;
+        int gridX = px + 6, gridY = py + 38;
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < Math.min(groups.size(), 16); i++) {
+            var group = groups.get(i);
+            int col = i % cols, row = i / cols;
+            int cx = gridX + col * cellW, cy = gridY + row * cellH;
+            var bs = group.blocks.get((int)((now / 2000) % group.blocks.size()));
+            g.fill(cx, cy, cx + cellW - 1, cy + cellH - 1, 0x22111133);
+            var item = new net.minecraft.world.item.ItemStack(bs.getBlock());
+            if (!item.isEmpty()) g.renderFakeItem(item, cx + 2, cy + 2);
+            if (mx >= cx && mx < cx + cellW && my >= cy && my < cy + cellH)
+                g.renderTooltip(font, bs.getBlock().getName(), mx + 8, my - 12);
+        }
+    }
+
     @Override
     public boolean mouseClicked(double mx, double my, int btn) {
+        if (editModeActive && panelVisible && onBtn(mx, my, fmtBtnX, fmtBtnY, fmtBtnW)) {
+            formatSelector.openPopup(); return true;
+        }
+        if (formatSelector.mouseClicked(mx, my)) return true;
         if (selectedIndex >= 0) {
             int bw = 24, bh = 28, gap = 3;
             int bx = width - bw - 10, by = height / 2 - bh - gap / 2;
@@ -1024,35 +972,24 @@ public class MultiblockVisualizerScreen extends Screen {
             }
         }
 
-        if (btn == 0 && formatSelectShow) {
-            int cx = (width - 160) / 2, cy = (height - FORMAT_DIALOG_H) / 2;
-            for (int i = 0; i < FORMAT_NAMES.length; i++) {
-                int iy = cy + 28 + i * 20;
-                if (mx >= cx + 10 && mx <= cx + 150 && my >= iy && my <= iy + 16) {
-                    formatSelectChoice = i; formatSelectShow = false; confirmShow = true; return true;
-                }
-            }
-            return true;
-        }
-
-        if (btn == 0 && confirmShow) {
-            int cx = (width - CONFIRM_W) / 2, cy = (height - CONFIRM_H) / 2;
+        if (btn == 0 && confirmDialog.show) {
+            int cx = (width - 200) / 2, cy = (height - 80) / 2;
             if (mx >= cx + 16 && mx <= cx + 76 && my >= cy + 56 && my <= cy + 72) {
-                confirmShow = false;
-                if (confirmTargetIdx >= 0 && confirmTargetIdx < patterns.size()) {
-                    var id = patterns.get(confirmTargetIdx).getKey();
-                    var pat = patterns.get(confirmTargetIdx).getValue();
-                    if (confirmIsSave) {
-                        String name = saveFileName.trim().isEmpty() ? id.getPath() : saveFileName.trim().replaceAll("[^a-zA-Z0-9_/-]", "_").toLowerCase();
+                confirmDialog.show = false;
+                if (confirmDialog.targetIdx >= 0 && confirmDialog.targetIdx < patterns.size()) {
+                    var id = patterns.get(confirmDialog.targetIdx).getKey();
+                    var pat = patterns.get(confirmDialog.targetIdx).getValue();
+                    if (confirmDialog.isSave) {
+                        String name = confirmDialog.fileName.trim().isEmpty() ? id.getPath() : confirmDialog.fileName.trim().replaceAll("[^a-zA-Z0-9_/-]", "_").toLowerCase();
                         var saveId = ResourceLocation.fromNamespaceAndPath(id.getNamespace(), name);
-                        if (formatSelectChoice == 1) pat.setFrameBasedFlag();
+                        if (formatSelector.isFrameMode()) pat.setFrameBasedFlag();
                         com.endlessepoch.core.api.multiblock.PatternStorage.save(saveId, pat);
                         Minecraft.getInstance().player.displayClientMessage(
                                 Component.literal("§a结构已保存: " + name), true);
                     } else {
                         MultiBlockRegistry.removeLocal(Minecraft.getInstance().player.getUUID(), id);
                         com.endlessepoch.core.api.multiblock.PatternStorage.delete(id);
-                        patterns.remove(confirmTargetIdx);
+                        patterns.remove(confirmDialog.targetIdx);
                         selectedIndex = Math.min(selectedIndex, patterns.size() - 1);
                     }
                     pickResult = null;
@@ -1061,8 +998,8 @@ public class MultiblockVisualizerScreen extends Screen {
                 }
                 return true;
             }
-            if (mx >= cx + CONFIRM_W - 64 && mx <= cx + CONFIRM_W - 16 && my >= cy + 56 && my <= cy + 72) {
-                confirmShow = false;
+            if (mx >= cx + 200 - 64 && mx <= cx + 200 - 16 && my >= cy + 56 && my <= cy + 72) {
+                confirmDialog.show = false;
                 return true;
             }
         }
@@ -1071,7 +1008,7 @@ public class MultiblockVisualizerScreen extends Screen {
             int px2 = Math.max(0, Math.min(width - PANEL_W, panelX));
             int py2 = Math.max(0, Math.min(height - panelH(), panelY));
             int colW = 84, gap = 8, margin2 = (PANEL_W - colW * 2 - gap) / 2;
-            int x1 = px2 + margin2, x2 = x1 + colW + gap, y1 = py2 + 52, y2 = py2 + 72;
+            int x1 = px2 + margin2, x2 = x1 + colW + gap, y1 = py2 + 30, y2 = py2 + 50;
             boolean isCtrl = pickResult != null && selectedIndex >= 0
                     && patterns.get(selectedIndex).getValue().getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ()) == 'K';
             int ctrlY = py2 + (panelH() - 16) / 2;
@@ -1092,7 +1029,7 @@ public class MultiblockVisualizerScreen extends Screen {
                 if (onBtn(mx, my, x1, y2, colW)) { deleteBlock(false); return true; }
                 if (onBtn(mx, my, x2, y2, colW)) { deleteBlock(true); return true; }
                 // Tag button toggle / 标记按钮切换
-                int tagBtnY = py2 + 94;
+                int tagBtnY = py2 + 72;
                 if (onBtn(mx, my, x1, tagBtnY, colW * 2 + gap)) {
                     tagModeActive = !tagModeActive;
                     tagInput = "";
@@ -1125,9 +1062,9 @@ public class MultiblockVisualizerScreen extends Screen {
             int ph = panelH();
             if (onBtn(mx, my, px2 + 10, py2 + ph - 20, PANEL_W - 20) && selectedIndex >= 0) {
                 var pat = patterns.get(selectedIndex);
-                saveFileName = pat.getKey().getPath().replace("scanned_", "");
-                confirmTargetIdx = selectedIndex; confirmIsSave = true;
-                formatSelectShow = true; return true; }
+                confirmDialog.fileName = pat.getKey().getPath().replace("scanned_", "");
+                confirmDialog.targetIdx = selectedIndex; confirmDialog.isSave = true;
+                confirmDialog.show = true; return true; }
         }
         if (btn == 0 && panelVisible && replaceMode) {
             int px2 = Math.max(0, Math.min(width - PANEL_W, panelX));
@@ -1275,10 +1212,10 @@ public class MultiblockVisualizerScreen extends Screen {
             }
         }
 
-        if (k == 96 && hasAltDown()) { editModeActive = !editModeActive; if (!editModeActive) replaceMode = false; return true; }
+        if (k == 96 && hasAltDown()) { editModeActive = !editModeActive; formatSelector.setEditMode(editModeActive); if (!editModeActive) replaceMode = false; return true; }
                 if (k == KEY_DEL && selectedIndex >= 0 && selectedIndex < patterns.size()) {
-            confirmShow = true;
-            confirmTargetIdx = selectedIndex;
+            confirmDialog.show = true;
+            confirmDialog.targetIdx = selectedIndex;
             return true;
         }
         if (k == 256) { replaceMode = false; }
@@ -1301,13 +1238,10 @@ public class MultiblockVisualizerScreen extends Screen {
             }
         }
 
-        if (formatSelectShow && k >= 49 && k <= 48 + FORMAT_NAMES.length) {
-            formatSelectChoice = k - 49; formatSelectShow = false; confirmShow = true; return true;
-        }
 
         // Save dialog — backspace only (char input via charTyped) / 保存弹窗 — 退格键
-        if (confirmShow && confirmIsSave && k == 259 && !saveFileName.isEmpty()) {
-            saveFileName = saveFileName.substring(0, saveFileName.length() - 1);
+        if (confirmDialog.show && confirmDialog.isSave && k == 259 && !confirmDialog.fileName.isEmpty()) {
+            confirmDialog.fileName = confirmDialog.fileName.substring(0, confirmDialog.fileName.length() - 1);
             return true;
         }
 
@@ -1426,8 +1360,8 @@ public class MultiblockVisualizerScreen extends Screen {
     @Override
     public boolean charTyped(char cp, int modifiers) {
         // Save dialog text input / 保存弹窗文字输入
-        if (confirmShow && confirmIsSave && cp >= 32 && cp != 127) {
-            saveFileName += cp;
+        if (confirmDialog.show && confirmDialog.isSave && cp >= 32 && cp != 127) {
+            confirmDialog.fileName += cp;
             return true;
         }
         if (replaceMode && panelVisible && cp >= 32 && cp != 127) {
