@@ -170,6 +170,7 @@ public class MultiblockVisualizerScreen extends Screen {
     private int renderL, renderR, renderT, renderB;
     private int futureL, futureR, futureT, futureB;
     private int fmtBtnX, fmtBtnY, fmtBtnW;
+    private int editX1, editX2, editY1, editY2, editCW, editTagY, editSaveY, editPx, editPy, editPh, editTagUiY;
     private EECoreSceneWorld cachedScene;
     private ResourceLocation cachedPatternId;
     private int listScrollOffset;
@@ -595,17 +596,21 @@ public class MultiblockVisualizerScreen extends Screen {
                 int x1 = px + margin, x2 = x1 + colW + gap;
                 var mat = g.pose().last().pose();
                 int flowY = py + 30;
+                editPx = px; editPy = py; editPh = ph;
+                editX1 = x1; editX2 = x2; editCW = colW;
                 if (isCtrl) {
                     drawButton(g, buf, mat, "§e 替换", x1, py + (ph - 16) / 2, PANEL_W - 2 * margin, false);
+                    editY1 = editY2 = py + (ph - 16) / 2;
                 } else {
+                    editY1 = flowY; editY2 = flowY + 20;
                     drawButton(g, buf, mat, "§7 替换", x1, flowY, colW, false);
                     drawButton(g, buf, mat, "§7 批量", x2, flowY, colW, false);
                     drawButton(g, buf, mat, "§c 单删", x1, flowY + 20, colW, false);
                     drawButton(g, buf, mat, "§c 批删", x2, flowY + 20, colW, false);
                     flowY += 42;
                 }
-                // Tag button / 标记按钮
                 if (!isCtrl) {
+                    editTagY = flowY;
                     drawButton(g, buf, mat, (tagModeActive ? "§b" : "§7") + " 标记", x1, flowY, colW * 2 + gap, false);
                     flowY += 20;
                     if (tagModeActive) {
@@ -613,7 +618,7 @@ public class MultiblockVisualizerScreen extends Screen {
                                 .getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ());
                         var pat = patterns.get(selectedIndex).getValue();
                         java.util.List<String> tags = pat.getTags(pickedChar);
-                        String labelText = "§7标记 [" + pickedChar + "]:";
+                        editTagUiY = flowY + 14; String labelText = "§7标记 [" + pickedChar + "]:";
                         font.drawInBatch(Component.literal(labelText),
                                 px + (PANEL_W - font.width(labelText)) / 2, flowY, 0xFFCCCCCC, false, mat, buf,
                                 Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
@@ -955,7 +960,7 @@ public class MultiblockVisualizerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int btn) {
-        if (editModeActive && panelVisible && onBtn(mx, my, fmtBtnX, fmtBtnY, fmtBtnW)) {
+        if (editModeActive && panelVisible && !replaceMode && onBtn(mx, my, fmtBtnX, fmtBtnY, fmtBtnW)) {
             formatSelector.openPopup(); return true;
         }
         if (formatSelector.mouseClicked(mx, my)) return true;
@@ -1005,14 +1010,10 @@ public class MultiblockVisualizerScreen extends Screen {
         }
 
         if (btn == 0 && panelVisible && !replaceMode && editModeActive) {
-            int px2 = Math.max(0, Math.min(width - PANEL_W, panelX));
-            int py2 = Math.max(0, Math.min(height - panelH(), panelY));
-            int colW = 84, gap = 8, margin2 = (PANEL_W - colW * 2 - gap) / 2;
-            int x1 = px2 + margin2, x2 = x1 + colW + gap, y1 = py2 + 30, y2 = py2 + 50;
             boolean isCtrl = pickResult != null && selectedIndex >= 0
                     && patterns.get(selectedIndex).getValue().getChar(pickResult.getX(), pickResult.getY(), pickResult.getZ()) == 'K';
-            int ctrlY = py2 + (panelH() - 16) / 2;
-            if (onBtn(mx, my, x1, isCtrl ? ctrlY : y1, isCtrl ? PANEL_W - 2 * margin2 : colW)) {
+            int ctrlY = editPy + (editPh - 16) / 2;
+            if (onBtn(mx, my, editX1, isCtrl ? ctrlY : editY1, isCtrl ? PANEL_W - 20 : editCW)) {
                 replaceMode = true; batchReplace = false; replaceSource = pickResult;
                 searchResults = (isCtrl
                         ? com.endlessepoch.core.api.multiblock.MultiBlockRegistry.getControllerBlocks()
@@ -1021,16 +1022,16 @@ public class MultiblockVisualizerScreen extends Screen {
                         .filter(b -> b.asItem() != net.minecraft.world.item.Items.AIR)).toList();
                 searchIdx = 0; searchScroll = 0; return true; }
             if (!isCtrl) {
-                if (onBtn(mx, my, x2, y1, colW)) {
+                if (onBtn(mx, my, editX2, editY1, editCW)) {
                     replaceMode = true; batchReplace = true; replaceSource = pickResult;
                     searchResults = net.minecraft.core.registries.BuiltInRegistries.BLOCK.stream()
                             .filter(b -> b.asItem() != net.minecraft.world.item.Items.AIR).toList();
                     searchIdx = 0; searchScroll = 0; return true; }
-                if (onBtn(mx, my, x1, y2, colW)) { deleteBlock(false); return true; }
-                if (onBtn(mx, my, x2, y2, colW)) { deleteBlock(true); return true; }
+                if (onBtn(mx, my, editX1, editY2, editCW)) { deleteBlock(false); return true; }
+                if (onBtn(mx, my, editX2, editY2, editCW)) { deleteBlock(true); return true; }
                 // Tag button toggle / 标记按钮切换
-                int tagBtnY = py2 + 72;
-                if (onBtn(mx, my, x1, tagBtnY, colW * 2 + gap)) {
+                int tagBtnY = editTagY;
+                if (onBtn(mx, my, editX1, editTagY, editCW * 2 + 8)) {
                     tagModeActive = !tagModeActive;
                     tagInput = "";
                     return true;
@@ -1043,13 +1044,13 @@ public class MultiblockVisualizerScreen extends Screen {
                     java.util.List<String> tags = new java.util.ArrayList<>(pat.getTags(pickedChar));
 
                     // Click on tag pills to delete / 点击 ✕ 删除标记
-                    int tX2 = px2 + 8;
-                    int tY2 = py2 + 130;
+                    int tX2 = editPx + 8;
+                    int tY2 = editTagUiY;
                     for (int ti = 0; ti < tags.size(); ti++) {
                         String tag = tags.get(ti);
                         String label = "✕ " + tag;
                         int tw = font.width(label) + 8;
-                        if (tX2 + tw > px2 + PANEL_W - 8) { tX2 = px2 + 8; tY2 += 14; }
+                        if (tX2 + tw > editPx + PANEL_W - 8) { tX2 = editPx + 8; tY2 += 14; }
                         if (mx >= tX2 && mx <= tX2 + tw && my >= tY2 && my <= tY2 + 12 && mx <= tX2 + 10) {
                             tags.remove(ti);
                             pat.setTags(pickedChar, tags);
@@ -1060,22 +1061,20 @@ public class MultiblockVisualizerScreen extends Screen {
                 }
             }
             int ph = panelH();
-            if (onBtn(mx, my, px2 + 10, py2 + ph - 20, PANEL_W - 20) && selectedIndex >= 0) {
+            if (onBtn(mx, my, editPx + 10, editPy + ph - 20, PANEL_W - 20) && selectedIndex >= 0) {
                 var pat = patterns.get(selectedIndex);
                 confirmDialog.fileName = pat.getKey().getPath().replace("scanned_", "");
                 confirmDialog.targetIdx = selectedIndex; confirmDialog.isSave = true;
                 confirmDialog.show = true; return true; }
         }
         if (btn == 0 && panelVisible && replaceMode) {
-            int px2 = Math.max(0, Math.min(width - PANEL_W, panelX));
-            int py2 = Math.max(0, Math.min(height - panelH(), panelY));
             int cols = 4, rows = 4;
             int cellW = (PANEL_W - 12) / cols, cellH = 22;
-            int gridX = px2 + 6, gridY = py2 + 38;
+            int gridX = editPx + 6, gridY = editPy + 38;
             int pageSize = cols * rows;
             int total = searchResults.size();
 
-            if (mx >= px2 + PANEL_W - 50 && mx <= px2 + PANEL_W - 4 && my >= py2 + panelH() - 18 && my <= py2 + panelH() - 4) {
+            if (mx >= editPx + PANEL_W - 50 && mx <= editPx + PANEL_W - 4 && my >= editPy + panelH() - 18 && my <= editPy + panelH() - 4) {
                 replaceMode = false; return true;
             }
             for (int idx = 0; idx < pageSize; idx++) {
@@ -1157,9 +1156,7 @@ public class MultiblockVisualizerScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
         if (replaceMode && panelVisible && !searchResults.isEmpty()) {
-            int px2 = Math.max(0, Math.min(width - PANEL_W, panelX));
-            int py2 = Math.max(0, Math.min(height - panelH(), panelY));
-            if (mx >= px2 && mx <= px2 + PANEL_W && my >= py2 && my <= py2 + panelH()) {
+            if (mx >= editPx && mx <= editPx + PANEL_W && my >= editPy && my <= editPy + panelH()) {
                 int step = (int) -Math.signum(sy);
                 searchIdx = Math.max(0, Math.min(searchResults.size() - 1, searchIdx + step * 12));
                 if (searchIdx < searchScroll) searchScroll = searchIdx;
