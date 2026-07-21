@@ -34,9 +34,6 @@ public final class MultiblockLoader {
     private IMachineEffect effect;
     private String itemId;
     private String[] supportedTypes;
-    private boolean frameBased;
-    private String frameCasingTag;
-    private int frameMinW=2, frameMaxW=32, frameMinH=2, frameMaxH=16, frameMinD=2, frameMaxD=32;
     private final Map<String, Map<Block, Integer>> perBlockLimits = new LinkedHashMap<>();
     private final Map<String, Map<PartCategory, Integer>> categoryLimits = new LinkedHashMap<>();
 
@@ -101,67 +98,31 @@ public final class MultiblockLoader {
     public MultiblockLoader effect(IMachineEffect e) { this.effect = e; return this; }
     public MultiblockLoader itemId(String id) { this.itemId = id; return this; }
     public MultiblockLoader supports(String... ids) { this.supportedTypes = ids; return this; }
-    public MultiblockLoader frame(String casingTag, int minW, int maxW, int minH, int maxH, int minD, int maxD) {
-        this.frameBased = true; this.frameCasingTag = casingTag;
-        this.frameMinW=minW; this.frameMaxW=maxW; this.frameMinH=minH; this.frameMaxH=maxH; this.frameMinD=minD; this.frameMaxD=maxD;
-        return this;
-    }
 
     /**
      * Register: loads .ecs, creates MachineDefinition, registers pattern + controller item.
      * 注册：加载 .ecs → 创建 MachineDefinition → 注册 pattern + 控制器物品。
      */
     public MachineDefinition register(ResourceLocation machineId) {
-        // Skip if already registered / 已注册跳过
         if (MachineRegistry.get(machineId).isPresent()) {
             EECore.LOGGER.info("MultiblockLoader: {} already registered, skipping.", machineId);
             return MachineRegistry.get(machineId).get();
         }
 
-        // 1. Load .ecs / 加载 .ecs
         MultiBlockPattern pattern = loadEcs();
         if (pattern == null) {
             EECore.LOGGER.error("MultiblockLoader: .ecs not found for {}", ecsFile);
             return null;
         }
-        // Auto-apply frame settings from .ecs flag / .ecs标志自动应用frame设置
-        if (pattern.isFrameBased() && frameBased)
-            pattern.setFrameBased(frameCasingTag, frameMinW, frameMaxW, frameMinH, frameMaxH, frameMinD, frameMaxD);
 
-        // 2. Apply tag alternatives / 应用 TAG 替选块
-        for (var e : tagBindings.entrySet())
-            for (Block b : e.getValue())
-                for (char c : pattern.getDefinitions().keySet())
-                    if (pattern.getTags(c).contains(e.getKey()))
-                        pattern.addAlternatives(c, b.defaultBlockState());
+        applyBindings(pattern, tagBindings, tagCategories, perBlockLimits, categoryLimits);
 
-        // 2a. Expand category bindings / 展开类别绑定
-        for (var e : tagCategories.entrySet())
-            for (PartCategory cat : e.getValue())
-                for (Block b : cat.resolve())
-                    for (char c : pattern.getDefinitions().keySet())
-                        if (pattern.getTags(c).contains(e.getKey()))
-                            pattern.addAlternatives(c, b.defaultBlockState());
-
-        // 2b. Register per-block limits on pattern / 每方块上限存 pattern
-        for (var e : perBlockLimits.entrySet())
-            for (var be : e.getValue().entrySet())
-                pattern.setBlockLimit(e.getKey(), be.getKey(), be.getValue());
-
-        // 2c. Register category-total limits / 类别总量上限存 pattern
-        for (var e : categoryLimits.entrySet())
-            for (var ce : e.getValue().entrySet())
-                pattern.setCategoryLimit(e.getKey(), ce.getKey(), ce.getValue());
-
-
-        // 3. Create MachineDefinition / 创建定义
         String en = nameEn != null ? nameEn : machineId.getPath();
         String zh = nameZh != null ? nameZh : machineId.getPath();
         MachineDefinition def = new MachineDefinition(machineId, en, zh, tier, ecsFile, tagBindings);
         if (model != null) def.setModel(model);
         if (effect != null) def.setEffect(effect);
 
-        // 4. Set up suppliers / 设置供应
         def.setBlockSupplier(com.endlessepoch.core.registry.Blocks.MACHINE_CONTROLLER);
         def.setPatternSupplier(() -> pattern);
         if (offSet) {
@@ -170,28 +131,56 @@ public final class MultiblockLoader {
             def.computeCenterOffset();
         }
 
-        // 5. Register pattern / 注册 pattern
         MultiBlockRegistry.registerMod(machineId, pattern);
 
-        // 6. Bind controller / 绑定控制器
         var ctrlDef = pattern.getDefinitions().get(EcsFormat.CHAR_CONTROLLER);
-        if (ctrlDef != null && ctrlDef.getBlock() != Blocks.AIR) {
+        if (ctrlDef != null && ctrlDef.getBlock() != Blocks.AIR)
             MultiBlockRegistry.bindControllerToPattern(ctrlDef.getBlock(), machineId);
-        }
 
-        // 7. Create controller item / 创建控制器物品
         String path = itemId != null ? itemId : machineId.getPath();
         Items.registerMachineItem(path, machineId, en, zh, tier, supportedTypes);
 
-        // 8. Register definition / 注册定义
         MachineRegistry.register(def);
         EECore.LOGGER.info("MultiblockLoader: registered {} → {}", machineId, path);
         return def;
     }
 
-    private MultiBlockPattern loadEcs() {
+    /**
+     * Common tag-binding application shared with {@link FrameMachineLoader}.
+     * 共享的标签绑定应用逻辑。
+     */
+    static void applyBindings(MultiBlockPattern pattern,
+                              Map<String, Set<Block>> tagBindings,
+                              Map<String, Set<PartCategory>> tagCategories,
+                              Map<String, Map<Block, Integer>> perBlockLimits,
+                              Map<String, Map<PartCategory, Integer>> categoryLimits) {
+        for (var e : tagBindings.entrySet())
+            for (Block b : e.getValue())
+                for (char c : pattern.getDefinitions().keySet())
+                    if (pattern.getTags(c).contains(e.getKey()))
+                        pattern.addAlternatives(c, b.defaultBlockState());
+
+        for (var e : tagCategories.entrySet())
+            for (PartCategory cat : e.getValue())
+                for (Block b : cat.resolve())
+                    for (char c : pattern.getDefinitions().keySet())
+                        if (pattern.getTags(c).contains(e.getKey()))
+                            pattern.addAlternatives(c, b.defaultBlockState());
+
+        for (var e : perBlockLimits.entrySet())
+            for (var be : e.getValue().entrySet())
+                pattern.setBlockLimit(e.getKey(), be.getKey(), be.getValue());
+
+        for (var e : categoryLimits.entrySet())
+            for (var ce : e.getValue().entrySet())
+                pattern.setCategoryLimit(e.getKey(), ce.getKey(), ce.getValue());
+    }
+
+    private MultiBlockPattern loadEcs() { return loadEcsStatic(ecsFile); }
+
+    static MultiBlockPattern loadEcsStatic(ResourceLocation ecsFile) {
         String cp = "/data/" + ecsFile.getNamespace() + "/structures/" + ecsFile.getPath() + ".ecs";
-        try (InputStream is = getClass().getResourceAsStream(cp)) {
+        try (InputStream is = MultiblockLoader.class.getResourceAsStream(cp)) {
             if (is != null) return EECoreCodec.decode(is.readAllBytes());
         } catch (Exception ignored) {}
         try {

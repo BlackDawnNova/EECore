@@ -20,26 +20,32 @@ EECore 多方块框架：定义 → 自动注册 → 搭建 → 成形。
 
 **Built-in machines / 内置机器:**
 ```
-① Write .ecs structure file → data/<ns>/structures/<name>.ecs
-② EECoreMachines.java: .ecs("ns", "name").tier(N).name(en, zh).register()
-③ build.gradle: machines list +1 entry (itemId, tier, modelIndex)
-④ ./gradlew deploy → controller item appears in Machines tab
-⑤ Place controller → build structure → Sneak+Right-click → form
+Fixed / 固定式:
+  ① Write .ecs structure file → data/<ns>/structures/<name>.ecs
+  ② EECoreMachines.java: new MachineDef().ecs("ns","name").tier(N).name(en,zh).register()
+  ③ build.gradle: machines list +1 entry (itemId, tier, modelIndex)
+  ④ ./gradlew deploy → controller item appears in Machines tab
+
+Frame / 框架式:
+  ① Write .ecs — palette + tags only (no voxel grid) / 仅调色板+标签
+  ② EECoreMachines.java: new FrameMachineDef().ecs("ns","name").tier(N).frame("A",3,3,3).register()
+  ③ ./gradlew deploy → controller item appears in Machines tab
+  ④ Place controller on shell surface (facing inward) → build shell (inner+2) → Sneak+Right-click → form
 ```
 
-**Integration pack / 整合包:**
-```
-① Place .ecs in config/eecore/structures/<ns>/<name>.ecs
-② Put sidecar config/eecore/structures/<ns>/<name>.json: {"tier":1,"name_en":"...","name_zh":"..."}
-③ Restart → auto-registered → controller item in Machines tab
-```
-
-**Addon mods / 附属 Mod:**
+**Addon mod / 附属 Mod:**
 ```java
+// Fixed / 固定式
 MultiblockLoader.load(ResourceLocation.parse("mymod:my_machine"))
-    .name("My Machine", "我的机器")
-    .tier(1)  // LV casing
+    .name("My Machine", "我的机器").tier(1)
     .register(ResourceLocation.parse("mymod:my_machine"));
+
+// Frame / 框架式
+FrameMachineLoader.load(ResourceLocation.parse("mymod:my_frame_machine"))
+    .name("My Frame Machine", "我的框架机").tier(1)
+    .frame("CASING", 3, 12, 3, 8, 3, 12)
+    .where("CASING", myCasingBlock)
+    .register(ResourceLocation.parse("mymod:my_frame_machine"));
 ```
 
 ---
@@ -367,28 +373,63 @@ In the structure visualizer, click Save and select **Frame-based** format (press
 
 ### Registration / 注册
 
+**Addon mods / 附属 Mod:**
+
 ```java
+// Fixed-format — MultiblockLoader / 固定式——MultiblockLoader
+MultiblockLoader.load(ResourceLocation.parse("mymod:my_machine"))
+    .name("My Machine", "我的机器")
+    .tier(1)
+    .center(0, 10, 0)
+    .where("EE-0", myObsidianBlock).or(myCryingObsidianBlock)
+    .limit("EE-0", myObsidianBlock, 4)
+    .register(ResourceLocation.parse("mymod:my_machine"));
+
+// Frame-based — FrameMachineLoader / 框架式——FrameMachineLoader
+FrameMachineLoader.load(ResourceLocation.parse("mymod:my_frame_machine"))
+    .name("My Frame Machine", "我的框架机")
+    .tier(1)
+    .frame("CASING", 27, 27, 27)                  // TAG + max per axis (27×27×27 cube / 27×10×5 rectangle / 5×27×3 tall — all valid)
+                                                    // 标签+每轴最大（27×27×27正方体 / 27×10×5长方形 / 5×27×3竖高形——均可成型）
+    .where("CASING", myCasingBlock)              // TAG→shell blocks / 外壳
+    .where("UNIT", myUnitBlock).or(myOtherUnit)  // TAG→interior blocks / 内部
+    .limit("UNIT", myUnitBlock, 4)
+    .register(ResourceLocation.parse("mymod:my_frame_machine"));
+```
+
+`FrameMachineLoader` mirrors `MultiblockLoader`'s fluent API with two differences: `.frame()` is **required** (casing tag + max interior size per axis — each axis independent, min 1, shapes like 27×5×3 are valid), and `.center()` / `.supports()` are not available.
+
+`FrameMachineLoader` 与 `MultiblockLoader` 流式 API 一致，区别：`.frame()` **必调**（外壳标签+每轴最大内部尺寸，各轴独立，最小1，27×5×3等长方形均可成型），无 `.center()` / `.supports()`。
+
+**EECore internal / EECore 内部:**
+
+```java
+// Fixed / 固定式
 new MachineDef()
-    .ecs("eecore", "dispatch")                      // .ecs file
-    .name("Dispatch Center", "调度中心")
-    .frame("CASING", 2, 16, 2, 16, 2, 16)          // shell TAG + W/H/D range
-    .where("CASING", Blocks.DISPATCH_CASING)         // TAG→shell blocks
-    .or(Blocks.DISPATCH_ME_PORT)                     // .or() adds more shell blocks
-    .where("UNIT", Blocks.SUPERCOMPUTING_UNIT)       // TAG→interior blocks
-    .or(Blocks.PATTERN_UNIT)
-    .or(Blocks.QUANTITY_UNIT)
-    .or(Blocks.PARALLEL_UNIT)
-    .limit("UNIT", Blocks.SUPERCOMPUTING_UNIT, 4)    // per-block limits
-    .limit("UNIT", Blocks.PATTERN_UNIT, 2)
+    .ecs("eecore", "d1").name(...).tier(1).center(0, 49, 2)
+    .where("EE-3", PartCategory.ANY_FUNCTIONAL)
+    .limit("EE-3", PartCategory.ENERGY_INPUT, 2)
+    .out("eecore:creative_test");
+
+// Frame / 框架式
+new FrameMachineDef()
+    .ecs("eecore", "ceshi").name(...).tier(1)
+    .frame("A", 3, 3, 3)
+    .where("A", () -> Blocks.DISPATCH_CASING.get())
+    .where("B", () -> Blocks.SUPERCOMPUTING_UNIT.get())
     .out("eecore:dispatch_center");
 ```
 
 ### Verification / 验证
 
-- Six-direction scan from controller finds casing shell boundaries
-- All six faces must be full of shell blocks (no gaps)
-- Interior blocks are counted by TAG and validated against limits
+- BFS from controller's back face explores interior, discovers shell boundaries
+- Controller sits on the shell surface; its facing direction points inward (toward the machine interior)
+- All six faces of the computed bounding box must be full of shell blocks (no gaps)
+- Interior size 1×1×1 to declared `.frame()` max — shell = interior + 2 per face
 - Use `EcsDump ceshi.ecs` to check decoded format type
+
+- 内部尺寸 1×1×1 到 `.frame()` 声明的最大值均可，外壳 = 内部 + 2（每面一层）
+- 使用 `EcsDump ceshi.ecs` 查看解码后的格式类型
 
 ### EcsDump / 解码工具
 

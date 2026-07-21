@@ -80,66 +80,84 @@ public final class MultiBlockValidator {
         return true;
     }
 
+    /**
+     * Frame-based validation: BFS from controller's back face through interior,
+     * discovers shell boundaries, verifies six-face completeness and inner dimensions.
+     * 框架式验证：从控制器背面BFS遍历内部空间，发现外壳边界，六面完整+内部尺寸校验。
+     */
     public static FrameResult validateFrame(Level level, MultiBlockPattern pattern, BlockPos ctrlPos, Direction facing) {
         java.util.Set<Block> casingBlocks = new java.util.HashSet<>();
         for (char c : pattern.getDefinitions().keySet())
             if (pattern.getTags(c).contains(pattern.getCasingTag()))
                 for (var bs : pattern.getAlternatives(c)) {
                     Block b = bs.getBlock();
-                    if (b != net.minecraft.world.level.block.Blocks.AIR && !net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).getPath().contains("ae_interface"))
+                    if (b != net.minecraft.world.level.block.Blocks.AIR
+                            && !net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).getPath().contains("ae_interface"))
                         casingBlocks.add(b);
                 }
         if (casingBlocks.isEmpty()) return null;
         casingBlocks.add(level.getBlockState(ctrlPos).getBlock());
-        int mx = scan(level, ctrlPos, facing, 1, 0, 0, casingBlocks, pattern.getMaxW());
-        int nx = scan(level, ctrlPos, facing, -1, 0, 0, casingBlocks, pattern.getMaxW());
-        int my = scan(level, ctrlPos, facing, 0, 1, 0, casingBlocks, pattern.getMaxH());
-        int ny = scan(level, ctrlPos, facing, 0, -1, 0, casingBlocks, pattern.getMaxH());
-        int mz = scan(level, ctrlPos, facing, 0, 0, 1, casingBlocks, pattern.getMaxD());
-        int nz = scan(level, ctrlPos, facing, 0, 0, -1, casingBlocks, pattern.getMaxD());
-        int w = mx + nx + 1, h = my + ny + 1, d = mz + nz + 1;
-        if (w < pattern.getMinW() || h < pattern.getMinH() || d < pattern.getMinD()) return null;
-        // Map local -X/-Y/-Z offsets to world axes based on facing / 根据朝向映射本地偏移到世界轴
-        int wOx, wOy, wOz;
-        switch (facing) {
-            case NORTH -> { wOx = -nx; wOy = -ny; wOz = -nz; }
-            case SOUTH -> { wOx =  nx; wOy = -ny; wOz =  nz; }
-            case EAST  -> { wOx =  nz; wOy = -ny; wOz = -nx; }
-            case WEST  -> { wOx = -nz; wOy = -ny; wOz =  nx; }
-            default    -> { wOx = -nx; wOy = -ny; wOz = -nz; }
+
+        Direction intoInterior = facing.getOpposite();
+        BlockPos entry = ctrlPos.relative(intoInterior);
+
+        java.util.Set<BlockPos> visited = new java.util.HashSet<>();
+        java.util.Set<BlockPos> shell = new java.util.HashSet<>();
+        java.util.ArrayDeque<BlockPos> queue = new java.util.ArrayDeque<>();
+        queue.add(entry);
+        visited.add(entry);
+
+        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
+        int minY = Integer.MAX_VALUE, maxY = Integer.MIN_VALUE;
+        int minZ = Integer.MAX_VALUE, maxZ = Integer.MIN_VALUE;
+
+        shell.add(ctrlPos);
+        minX = maxX = ctrlPos.getX(); minY = maxY = ctrlPos.getY(); minZ = maxZ = ctrlPos.getZ();
+
+        BlockState entrySt = level.getBlockState(entry);
+        if (casingBlocks.contains(entrySt.getBlock())) return null;
+
+        while (!queue.isEmpty()) {
+            BlockPos p = queue.poll();
+            minX = Math.min(minX, p.getX()); maxX = Math.max(maxX, p.getX());
+            minY = Math.min(minY, p.getY()); maxY = Math.max(maxY, p.getY());
+            minZ = Math.min(minZ, p.getZ()); maxZ = Math.max(maxZ, p.getZ());
+
+            for (Direction d : Direction.values()) {
+                BlockPos nb = p.relative(d);
+                if (visited.contains(nb)) continue;
+                visited.add(nb);
+                BlockState st = level.getBlockState(nb);
+                if (casingBlocks.contains(st.getBlock())) {
+                    shell.add(nb);
+                    minX = Math.min(minX, nb.getX()); maxX = Math.max(maxX, nb.getX());
+                    minY = Math.min(minY, nb.getY()); maxY = Math.max(maxY, nb.getY());
+                    minZ = Math.min(minZ, nb.getZ()); maxZ = Math.max(maxZ, nb.getZ());
+                } else if (!st.isAir() || level.getBlockEntity(nb) != null) {
+                    queue.add(nb);
+                }
+            }
+            if (visited.size() > 10000) return null;
         }
-        BlockPos origin = ctrlPos.offset(wOx, wOy, wOz);
-        for (int x = 0; x < w; x++) for (int y = 0; y < h; y++) for (int z = 0; z < d; z++) {
-            if (x > 0 && x < w - 1 && y > 0 && y < h - 1 && z > 0 && z < d - 1) continue;
-            BlockPos wp = switch (facing) {
-                case NORTH -> origin.offset(x, y, z);
-                case SOUTH -> origin.offset(-x, y, -z);
-                case EAST  -> origin.offset(-z, y, x);
-                case WEST  -> origin.offset(z, y, -x);
-                default    -> origin.offset(x, y, z);
-            };
-            if (!casingBlocks.contains(level.getBlockState(wp).getBlock())) return null;
-        }
-        return new FrameResult(w, h, d, wOx, wOy, wOz);
+
+        int shellW = maxX - minX + 1, shellH = maxY - minY + 1, shellD = maxZ - minZ + 1;
+        int innerW = shellW - 2, innerH = shellH - 2, innerD = shellD - 2;
+        if (innerW < 1 || innerH < 1 || innerD < 1) return null;
+        if (innerW > pattern.getInnerW() || innerH > pattern.getInnerH() || innerD > pattern.getInnerD()) return null;
+
+        for (int x = minX; x <= maxX; x++)
+            for (int y = minY; y <= maxY; y++)
+                for (int z = minZ; z <= maxZ; z++) {
+                    if (x > minX && x < maxX && y > minY && y < maxY && z > minZ && z < maxZ) continue;
+                    BlockPos wp = new BlockPos(x, y, z);
+                    if (!casingBlocks.contains(level.getBlockState(wp).getBlock())) return null;
+                }
+
+        int wOx = minX - ctrlPos.getX(), wOy = minY - ctrlPos.getY(), wOz = minZ - ctrlPos.getZ();
+        return new FrameResult(shellW, shellH, shellD, wOx, wOy, wOz);
     }
-
-
 
     public record FrameResult(int width, int height, int depth, int originX, int originY, int originZ) {}
-
-    private static int scan(Level level, BlockPos ctrl, Direction facing, int dx, int dy, int dz,
-                            java.util.Set<Block> casing, int max) {
-        int adx = dx, ady = dy, adz = dz;
-        if (facing == Direction.EAST)  { adx = -dz; adz = dx; }
-        if (facing == Direction.SOUTH) { adx = -dx; adz = -dz; }
-        if (facing == Direction.WEST)  { adx = dz; adz = -dx; }
-        for (int i = 1; i <= max; i++) {
-            BlockPos wp = ctrl.offset(adx * i, ady * i, adz * i);
-            Block b = level.getBlockState(wp).getBlock();
-                if (b == net.minecraft.world.level.block.Blocks.AIR) return 0; if (casing.contains(b)) return i;
-        }
-        return 0;
-    }
 
     public static BlockPos transform(BlockPos origin, int dx, int dy, int dz,
                                      int width, int depth, Direction facing) {

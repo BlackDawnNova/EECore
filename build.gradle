@@ -252,8 +252,15 @@ tasks.register('genMachineModels') {
 
             def blockDir = resBase.resolve("assets/eecore/models/block/machines/${m.itemId}")
             java.nio.file.Files.createDirectories(blockDir)
-            java.nio.file.Files.writeString(blockDir.resolve('controller.json'),
-                    '{"parent":"eecore:block/ee_base_12","textures":{"particle":"' + casingTex + '","all":"' + casingTex + '","front":"eecore:block/machines/' + m.itemId + '/overlay_front"}}')
+            def emissiveTex = resBase.resolve("assets/eecore/textures/block/machines/${m.itemId}/overlay_front_e.png")
+            def hasEmissive = java.nio.file.Files.exists(emissiveTex)
+            if (hasEmissive) {
+                java.nio.file.Files.writeString(blockDir.resolve('controller.json'),
+                        '{"parent":"eecore:block/ee_base_12_front_emissive","textures":{"particle":"' + casingTex + '","all":"' + casingTex + '","front":"eecore:block/machines/' + m.itemId + '/overlay_front","overlay_emissive":"eecore:block/machines/' + m.itemId + '/overlay_front_e"}}')
+            } else {
+                java.nio.file.Files.writeString(blockDir.resolve('controller.json'),
+                        '{"parent":"eecore:block/ee_base_12","textures":{"particle":"' + casingTex + '","all":"' + casingTex + '","front":"eecore:block/machines/' + m.itemId + '/overlay_front"}}')
+            }
         }
 
         // Blockstate — all 32 model indices / 方块状态——32 个模型索引

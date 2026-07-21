@@ -23,7 +23,7 @@ public final class MultiBlockPattern {
 
     private boolean frameBased;
     private String casingTag;
-    private int minW = 1, maxW = 32, minH = 1, maxH = 16, minD = 1, maxD = 32;
+    private int innerW, innerH, innerD;
 
     /** @param layers [layer][row] = char string / 层数据 [层][行] = 字符 */
     public MultiBlockPattern(int width, int height, int depth,
@@ -239,16 +239,14 @@ public final class MultiBlockPattern {
     }
 
     public void setFrameBasedFlag() { this.frameBased = true; }
-    public void setFrameBased(String casingTag, int minW, int maxW, int minH, int maxH, int minD, int maxD) {
+    public void setFrameBased(String casingTag, int innerW, int innerH, int innerD) {
         this.frameBased = true;
         this.casingTag = casingTag;
-        this.minW = minW; this.maxW = maxW;
-        this.minH = minH; this.maxH = maxH;
-        this.minD = minD; this.maxD = maxD;
+        this.innerW = innerW; this.innerH = innerH; this.innerD = innerD;
     }
     public boolean isFrameBased() { return frameBased; }
     public String getCasingTag() { return casingTag; }
-    public int getMinW() { return minW; } public int getMaxW() { return maxW; }
-    public int getMinH() { return minH; } public int getMaxH() { return maxH; }
-    public int getMinD() { return minD; } public int getMaxD() { return maxD; }
+    public int getInnerW() { return innerW; }
+    public int getInnerH() { return innerH; }
+    public int getInnerD() { return innerD; }
 }

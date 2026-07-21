@@ -191,8 +191,8 @@ public class EECore {
         modEventBus.addListener(this::registerPayloadHandlers);
         modEventBus.addListener(EECore::onBuildCreativeTab);
 
-        // Register machine items before DeferredRegister freezes / 注册机器物品
-        EECoreMachines.registerAll();
+        // Register machine items + tag bindings / 注册机器物品 + 标签绑定
+        EECoreMachines.init(modEventBus);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.event.BlockPlaceHandler::onBlockPlace);
         NeoForge.EVENT_BUS.addListener(EECoreCommands::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.multiblock.PatternStorage::onServerStarting);
@@ -248,8 +248,6 @@ public class EECore {
         MultiBlockRegistry.registerControllerBlock(com.endlessepoch.core.registry.Blocks.SCANNER_CONTROLLER.get());
         MultiBlockRegistry.registerControllerBlock(com.endlessepoch.core.registry.Blocks.MACHINE_CONTROLLER.get());
 
-        // Apply tag bindings (requires bound blocks) / 标签绑定（需要已注册的方块）
-        EECoreMachines.applyBindings();
         com.endlessepoch.core.api.multiblock.MachineRegistry.autoRegisterAll();
 
         // Auto-include AE interface in all machine patterns (limit 1 per machine) / 所有机器自动添加AE接口（上限1）

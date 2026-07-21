@@ -44,6 +44,7 @@ OmegaValue energy = storage.getEnergyStored(VoltageTier.LV);
 
 **Register a multiblock machine / 注册多方块机器:**
 ```java
+// Fixed format / 固定式
 MultiblockLoader.load(ResourceLocation.parse("mymod:my_machine"))
     .name("My Machine", "我的机器")
     .tier(1)  // LV casing
@@ -52,6 +53,16 @@ MultiblockLoader.load(ResourceLocation.parse("mymod:my_machine"))
     .limit("busTag", ModBlocks.INPUT_BUS.get(), 2)
     .limit("busTag", ModBlocks.OUTPUT_BUS.get(), 1)
     .register(ResourceLocation.parse("mymod:my_machine"));
+
+// Frame-based / 框架式
+FrameMachineLoader.load(ResourceLocation.parse("mymod:my_frame_machine"))
+    .name("My Frame Machine", "我的框架机")
+    .tier(1)
+    .frame("CASING", 3, 3, 3)               // required: TAG + inner W×H×D (shell = inner+2) / 必调：标签+内部宽高深
+    .where("CASING", ModBlocks.MY_CASING.get())
+    .where("CORE", ModBlocks.MY_CORE.get())
+    .limit("CORE", ModBlocks.MY_CORE.get(), 2)
+    .register(ResourceLocation.parse("mymod:my_frame_machine"));
 ```
 
 **Place machine textures / 放置机器贴图:**
