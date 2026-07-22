@@ -55,18 +55,17 @@ public final class EECoreMachines {
             .limit("EE-3", PartCategory.PARALLEL_HATCH, 1)
             .out("eecore:creative_test");
 
-    /** Dispatch Center / 调度中心 */
     public static final FrameMachineDef DISPATCH_CENTER = new FrameMachineDef()
             .ecs("eecore", "ceshi")
             .name("Dispatch Center", "调度中心")
-            .tier(1)
-            .frame("A", 3, 3, 3)
+            .tier(11)
+            .frame("A", 11, 11, 11)
             .where("A", () -> com.endlessepoch.core.registry.Blocks.DISPATCH_CASING.get())
-            .where("B", () -> com.endlessepoch.core.registry.Blocks.SUPERCOMPUTING_UNIT.get())
-            .or(() -> com.endlessepoch.core.registry.Blocks.PATTERN_UNIT.get())
-            .or(() -> com.endlessepoch.core.registry.Blocks.QUANTITY_UNIT.get())
-            .or(() -> com.endlessepoch.core.registry.Blocks.PARALLEL_UNIT.get())
-            .limit("B", () -> com.endlessepoch.core.registry.Blocks.SUPERCOMPUTING_UNIT.get(), 4)
+            .or(() -> com.endlessepoch.core.registry.Blocks.DISPATCH_CASING_II.get())
+            .or(() -> com.endlessepoch.core.registry.Blocks.DISPATCH_ME_PORT.get())
+            .where("B", PartCategory.DISPATCH_UNIT)
+            .limit("A", () -> com.endlessepoch.core.registry.Blocks.DISPATCH_ME_PORT.get(), 1)
+            .limit("B", PartCategory.QUANTITY_UNIT_CAT, 2)
             .out("eecore:dispatch_center");
 
     // Internal helpers / 内部辅助
@@ -175,12 +174,10 @@ public final class EECoreMachines {
         }
     }
 
-    /** Holds frame-based machine registration parameters. / 持有框架式机器注册参数。 */
     private static class FrameMachineDef {
         private String ecsNs, ecsPath, nameEn, nameZh, outNs, outPath;
         private int tier;
         private String effect;
-        private boolean frameSet;
         private String frameCasingTag;
         private int innerW, innerH, innerD;
         private String lastTag;
@@ -196,8 +193,7 @@ public final class EECoreMachines {
         FrameMachineDef tier(int t) { tier = t; return this; }
         FrameMachineDef effect(String e) { effect = e; return this; }
         FrameMachineDef frame(String casingTag, int innerW, int innerH, int innerD) {
-            this.frameSet=true; this.frameCasingTag=casingTag;
-            this.innerW=innerW; this.innerH=innerH; this.innerD=innerD; return this;
+            this.frameCasingTag=casingTag; this.innerW=innerW; this.innerH=innerH; this.innerD=innerD; return this;
         }
         FrameMachineDef out(String id) {
             var rl = ResourceLocation.parse(id);
@@ -206,15 +202,13 @@ public final class EECoreMachines {
         @SafeVarargs
         final FrameMachineDef where(String tag, Supplier<? extends net.minecraft.world.level.block.Block>... blocks) {
             lastTag = tag;
-            tagSuppliers.computeIfAbsent(tag, k -> new java.util.ArrayList<>())
-                    .addAll(java.util.Arrays.asList(blocks));
+            tagSuppliers.computeIfAbsent(tag, k -> new java.util.ArrayList<>()).addAll(java.util.Arrays.asList(blocks));
             return this;
         }
         @SafeVarargs
         final FrameMachineDef or(Supplier<? extends net.minecraft.world.level.block.Block>... blocks) {
             if (lastTag != null)
-                tagSuppliers.computeIfAbsent(lastTag, k -> new java.util.ArrayList<>())
-                        .addAll(java.util.Arrays.asList(blocks));
+                tagSuppliers.computeIfAbsent(lastTag, k -> new java.util.ArrayList<>()).addAll(java.util.Arrays.asList(blocks));
             return this;
         }
         FrameMachineDef limit(String tag, Supplier<? extends net.minecraft.world.level.block.Block> block, int maxCount) {
@@ -223,14 +217,12 @@ public final class EECoreMachines {
         }
         FrameMachineDef where(String tag, PartCategory... cats) {
             lastTag = tag;
-            tagCategories.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>())
-                    .addAll(java.util.Arrays.asList(cats));
+            tagCategories.computeIfAbsent(tag, k -> new java.util.LinkedHashSet<>()).addAll(java.util.Arrays.asList(cats));
             return this;
         }
         FrameMachineDef or(PartCategory... cats) {
             if (lastTag != null)
-                tagCategories.computeIfAbsent(lastTag, k -> new java.util.LinkedHashSet<>())
-                        .addAll(java.util.Arrays.asList(cats));
+                tagCategories.computeIfAbsent(lastTag, k -> new java.util.LinkedHashSet<>()).addAll(java.util.Arrays.asList(cats));
             return this;
         }
         FrameMachineDef limit(String tag, PartCategory cat, int maxCount) {
@@ -245,9 +237,7 @@ public final class EECoreMachines {
 
         void registerItem() {
             var b = FrameMachineLoader.load(ResourceLocation.fromNamespaceAndPath(ecsNs, ecsPath))
-                    .name(nameEn, nameZh)
-                    .tier(tier)
-                    .frame(frameCasingTag, innerW, innerH, innerD);
+                    .name(nameEn, nameZh).tier(tier).frame(frameCasingTag, innerW, innerH, innerD);
             if (effect != null) b.effect(effect);
             b.register(getOutId());
         }

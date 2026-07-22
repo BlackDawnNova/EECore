@@ -1,6 +1,7 @@
 package com.endlessepoch.core.api.multiblock;
 
 import com.endlessepoch.core.EECore;
+import com.endlessepoch.core.api.multiblock.loader.FrameMachineLoader;
 import com.endlessepoch.core.api.multiblock.loader.MultiblockLoader;
 import net.minecraft.resources.ResourceLocation;
 
@@ -62,11 +63,12 @@ public final class MachineRegistry {
             ResourceLocation id = ResourceLocation.fromNamespaceAndPath(ns, name);
             ResourceLocation ecsFile = ResourceLocation.fromNamespaceAndPath(ns, name);
 
-            if (DEFINITIONS.containsKey(id)) return; // built-in has priority / 内置优先
+            if (DEFINITIONS.containsKey(id)) return;
 
             // Try sidecar JSON for metadata / 尝试边车 JSON
             String nameEn = name, nameZh = name, model = null, effect = null;
             int tier = 0;
+            String casingTag = null; int innerW = -1, innerH = -1, innerD = -1;
             Path jsonFile = file.resolveSibling(name + ".json");
             if (Files.exists(jsonFile)) {
                 try {
@@ -77,13 +79,33 @@ public final class MachineRegistry {
                     effect = extract(json, "effect", null);
                     String t = extract(json, "tier", null);
                     if (t != null) try { tier = Integer.parseInt(t); } catch(Exception ignored){}
+                    casingTag = extract(json, "frame_casing", null);
+                    try { String s = extract(json, "frame_inner_w", null); if (s != null) innerW = Integer.parseInt(s); } catch(Exception ignored){}
+                    try { String s = extract(json, "frame_inner_h", null); if (s != null) innerH = Integer.parseInt(s); } catch(Exception ignored){}
+                    try { String s = extract(json, "frame_inner_d", null); if (s != null) innerD = Integer.parseInt(s); } catch(Exception ignored){}
                 } catch (Exception ignored) {}
             }
 
-            var builder = MultiblockLoader.load(ecsFile).name(nameEn, nameZh).tier(tier);
-            if (model != null) builder.model(model);
-            if (effect != null) builder.effect(effect);
-            builder.register(id);
+            // Load .ecs to check format / 加载.ecs判断格式
+            var pat = EECoreCodec.read(file);
+            if (pat.isFrameBased()) {
+                if (casingTag == null) {
+                    for (char c : pat.getDefinitions().keySet())
+                        if (!pat.getTags(c).isEmpty()) { casingTag = pat.getTags(c).get(0); break; }
+                }
+                if (casingTag == null) { EECore.LOGGER.warn("FrameMachineLoader: no tags in {} — skipping", file); return; }
+                if (innerW < 1) innerW = 3; if (innerH < 1) innerH = 3; if (innerD < 1) innerD = 3;
+                var b = com.endlessepoch.core.api.multiblock.loader.FrameMachineLoader.load(ecsFile)
+                        .name(nameEn, nameZh).tier(tier).frame(casingTag, innerW, innerH, innerD);
+                if (model != null) b.model(model);
+                if (effect != null) b.effect(effect);
+                b.register(id);
+            } else {
+                var b = MultiblockLoader.load(ecsFile).name(nameEn, nameZh).tier(tier);
+                if (model != null) b.model(model);
+                if (effect != null) b.effect(effect);
+                b.register(id);
+            }
         } catch (Exception e) {
             EECore.LOGGER.warn("MachineRegistry: failed to register {}: {}", file, e.getMessage());
         }

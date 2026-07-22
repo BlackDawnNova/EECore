@@ -1,6 +1,7 @@
 package com.endlessepoch.core.nova.block.part;
 
 import com.endlessepoch.core.api.multiblock.IPart;
+import com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector;
 import com.endlessepoch.core.api.multiblock.MultiBlockFormHandler;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
 import com.endlessepoch.core.api.multiblock.MultiBlockValidator;
@@ -153,6 +154,7 @@ public class PartBlock extends Block implements EntityBlock {
     }
 
     public PartType getPartType() { return partType; }
+    public int getTier() { return tier; }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
@@ -280,30 +282,14 @@ public class PartBlock extends Block implements EntityBlock {
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock())) {
+        if (!state.is(newState.getBlock()) && !level.isClientSide()) {
             BlockEntity be = level.getBlockEntity(pos);
-            if (be != null && !level.isClientSide()) {
-                if (be instanceof InputBusBlockEntity bus && !bus.isCreative()) {
-                    for (int i = 0; i < bus.getSlotCount(); i++) {
-                        var stack = bus.getInventory().getStackInSlot(i);
-                        if (!stack.isEmpty())
-                            net.minecraft.world.Containers.dropItemStack(level,
-                                    pos.getX(), pos.getY(), pos.getZ(), stack.copy());
-                    }
-                }
-                if (be instanceof IPart part && part.isFormed()) {
-                    BlockPos ctrl = part.getControllerPos();
-                    BlockEntity ctrlBe = level.getBlockEntity(ctrl);
-                    if (ctrlBe instanceof MachineControllerBlockEntity mc
-                            && mc.getMachineId() != null
-                            && mc.getMachineId().equals(part.getMachineId())) {
-                        var p = MultiBlockRegistry.get(part.getMachineId());
-                        if (p.isPresent() && !MultiBlockValidator.validate(
-                                level, p.get(), ctrl, mc.getFacing())) {
-                            mc.onMultiblockBroken();
-                            MultiBlockFormHandler.notifyBreak(mc, ctrl, level);
-                        }
-                    }
+            if (be instanceof InputBusBlockEntity bus && !bus.isCreative()) {
+                for (int i = 0; i < bus.getSlotCount(); i++) {
+                    var stack = bus.getInventory().getStackInSlot(i);
+                    if (!stack.isEmpty())
+                        net.minecraft.world.Containers.dropItemStack(level,
+                                pos.getX(), pos.getY(), pos.getZ(), stack.copy());
                 }
             }
         }

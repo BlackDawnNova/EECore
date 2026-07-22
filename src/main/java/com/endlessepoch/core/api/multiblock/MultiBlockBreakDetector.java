@@ -3,67 +3,110 @@ package com.endlessepoch.core.api.multiblock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.minecraft.world.level.block.Block;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Tracks all block positions belonging to formed multiblocks.
- * On block break, checks if the broken block was part of a formed structure.
- * 记录所有已成形多方块结构的方块位置，破坏时触发检测。
- */
 public final class MultiBlockBreakDetector {
 
-    /** Broken block position → controller position (thread-safe) / 破坏位置 → 控制器位置（线程安全） */
-    private static final Map<BlockPos, BlockPos> FORMED_BLOCKS = new ConcurrentHashMap<>();
+    private static final Map<BlockPos, java.util.Set<BlockPos>> FORMED_BLOCKS = new ConcurrentHashMap<>();
+    private static final Map<BlockPos, StructureEntry> STRUCTURES = new ConcurrentHashMap<>();
 
     private MultiBlockBreakDetector() {}
 
-    /**
-     * Stamp all blocks in a formed structure. / 成形时标记结构内全部方块。
-     */
-    public static void stamp(ServerLevel level, MultiBlockPattern pattern, BlockPos controllerPos,
-                             net.minecraft.core.Direction facing) {
+    public static void stamp(ServerLevel level, MultiBlockPattern pattern, BlockPos ctrl, Direction facing) {
         for (int y = 0; y < pattern.height; y++)
             for (int z = 0; z < pattern.depth; z++)
                 for (int x = 0; x < pattern.width; x++) {
                     if (pattern.getChar(x, y, z) == 'A' || pattern.getChar(x, y, z) == ' ') continue;
                     int rx = x - pattern.controllerX, ry = y - pattern.controllerY, rz = z - pattern.controllerZ;
                     BlockPos wp = switch (facing) {
-                        case NORTH -> controllerPos.offset(rx, ry, rz);
-                        case SOUTH -> controllerPos.offset(-rx, ry, -rz);
-                        case EAST  -> controllerPos.offset(-rz, ry, rx);
-                        case WEST  -> controllerPos.offset(rz, ry, -rx);
-                        default    -> controllerPos.offset(rx, ry, rz);
+                        case NORTH -> ctrl.offset(rx, ry, rz);
+                        case SOUTH -> ctrl.offset(-rx, ry, -rz);
+                        case EAST  -> ctrl.offset(-rz, ry, rx);
+                        case WEST  -> ctrl.offset(rz, ry, -rx);
+                        default    -> ctrl.offset(rx, ry, rz);
                     };
-                    FORMED_BLOCKS.put(wp, controllerPos);
+                    FORMED_BLOCKS.computeIfAbsent(wp, k -> ConcurrentHashMap.newKeySet()).add(ctrl);
                 }
     }
 
-    public static void stampFrame(ServerLevel level, BlockPos origin, BlockPos controllerPos,
+    public static void stampFrame(ServerLevel level, BlockPos origin, BlockPos ctrl,
                                    int w, int h, int d, Direction facing) {
-        for (int y = 0; y < h; y++)
-            for (int z = 0; z < d; z++)
-                for (int x = 0; x < w; x++) {
-                    BlockPos wp = origin.offset(x, y, z);
-                    if (!level.getBlockState(wp).isAir())
-                        FORMED_BLOCKS.put(wp, controllerPos);
-                }
+        stampFrame(level, origin, ctrl, w, h, d, facing, null);
     }
 
-    /**
-     * Clear all blocks belonging to a controller. / 破碎时清除该控制器所有方块标记。
-     */
-    public static void clear(BlockPos controllerPos) {
-        FORMED_BLOCKS.values().removeIf(p -> p.equals(controllerPos));
+    public static void stampFrame(ServerLevel level, BlockPos origin, BlockPos ctrl,
+                                   int w, int h, int d, Direction facing,
+                                   java.util.Set<BlockPos> shellPositions) {
+        java.util.Set<BlockPos> shellCopy = null;
+        if (shellPositions != null) shellCopy = new java.util.HashSet<>(shellPositions);
+        STRUCTURES.put(ctrl, new StructureEntry(origin, w, h, d, true, shellCopy));
     }
 
-    /**
-     * Check if a broken block belongs to a formed structure.
-     * Returns controller position if found, null otherwise.
-     * 检查破坏位置是否属于已成形结构，返回控制器位置。
-     */
-    public static BlockPos check(BlockPos brokenPos) {
-        return FORMED_BLOCKS.get(brokenPos);
+    public static void clear(BlockPos ctrl) {
+        for (var set : FORMED_BLOCKS.values()) set.remove(ctrl);
+        FORMED_BLOCKS.values().removeIf(Set::isEmpty);
+        STRUCTURES.remove(ctrl);
     }
+
+    /** Returns all controllers whose structure includes this position. / 所有包含此位置的控制器。 */
+    public static java.util.List<BlockPos> findControllers(BlockPos pos) {
+        java.util.List<BlockPos> result = new java.util.ArrayList<>();
+        java.util.Set<BlockPos> ctrls = FORMED_BLOCKS.get(pos);
+        if (ctrls != null) result.addAll(ctrls);
+        for (var e : STRUCTURES.entrySet()) {
+            StructureEntry se = e.getValue();
+            if (pos.getX() >= se.origin.getX() && pos.getX() < se.origin.getX() + se.w
+                    && pos.getY() >= se.origin.getY() && pos.getY() < se.origin.getY() + se.h
+                    && pos.getZ() >= se.origin.getZ() && pos.getZ() < se.origin.getZ() + se.d)
+                result.add(e.getKey());
+        }
+        return result;
+    }
+
+    public static BlockPos findController(BlockPos pos) {
+        java.util.List<BlockPos> list = findControllers(pos);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    public static boolean isFrameStructure(BlockPos ctrl) {
+        StructureEntry se = STRUCTURES.get(ctrl);
+        return se != null && se.frameBased;
+    }
+
+    public static boolean isOnFrameShell(BlockPos pos, BlockPos ctrl) {
+        StructureEntry se = STRUCTURES.get(ctrl);
+        if (se == null || !se.frameBased) return true;
+        if (se.shellBlocks != null) return se.shellBlocks.contains(pos);
+        int x = pos.getX(), y = pos.getY(), z = pos.getZ();
+        int ox = se.origin.getX(), oy = se.origin.getY(), oz = se.origin.getZ();
+        return x == ox || x == ox + se.w - 1 || y == oy || y == oy + se.h - 1 || z == oz || z == oz + se.d - 1;
+    }
+
+    private static void handleBlockChange(net.minecraft.world.level.LevelAccessor level, BlockPos pos) {
+        if (level.isClientSide()) return;
+        for (BlockPos ctrl : findControllers(pos)) {
+            var be = level.getBlockEntity(ctrl);
+            if (!(be instanceof com.endlessepoch.core.nova.block.MachineControllerBlockEntity mc)) continue;
+            if (!mc.isFormed()) continue;
+            if (isFrameStructure(ctrl) && !isOnFrameShell(pos, ctrl)) continue;
+            mc.scheduleStructureCheck();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onBlockBreak(net.neoforged.neoforge.event.level.BlockEvent.BreakEvent event) {
+        handleBlockChange(event.getLevel(), event.getPos());
+    }
+
+    @SubscribeEvent
+    public static void onNeighborNotify(net.neoforged.neoforge.event.level.BlockEvent.NeighborNotifyEvent event) {
+        handleBlockChange(event.getLevel(), event.getPos());
+    }
+
+    private record StructureEntry(BlockPos origin, int w, int h, int d, boolean frameBased,
+                                  java.util.Set<BlockPos> shellBlocks) {}
 }

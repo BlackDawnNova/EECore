@@ -292,5 +292,6 @@
   "block.eecore.quantity_unit": "Quantity Unit",
   "block.eecore.parallel_unit": "Parallel Unit",
   "block.eecore.dispatch_me_port": "ME Communication Port",
-  "block.eecore.dispatch_casing": "Dispatch Casing"
+  "block.eecore.dispatch_casing": "Dispatch Casing",
+  "block.eecore.dispatch_casing_ii": "Dispatch Casing II"
 }

@@ -1,1 +1,1 @@
-{"parent":"eecore:item/ee_machine_item","textures":{"all":"eecore:block/casings/voltage/lv/side","front":"eecore:block/machines/dispatch_center/overlay_front"}}
+{"parent":"eecore:item/ee_machine_item","textures":{"all":"eecore:block/casings/voltage/qv/side","front":"eecore:block/machines/dispatch_center/overlay_front"}}

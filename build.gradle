@@ -232,8 +232,8 @@ tasks.register('genMachineModels') {
 
         // modelIndex = allocation order in EECoreMachines.registerAll()
         def machines = [
-            [itemId: 'creative_test',     tier: 1, index: 4],
-            [itemId: 'dispatch_center',   tier: 1, index: 5],
+            [itemId: 'creative_test',   tier: 1,  index: 4],
+            [itemId: 'dispatch_center', tier: 11, index: 5],
         ]
 
         // Item models — child of ee_machine_item with per-machine textures

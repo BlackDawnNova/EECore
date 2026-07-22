@@ -123,8 +123,6 @@ class FrameEditPanel {
                 pose, buf, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
     }
 
-    // ── Mouse ──
-
     boolean mouseClicked(double mx, double my, MultiBlockPattern pat, int px, int py, int ph) {
         if (searchVisible) {
             int gridX = px + 4, gridY = py + 38;
@@ -134,8 +132,8 @@ class FrameEditPanel {
                 int ix = gridX + (idx % COLS) * CELL_W, iy = gridY + (idx / COLS) * CELL_H;
                 if (mx(mx, my, ix, iy, CELL_W, CELL_H)) {
                     Block block = searchResults.get(i);
-                    if ("casing".equals(searchTarget)) casingBlock = block;
-                    else componentBlocks.add(block);
+                    if ("casing".equals(searchTarget)) { if (block != casingBlock) casingBlock = block; }
+                    else if (block != casingBlock) { componentBlocks.add(block); }
                     closeSearch();
                     return true;
                 }
@@ -156,16 +154,24 @@ class FrameEditPanel {
     }
 
     void applyToPattern(MultiBlockPattern pat, String casingTag, String componentTag) {
-        if (casingBlock != null) {
-            for (char c : pat.getDefinitions().keySet())
-                if (pat.getTags(c).contains(casingTag))
-                    pat.addAlternatives(c, casingBlock.defaultBlockState());
-        }
-        for (Block b : componentBlocks) {
-            for (char c : pat.getDefinitions().keySet())
-                if (pat.getTags(c).contains(componentTag))
-                    pat.addAlternatives(c, b.defaultBlockState());
-        }
+        if (casingBlock != null)
+            applyBlockToTag(pat, casingTag, casingBlock);
+        for (Block b : componentBlocks)
+            applyBlockToTag(pat, componentTag, b);
+    }
+
+    private static void applyBlockToTag(MultiBlockPattern pat, String tag, Block block) {
+        char newChar = findFreeChar(pat);
+        pat.setDefinition(newChar, block.defaultBlockState());
+        pat.setTags(newChar, java.util.List.of(tag));
+    }
+
+    private static char findFreeChar(MultiBlockPattern pat) {
+        for (char c = 'B'; c <= '~'; c++)
+            if (c != '#' && !pat.getDefinitions().containsKey(c)) return c;
+        for (char c = 0xA0; c <= 0xFE; c++)
+            if (!pat.getDefinitions().containsKey(c)) return c;
+        return 'Z';
     }
 
     boolean keyPressed(int k, MultiBlockPattern pat) {
@@ -175,8 +181,8 @@ class FrameEditPanel {
         if (k == 257 || k == 335) {
             if (searchIdx >= 0 && searchIdx < searchResults.size()) {
                 Block block = searchResults.get(searchIdx);
-                if ("casing".equals(searchTarget)) casingBlock = block;
-                else componentBlocks.add(block);
+                if ("casing".equals(searchTarget)) { if (block != casingBlock) casingBlock = block; }
+                else if (block != casingBlock) { componentBlocks.add(block); }
             }
             closeSearch(); return true;
         }

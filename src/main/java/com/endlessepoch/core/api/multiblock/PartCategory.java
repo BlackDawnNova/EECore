@@ -1,55 +1,65 @@
 package com.endlessepoch.core.api.multiblock;
 
 import com.endlessepoch.core.nova.block.part.PartBlock;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
- * Functional part categories, matched by PartType path suffix — the same convention
- * that resolves abilities. Any part registered through registerPartBlock (built-in,
- * creative, or addon "hv_input_bus" variants) matches its category automatically, so
- * machine structures bind categories instead of enumerating blocks.
- * 功能部件类别，按 PartType 路径后缀匹配——与能力解析同一套约定。
- * 经 registerPartBlock 注册的任何部件（内置、创造、附属分级变体）自动归类，
- * 机器结构按类绑定，无需逐个点名方块。
+ * Functional part categories, matched by PartType path suffix.
+ * Built-in categories cover standard parts; addon mods call {@link #register}.
+ * 功能部件类别，按 PartType 路径后缀匹配。内置涵盖标准部件；附属Mod调用 register 注册。
  */
-public enum PartCategory {
-    ITEM_INPUT_BUS("input_bus"),
-    ITEM_OUTPUT_BUS("output_bus"),
-    INPUT_BIN("input_bin"),
-    INPUT_ASSEMBLY("input_assembly"),
-    OUTPUT_ASSEMBLY("output_assembly"),
-    FLUID_INPUT("fluid_input"),
-    FLUID_OUTPUT("fluid_output"),
-    ENERGY_INPUT("energy_input"),
-    ENERGY_OUTPUT("energy_output"),
-    PARALLEL_HATCH("parallel_hatch"),
-    /** Any non-casing part. / 任意非外壳功能部件。 */
-    ANY_FUNCTIONAL(null);
+public final class PartCategory {
 
-    private final String suffix;
+    private static final Map<ResourceLocation, PartCategory> REGISTRY = new LinkedHashMap<>();
 
-    PartCategory(String suffix) { this.suffix = suffix; }
+    public static final PartCategory ITEM_INPUT_BUS  = registerEe("input_bus");
+    public static final PartCategory ITEM_OUTPUT_BUS = registerEe("output_bus");
+    public static final PartCategory INPUT_BIN       = registerEe("input_bin");
+    public static final PartCategory INPUT_ASSEMBLY  = registerEe("input_assembly");
+    public static final PartCategory OUTPUT_ASSEMBLY = registerEe("output_assembly");
+    public static final PartCategory FLUID_INPUT     = registerEe("fluid_input");
+    public static final PartCategory FLUID_OUTPUT    = registerEe("fluid_output");
+    public static final PartCategory ENERGY_INPUT    = registerEe("energy_input");
+    public static final PartCategory ENERGY_OUTPUT   = registerEe("energy_output");
+    public static final PartCategory PARALLEL_HATCH  = registerEe("parallel_hatch");
+    public static final PartCategory DISPATCH_UNIT   = registerEe("supercomputing_unit", "pattern_unit", "quantity_unit", "parallel_unit");
+    public static final PartCategory QUANTITY_UNIT_CAT = registerEe("quantity_unit");
+    public static final PartCategory ANY_FUNCTIONAL  = register(ResourceLocation.fromNamespaceAndPath("eecore", "any_functional"));
 
-    /** Does this part type belong to the category? / 该部件类型是否属于此类别。 */
-    public boolean matches(PartType type) {
-        String p = type.getId().getPath();
-        if (suffix == null) return !p.endsWith("casing");
-        return p.endsWith(suffix);
+    private final ResourceLocation id;
+    private final String[] suffixes;
+
+    private PartCategory(ResourceLocation id, String... suffixes) {
+        this.id = id; this.suffixes = suffixes;
     }
 
-    /** Does this block belong to the category? / 该方块是否属于此类别。 */
+    private static PartCategory registerEe(String... suffixes) {
+        return register(ResourceLocation.fromNamespaceAndPath("eecore",
+                suffixes.length == 1 ? suffixes[0] : "dispatch_unit"), suffixes);
+    }
+
+    public static PartCategory register(ResourceLocation id, String... suffixes) {
+        PartCategory cat = new PartCategory(id, suffixes);
+        REGISTRY.put(id, cat);
+        return cat;
+    }
+
+    public ResourceLocation getId() { return id; }
+
+    public boolean matches(PartType type) {
+        String p = type.getId().getPath();
+        if (suffixes == null || suffixes.length == 0) return !p.endsWith("casing");
+        for (String s : suffixes) if (p.endsWith(s)) return true;
+        return false;
+    }
+
     public boolean matches(Block block) {
         return block instanceof PartBlock pb && matches(pb.getPartType());
     }
 
-    /**
-     * All currently registered part blocks in this category. Call after block
-     * registration (commonSetup or later). / 当前已注册的本类别部件方块。
-     * 须在方块注册完成后调用（commonSetup 起）。
-     */
     public List<Block> resolve() {
         List<Block> out = new ArrayList<>();
         for (var sup : com.endlessepoch.core.registry.Blocks.PART_BLOCKS) {
@@ -57,5 +67,9 @@ public enum PartCategory {
             if (matches(b)) out.add(b);
         }
         return out;
+    }
+
+    public static Collection<PartCategory> values() {
+        return Collections.unmodifiableCollection(REGISTRY.values());
     }
 }

@@ -58,10 +58,11 @@ public final class EECoreCodec {
 
         for (var e : defs.entrySet()) {
             char c = e.getKey();
-            if (!used.contains(c)) continue;
-            String id = BuiltInRegistries.BLOCK.getKey(e.getValue().getBlock()).toString();
-            if (c != EcsFormat.CHAR_AIR && c != EcsFormat.CHAR_WILDCARD)
-                paletteMap.put(c, id);
+            if (used.contains(c) || !pattern.getTags(c).isEmpty() || pattern.isFrameBased()) {
+                String id = BuiltInRegistries.BLOCK.getKey(e.getValue().getBlock()).toString();
+                if (c != EcsFormat.CHAR_AIR && c != EcsFormat.CHAR_WILDCARD)
+                    paletteMap.put(c, id);
+            }
         }
 
         List<EcsPaletteEntry> palette = new ArrayList<>();

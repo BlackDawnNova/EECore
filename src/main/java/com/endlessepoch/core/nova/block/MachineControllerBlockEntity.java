@@ -257,6 +257,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         super.onLoad();
         if (level != null && !level.isClientSide() && machineId != null) {
             com.endlessepoch.core.event.BlockPlaceHandler.registerController(worldPosition, level.dimension());
+            if (formed) checkStructureIntegrity(true); else tryFormation();
         }
     }
 
@@ -526,6 +527,10 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private int scheduledCheckTick;
     private int autoFormCheckTick;
 
+    private boolean pendingStructureCheck;
+
+    public void scheduleStructureCheck() { pendingStructureCheck = true; }
+
     /** Schedule a pattern re-check after delayTicks. / 延迟调度成形重检。 */
     public void schedulePatternCheck(int delayTicks) {
         if (level == null || level.isClientSide() || machineId == null) return;
@@ -548,7 +553,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         drainDeliveredSegments();
         tickMachine(tick);
         flowTrackerTick(tick);
-        checkStructureIntegrity();
+        if (pendingStructureCheck) { pendingStructureCheck = false; checkStructureIntegrity(true); }
     }
 
     private void tryFormIfScheduled() {
@@ -607,15 +612,26 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (isBatchCapable() && tick % 5 == 0) flowTracker.record(countPendingItems());
     }
 
-    private void checkStructureIntegrity() {
-        if (++breakCheckTick < 100) return;
-        breakCheckTick = 0;
+    private void checkStructureIntegrity() { checkStructureIntegrity(false); }
+    private void checkStructureIntegrity(boolean force) {
+        if (!force && ++breakCheckTick < 100) return;
+        if (force) breakCheckTick = 0;
         var pattern = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.get(machineId);
         if (pattern.isEmpty()) return;
         var pat = pattern.get();
-        boolean intact = pat.isFrameBased()
-                ? com.endlessepoch.core.api.multiblock.MultiBlockValidator.validateFrame(level, pat, worldPosition, getFacing()) != null
-                : com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(level, pat, worldPosition, getFacing());
+        boolean intact;
+        if (pat.isFrameBased()) {
+            var fr = com.endlessepoch.core.api.multiblock.MultiBlockValidator.validateFrame(level, pat, worldPosition, getFacing());
+            intact = fr != null;
+            if (intact && level instanceof net.minecraft.server.level.ServerLevel sl)
+                com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector.stampFrame(sl,
+                        worldPosition.offset(fr.originX(), fr.originY(), fr.originZ()),
+                        worldPosition, fr.width(), fr.height(), fr.depth(), getFacing(), fr.shellPositions());
+        } else {
+            intact = com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(level, pat, worldPosition, getFacing());
+            if (intact && level instanceof net.minecraft.server.level.ServerLevel sl)
+                com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector.stamp(sl, pat, worldPosition, getFacing());
+        }
         if (!intact) {
             onMultiblockBroken();
             com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.notifyBreak(this, worldPosition, level);

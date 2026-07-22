@@ -267,5 +267,7 @@ public class Blocks {
             registerPartBlock("dispatch_me_port", 1, 0, 0, 0, 0, "ME Communication Port", "ME通信端口");
     public static final Supplier<? extends Block> DISPATCH_CASING =
             registerPartBlock("dispatch_casing", 1, 0, 0, 0, 0, "Dispatch Casing", "调度外壳");
+    public static final Supplier<? extends Block> DISPATCH_CASING_II =
+            registerPartBlock("dispatch_casing_ii", 2, 0, 0, 0, 0, "Dispatch Casing II", "调度外壳 II");
 
 }

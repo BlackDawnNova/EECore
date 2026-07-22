@@ -193,6 +193,7 @@ public class EECore {
 
         // Register machine items + tag bindings / 注册机器物品 + 标签绑定
         EECoreMachines.init(modEventBus);
+        NeoForge.EVENT_BUS.register(com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector.class);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.event.BlockPlaceHandler::onBlockPlace);
         NeoForge.EVENT_BUS.addListener(EECoreCommands::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.multiblock.PatternStorage::onServerStarting);

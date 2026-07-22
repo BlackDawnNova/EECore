@@ -291,5 +291,6 @@
   "block.eecore.quantity_unit": "数量单元",
   "block.eecore.parallel_unit": "并行单元",
   "block.eecore.dispatch_me_port": "ME通信端口",
-  "block.eecore.dispatch_casing": "调度外壳"
+  "block.eecore.dispatch_casing": "调度外壳",
+  "block.eecore.dispatch_casing_ii": "调度外壳 II"
 }

@@ -66,7 +66,7 @@ public final class MultiBlockValidator {
                         // 类别总量上限：同类别所有方块合计计数
                         for (var ce : pattern.getCategoryLimits(tag).entrySet()) {
                             if (ce.getValue() > 0 && ce.getKey().matches(actual.getBlock())) {
-                                String key = tag + "|cat:" + ce.getKey().name();
+                                String key = tag + "|cat:" + ce.getKey().getId();
                                 tagCounts.merge(key, 1, Integer::sum);
                                 tagLimits.put(key, ce.getValue());
                             }
@@ -97,9 +97,16 @@ public final class MultiBlockValidator {
                 }
         if (casingBlocks.isEmpty()) return null;
         casingBlocks.add(level.getBlockState(ctrlPos).getBlock());
+        casingBlocks.add(level.getBlockState(ctrlPos).getBlock());
 
-        Direction intoInterior = facing.getOpposite();
-        BlockPos entry = ctrlPos.relative(intoInterior);
+        BlockPos entry = null;
+        Direction[] dirs = {facing.getOpposite(), Direction.UP, Direction.DOWN,
+                Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+        for (Direction d : dirs) {
+            BlockPos nb = ctrlPos.relative(d);
+            if (!casingBlocks.contains(level.getBlockState(nb).getBlock())) { entry = nb; break; }
+        }
+        if (entry == null) return null;
 
         java.util.Set<BlockPos> visited = new java.util.HashSet<>();
         java.util.Set<BlockPos> shell = new java.util.HashSet<>();
@@ -113,9 +120,6 @@ public final class MultiBlockValidator {
 
         shell.add(ctrlPos);
         minX = maxX = ctrlPos.getX(); minY = maxY = ctrlPos.getY(); minZ = maxZ = ctrlPos.getZ();
-
-        BlockState entrySt = level.getBlockState(entry);
-        if (casingBlocks.contains(entrySt.getBlock())) return null;
 
         while (!queue.isEmpty()) {
             BlockPos p = queue.poll();
@@ -133,31 +137,69 @@ public final class MultiBlockValidator {
                     minX = Math.min(minX, nb.getX()); maxX = Math.max(maxX, nb.getX());
                     minY = Math.min(minY, nb.getY()); maxY = Math.max(maxY, nb.getY());
                     minZ = Math.min(minZ, nb.getZ()); maxZ = Math.max(maxZ, nb.getZ());
-                } else if (!st.isAir() || level.getBlockEntity(nb) != null) {
+                } else {
                     queue.add(nb);
                 }
             }
             if (visited.size() > 10000) return null;
         }
 
-        int shellW = maxX - minX + 1, shellH = maxY - minY + 1, shellD = maxZ - minZ + 1;
-        int innerW = shellW - 2, innerH = shellH - 2, innerD = shellD - 2;
-        if (innerW < 1 || innerH < 1 || innerD < 1) return null;
+        for (BlockPos vp : visited) {
+            if (shell.contains(vp)) continue;
+            for (Direction d : Direction.values()) {
+                BlockPos nb = vp.relative(d);
+                if (!visited.contains(nb) && !shell.contains(nb)) return null;
+            }
+        }
+
+        int innerW = maxX - minX - 1, innerH = maxY - minY - 1, innerD = maxZ - minZ - 1;
+        if (innerW < 1) innerW = 1; if (innerH < 1) innerH = 1; if (innerD < 1) innerD = 1;
         if (innerW > pattern.getInnerW() || innerH > pattern.getInnerH() || innerD > pattern.getInnerD()) return null;
 
-        for (int x = minX; x <= maxX; x++)
-            for (int y = minY; y <= maxY; y++)
-                for (int z = minZ; z <= maxZ; z++) {
-                    if (x > minX && x < maxX && y > minY && y < maxY && z > minZ && z < maxZ) continue;
-                    BlockPos wp = new BlockPos(x, y, z);
-                    if (!casingBlocks.contains(level.getBlockState(wp).getBlock())) return null;
+        java.util.Map<String, java.util.Map<Block, Integer>> tagBlockCounts = new java.util.LinkedHashMap<>();
+        java.util.Map<String, java.util.Map<PartCategory, Integer>> tagCatCounts = new java.util.LinkedHashMap<>();
+        for (BlockPos wp : visited) {
+            if (shell.contains(wp)) continue;
+            Block b = level.getBlockState(wp).getBlock();
+            if (b == net.minecraft.world.level.block.Blocks.AIR) continue;
+            for (var defEntry : pattern.getDefinitions().entrySet()) {
+                char c = defEntry.getKey();
+                if (!pattern.getAlternatives(c).stream().anyMatch(bs -> bs.getBlock() == b)) continue;
+                for (String tag : pattern.getTags(c)) {
+                    int lim = pattern.getBlockLimit(tag, b);
+                    if (lim > 0) {
+                        tagBlockCounts.computeIfAbsent(tag, tk -> new java.util.LinkedHashMap<>()).merge(b, 1, Integer::sum);
+                        if (tagBlockCounts.get(tag).get(b) > lim) return null;
+                    }
+                    for (var ce : pattern.getCategoryLimits(tag).entrySet()) {
+                        if (ce.getValue() > 0 && ce.getKey().matches(b)) {
+                            tagCatCounts.computeIfAbsent(tag, tk -> new java.util.LinkedHashMap<>()).merge(ce.getKey(), 1, Integer::sum);
+                            if (tagCatCounts.get(tag).get(ce.getKey()) > ce.getValue()) return null;
+                        }
+                    }
                 }
+                break;
+            }
+        }
 
+        int shellTier = -1;
+        for (BlockPos sp : shell) {
+            Block b = level.getBlockState(sp).getBlock();
+            if (b instanceof com.endlessepoch.core.nova.block.part.PartBlock pb) {
+                int t = pb.getTier();
+                if (t <= 0) continue;
+                if (shellTier < 0) shellTier = t;
+                else if (shellTier != t) return null;
+            }
+        }
+
+        int shellW = maxX - minX + 1, shellH = maxY - minY + 1, shellD = maxZ - minZ + 1;
         int wOx = minX - ctrlPos.getX(), wOy = minY - ctrlPos.getY(), wOz = minZ - ctrlPos.getZ();
-        return new FrameResult(shellW, shellH, shellD, wOx, wOy, wOz);
+        return new FrameResult(shellW, shellH, shellD, wOx, wOy, wOz, shell);
     }
 
-    public record FrameResult(int width, int height, int depth, int originX, int originY, int originZ) {}
+    public record FrameResult(int width, int height, int depth, int originX, int originY, int originZ,
+                              java.util.Set<BlockPos> shellPositions) {}
 
     public static BlockPos transform(BlockPos origin, int dx, int dy, int dz,
                                      int width, int depth, Direction facing) {
@@ -179,6 +221,7 @@ public final class MultiBlockValidator {
                                           BlockPos controllerPos, Direction facing, Level level,
                                           net.minecraft.server.level.ServerPlayer player,
                                           boolean postFormation) {
+        if (pat.isFrameBased()) return;
         int w = pat.width, h = pat.height, d = pat.depth;
         var mLocal = new java.util.ArrayList<Integer>();
         var mWorld = new java.util.ArrayList<Integer>();

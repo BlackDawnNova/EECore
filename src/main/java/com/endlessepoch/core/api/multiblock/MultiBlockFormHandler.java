@@ -33,7 +33,7 @@ public class MultiBlockFormHandler {
                         }
                 BlockPos frOrigin = pos.offset(fr.originX(), fr.originY(), fr.originZ());
                 if (level instanceof net.minecraft.server.level.ServerLevel sl)
-                    MultiBlockBreakDetector.stampFrame(sl, frOrigin, pos, fr.width(), fr.height(), fr.depth(), facing);
+                    MultiBlockBreakDetector.stampFrame(sl, frOrigin, pos, fr.width(), fr.height(), fr.depth(), facing, fr.shellPositions());
                 controller.onMultiblockFormed();
             }
             return true;
