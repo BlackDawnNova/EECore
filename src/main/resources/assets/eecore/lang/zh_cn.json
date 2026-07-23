@@ -292,5 +292,8 @@
   "block.eecore.parallel_unit": "并行单元",
   "block.eecore.dispatch_me_port": "ME通信端口",
   "block.eecore.dispatch_casing": "调度外壳",
-  "block.eecore.dispatch_casing_ii": "调度外壳 II"
+  "block.eecore.dispatch_casing_ii": "调度外壳 II",
+  "eecore.vbo.shown": "已显示ECS预览: %s",
+  "eecore.vbo.removed": "已关闭ECS预览",
+  "eecore.vbo.no_patterns": "没有可预览的结构——请先扫描"
 }

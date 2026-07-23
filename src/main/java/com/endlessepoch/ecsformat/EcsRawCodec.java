@@ -20,7 +20,8 @@ public final class EcsRawCodec {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         baos.write(EcsFormat.MAGIC);
         baos.write(EcsFormat.VERSION);
-        byte[] payload = encodePayload(data);
+        boolean use16Bit = needs16Bit(data);
+        byte[] payload = encodePayload(data, use16Bit);
         byte[] body;
         if (compress) {
             ByteArrayOutputStream gzBuf = new ByteArrayOutputStream();
@@ -32,13 +33,21 @@ public final class EcsRawCodec {
             body = payload;
         }
         byte flags = (byte) ((compress ? EcsFormat.FLAG_COMPRESSED : 0)
-                | (data.frameBased ? EcsFormat.FLAG_FRAME_BASED : 0));
+                | (data.frameBased ? EcsFormat.FLAG_FRAME_BASED : 0)
+                | (use16Bit ? EcsFormat.FLAG_16BIT_PALETTE : 0));
         baos.write(flags);
         baos.write(body);
         CRC32 crc = new CRC32();
         crc.update(body);
         baos.write(i2b((int) crc.getValue()));
         return baos.toByteArray();
+    }
+
+    private static boolean needs16Bit(EcsRawData data) {
+        if (data.palette.size() > 256) return true;
+        for (EcsPaletteEntry e : data.palette)
+            if (e.character() > 0xFF) return true;
+        return false;
     }
 
     public static EcsRawData decode(byte[] data) throws IOException {
@@ -70,7 +79,7 @@ public final class EcsRawCodec {
         Files.write(path, encode(data));
     }
 
-    private static byte[] encodePayload(EcsRawData data) throws IOException {
+    private static byte[] encodePayload(EcsRawData data, boolean use16Bit) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);
         writeVarInt(out, data.width);
@@ -80,8 +89,6 @@ public final class EcsRawCodec {
         writeVarInt(out, data.controllerY);
         writeVarInt(out, data.controllerZ);
         writeVarInt(out, data.palette.size());
-        // 16-bit mode when palette > 256 entries / 调色板 > 256 时自动切换 16-bit
-        boolean use16Bit = data.palette.size() > 256;
         for (EcsPaletteEntry e : data.palette) {
             if (use16Bit) {
                 out.writeChar(e.character());
@@ -126,8 +133,8 @@ public final class EcsRawCodec {
         int cx = readVarInt(in), cy = readVarInt(in), cz = readVarInt(in);
         boolean frameBased = (flags & EcsFormat.FLAG_FRAME_BASED) != 0;
         int palSize = readVarInt(in);
-        // palSize > 256 → 16-bit character encoding / 调色板 > 256 判定字符编码宽度
-        boolean use16Bit = palSize > 256;
+        // 16-bit when palSize > 256 OR FLAG_16BIT_PALETTE is set
+        boolean use16Bit = palSize > 256 || (flags & EcsFormat.FLAG_16BIT_PALETTE) != 0;
         List<EcsPaletteEntry> palette = new ArrayList<>();
         for (int i = 0; i < palSize; i++) {
             char c = use16Bit ? in.readChar() : (char) (in.readByte() & 0xFF);

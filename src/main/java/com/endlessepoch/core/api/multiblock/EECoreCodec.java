@@ -69,6 +69,10 @@ public final class EECoreCodec {
         for (var e : paletteMap.entrySet())
             palette.add(new EcsPaletteEntry(e.getKey(), e.getValue(), pattern.getTags(e.getKey())));
 
+        Map<Character, Integer> charToIndex = new HashMap<>();
+        int ix = 0;
+        for (var pe : paletteMap.entrySet()) charToIndex.put(pe.getKey(), ix++);
+
         int total = pattern.width * pattern.height * pattern.depth;
         short[] voxels = new short[total];
         String[] layers = pattern.getLayerData();
@@ -78,8 +82,8 @@ public final class EECoreCodec {
             for (int z = 0; z < pattern.depth; z++)
                 for (int x = 0; x < pattern.width; x++) {
                     char c = layer.charAt(z * pattern.width + x);
-                    int pi = 0;
-                    for (var pe : paletteMap.entrySet()) { if (pe.getKey() == c) break; pi++; }
+                    // Build index lookup once per pattern to avoid O(n²) / 避免线性搜索O(n²)
+                    int pi = charToIndex.getOrDefault(c, 0);
                     voxels[idx++] = (short) pi;
                 }
         }

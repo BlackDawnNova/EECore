@@ -56,7 +56,7 @@ public final class EECoreMachines {
             .out("eecore:creative_test");
 
     public static final FrameMachineDef DISPATCH_CENTER = new FrameMachineDef()
-            .ecs("eecore", "ceshi")
+            .ecs("eecore", "ddzx")
             .name("Dispatch Center", "调度中心")
             .tier(11)
             .frame("A", 11, 11, 11)

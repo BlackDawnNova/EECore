@@ -103,7 +103,7 @@ public final class CommandAutoBuild {
                 for (int x = 0; x < pattern.width; x++) {
                     char c = pattern.getChar(x, y, z);
                     // Skip air, wildcard, and controller positions / 跳过空气/通配符/控制器
-                    if (c == 'A' || c == ' ' || c == '_' || c == '#' || c == 'K') continue;
+                    if (c == 'A' || c == '#' || c == 'K') continue;
 
                     BlockState expected = pattern.getExpectedState(x, y, z);
                     if (expected == null) continue;

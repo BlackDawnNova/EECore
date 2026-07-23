@@ -34,7 +34,7 @@ public final class MultiBlockValidator {
             for (int z = 0; z < d; z++)
                 for (int x = 0; x < w; x++) {
                     char expected = pattern.getChar(x, y, z);
-                    if (expected == ' ' || expected == '_' || expected == 'A') continue;
+                    if (expected == 'A') continue;
                     BlockState required = pattern.getExpectedState(x, y, z);
                     if (required == null) continue;
                     BlockPos worldPos = transform(origin, x, y, z, w, d, facing);

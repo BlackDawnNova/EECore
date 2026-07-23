@@ -1,0 +1,8 @@
+{
+  "vertex": "eecore:blackhole",
+  "fragment": "eecore:blackhole",
+  "attributes": ["Position"],
+  "samplers": [
+    {"name": "SceneSampler"}
+  ]
+}

@@ -110,7 +110,7 @@ public final class MultiBlockPattern {
     public BlockState getExpectedState(int relX, int relY, int relZ) {
         if (relY < 0 || relY >= height || relZ < 0 || relZ >= depth || relX < 0 || relX >= width) return null;
         char c = layerData[relY].charAt(relZ * width + relX);
-        if (c == ' ' || c == '_' || c == '#') return null;
+        if (c == ' ' || c == '#') return null;
         if (c == 'A') return definitions.getOrDefault('A', null);
         return definitions.get(c);
     }
