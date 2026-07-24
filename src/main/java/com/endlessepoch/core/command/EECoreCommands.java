@@ -9,6 +9,7 @@ import com.endlessepoch.core.api.multiblock.TagDefRegistry;
 import com.endlessepoch.core.network.OpenMbVisPacket;
 import com.endlessepoch.core.network.SyncPatternBinaryPacket;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -48,6 +49,14 @@ public final class EECoreCommands {
                 .then(Commands.literal("reload")
                         .requires(source -> source.hasPermission(4))
                         .executes(ctx -> reloadStructures(ctx.getSource())))
+                .then(Commands.literal("showcase")
+                        .requires(source -> source.hasPermission(2))
+                        .executes(ctx -> toggleShowcase(ctx.getSource())))
+                .then(Commands.literal("bh")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("scale", FloatArgumentType.floatArg(1.0f, 200.0f))
+                                .executes(ctx -> setBhScale(ctx.getSource(),
+                                        FloatArgumentType.getFloat(ctx, "scale")))))
                 .then(Commands.literal("debug")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("mbvis")
@@ -72,6 +81,19 @@ public final class EECoreCommands {
         CommandStress.register(root);
         EeAdminCommand.register(dispatcher);
         dispatcher.register(root);
+    }
+
+    private static int toggleShowcase(CommandSourceStack source) {
+        boolean v = !com.endlessepoch.core.nova.client.BlackholeRenderer.showcaseMode;
+        com.endlessepoch.core.nova.client.BlackholeRenderer.showcaseMode = v;
+        source.sendSuccess(() -> Component.literal(v ? "§aShowcase mode ON — black background" : "§eShowcase mode OFF"), true);
+        return 1;
+    }
+
+    private static int setBhScale(CommandSourceStack source, float scale) {
+        com.endlessepoch.core.nova.client.BlackholeRenderer.currentScale = scale;
+        source.sendSuccess(() -> Component.literal("§aBlack hole scale set to " + scale), true);
+        return 1;
     }
 
     private static int reloadStructures(CommandSourceStack source) {

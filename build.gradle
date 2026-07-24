@@ -124,6 +124,8 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+    // Veil
+    implementation "foundry.veil:veil-neoforge-1.21.1:4.3.0"
 
     def ae2Jar = fileTree("libs").matching { include "*appliedenergistics2*" }
     if (!ae2Jar.empty) { compileOnly ae2Jar; runtimeOnly ae2Jar }
