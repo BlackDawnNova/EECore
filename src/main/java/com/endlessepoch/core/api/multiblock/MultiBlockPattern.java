@@ -18,6 +18,11 @@ public final class MultiBlockPattern {
     private final Map<String, Map<Block, Integer>> blockLimits = new LinkedHashMap<>();
     // Per-pattern category-total limits / 每个 pattern 独立的类别总量上限
     private final Map<String, Map<PartCategory, Integer>> categoryLimits = new LinkedHashMap<>();
+    // .where(tag, Block...)显式声明的方块，不含PartCategory.resolve()全局结果。
+    // validateAndPreview据此拒绝其他机器碰巧匹配同类别的外来方块。
+    private final java.util.Set<Block> explicitBlocks = new java.util.HashSet<>();
+    // .where(tag, PartCategory...)声明的类别——幽灵预览据此接受匹配类别的方块。
+    private final java.util.Set<PartCategory> declaredCategories = new java.util.HashSet<>();
     private final java.util.List<BlockPos> nonAirPositions;
     private final java.util.List<BlockPos> nonAirControllers;
 
@@ -120,6 +125,13 @@ public final class MultiBlockPattern {
         return layerData[relY].charAt(relZ * width + relX);
     }
 
+    /** Whether (x,y,z) is a non-air structure cell — only these positions affect ghost preview. */
+    /** (x,y,z)是否为非空气结构方块——仅这些位置影响幽灵预览。 */
+    public boolean isStructureCell(int x, int y, int z) {
+        char ch = getChar(x, y, z);
+        return ch != 'A' && ch != ' ' && ch != '#' && ch != '_';
+    }
+
     public void addAlternatives(char c, BlockState... states) {
         alternatives.computeIfAbsent(c, k -> new LinkedHashSet<>()).addAll(List.of(states));
     }
@@ -144,6 +156,22 @@ public final class MultiBlockPattern {
                 for (Block b : TagDefRegistry.getBlocks(tag))
                     addAlternatives(c, b.defaultBlockState());
         }
+    }
+
+    /** .where(tag, Block...)显式声明的方块，不含PartCategory.resolve()全局结果。 */
+    public void addExplicitBlock(Block block) { explicitBlocks.add(block); }
+
+    /** 是否被显式声明为合法替选。 */
+    public boolean isExplicitBlock(Block block) { return explicitBlocks.contains(block); }
+
+    /** .where(tag, PartCategory...)声明的类别。 */
+    public void addDeclaredCategory(PartCategory cat) { declaredCategories.add(cat); }
+
+    /** 方块是否匹配此 pattern 声明的任意 PartCategory。 */
+    public boolean matchesDeclaredCategory(Block block) {
+        for (var cat : declaredCategories)
+            if (cat.matches(block)) return true;
+        return false;
     }
 
     /** Per-block limit for a tag. -1 = unlimited. / 某方块在标签中的上限。 */

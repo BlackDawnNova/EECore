@@ -74,9 +74,8 @@ public class ScannerControllerBlock extends Block implements EntityBlock {
         if (!state.is(newState.getBlock())) {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof ScannerControllerBlockEntity sc) {
-                var pkt = new com.endlessepoch.core.network.SyncValidationPacket(
-                        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("eecore", "clear"),
-                        new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0, false);
+                var pkt = com.endlessepoch.core.network.SyncValidationPacket.clear(
+                        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("eecore", "clear"));
                 if (sc.getLastPreviewPlayer() != null) {
                     var player = level.getPlayerByUUID(sc.getLastPreviewPlayer());
                     if (player instanceof net.minecraft.server.level.ServerPlayer sp)
@@ -129,8 +128,7 @@ public class ScannerControllerBlock extends Block implements EntityBlock {
             if (MultiBlockFormHandler.tryForm(be, e.getValue(), sc.getFacing(), player)) {
                 player.sendSystemMessage(Component.literal("Formed: " + e.getKey()));
                 // Send empty validation to clear client preview / 清空客户端投影
-                var emptyPkt = new com.endlessepoch.core.network.SyncValidationPacket(
-                        e.getKey(), new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0, false);
+                var emptyPkt = com.endlessepoch.core.network.SyncValidationPacket.clear(e.getKey());
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
                         (net.minecraft.server.level.ServerPlayer) player, emptyPkt);
                 return InteractionResult.SUCCESS;

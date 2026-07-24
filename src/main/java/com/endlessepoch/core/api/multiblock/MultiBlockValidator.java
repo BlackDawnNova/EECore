@@ -212,6 +212,33 @@ public final class MultiBlockValidator {
         };
     }
 
+    /** Controller-relative offset → world position. / 控制器相对偏移→世界坐标。 */
+    public static BlockPos toWorld(BlockPos ctrl, int rx, int ry, int rz, Direction facing) {
+        return switch (facing) {
+            case NORTH -> ctrl.offset(rx, ry, rz);
+            case SOUTH -> ctrl.offset(-rx, ry, -rz);
+            case EAST  -> ctrl.offset(-rz, ry, rx);
+            case WEST  -> ctrl.offset(rz, ry, -rx);
+            default    -> ctrl.offset(rx, ry, rz);
+        };
+    }
+
+    /** World position → pattern-local (x,y,z) via controller-relative offset then shift by controller pos. */
+    /** 世界坐标→模式本地坐标(x,y,z)。 */
+    public static BlockPos toLocal(BlockPos worldPos, BlockPos ctrl, Direction facing, int controllerX, int controllerY, int controllerZ) {
+        int dx = worldPos.getX() - ctrl.getX(), dy = worldPos.getY() - ctrl.getY(), dz = worldPos.getZ() - ctrl.getZ();
+        int lx = switch (facing) { case SOUTH -> -dx; case EAST -> dz; case WEST -> -dz; default -> dx; };
+        int lz = switch (facing) { case SOUTH -> -dz; case EAST -> -dx; case WEST -> dx; default -> dz; };
+        return new BlockPos(lx + controllerX, dy + controllerY, lz + controllerZ);
+    }
+
+    /** Pattern-local coord → world position via controller-relative offset and facing. */
+    /** 模式本地坐标→世界坐标。 */
+    public static BlockPos fromLocal(BlockPos ctrl, int lx, int ly, int lz, Direction facing, int controllerX, int controllerY, int controllerZ) {
+        int rx = lx - controllerX, ry = ly - controllerY, rz = lz - controllerZ;
+        return toWorld(ctrl, rx, ry, rz, facing);
+    }
+
     /**
      * Validate pattern against world and send missing/wrong positions to client for ghost preview.
      * Shared by ScannerControllerBlock and MachineControllerBlock.
@@ -230,26 +257,19 @@ public final class MultiBlockValidator {
         for (int y = 0; y < h; y++)
             for (int z = 0; z < d; z++)
                 for (int x = 0; x < w; x++) {
-                    char c = pat.getChar(x, y, z);
-                    if (c == 'A' || c == ' ' || c == com.endlessepoch.ecsformat.EcsFormat.CHAR_CONTROLLER) continue;
-                    int rx = x - pat.controllerX, ry = y - pat.controllerY, rz = z - pat.controllerZ;
-                    BlockPos worldPos = switch (facing) {
-                        case NORTH -> controllerPos.offset(rx, ry, rz);
-                        case SOUTH -> controllerPos.offset(-rx, ry, -rz);
-                        case EAST  -> controllerPos.offset(-rz, ry, rx);
-                        case WEST  -> controllerPos.offset(rz, ry, -rx);
-                        default    -> controllerPos.offset(rx, ry, rz);
-                    };
+                    if (!pat.isStructureCell(x, y, z)) continue;
+                    BlockPos worldPos = fromLocal(controllerPos, x, y, z, facing,
+                            pat.controllerX, pat.controllerY, pat.controllerZ);
                     var worldState = level.getBlockState(worldPos);
                     var expected = pat.getExpectedState(x, y, z);
                     if (worldState.isAir()) {
                         mLocal.add(x); mLocal.add(y); mLocal.add(z);
                         mWorld.add(worldPos.getX()); mWorld.add(worldPos.getY()); mWorld.add(worldPos.getZ());
                     } else if (expected != null && expected.getBlock() != worldState.getBlock()) {
-                        var alts = pat.getAlternatives(c);
-                        boolean altMatch = false;
-                        for (var alt : alts)
-                            if (alt.getBlock() == worldState.getBlock()) { altMatch = true; break; }
+                        // Only explicit blocks and declared PartCategories are valid alternatives.
+                        // 仅显式方块和声明的PartCategory为合法替选，拒绝其他机器碰巧同类的外来方块。
+                        boolean altMatch = pat.isExplicitBlock(worldState.getBlock())
+                                || pat.matchesDeclaredCategory(worldState.getBlock());
                         if (!altMatch) {
                             wLocal.add(x); wLocal.add(y); wLocal.add(z);
                             wWorld.add(worldPos.getX()); wWorld.add(worldPos.getY()); wWorld.add(worldPos.getZ());
@@ -263,6 +283,10 @@ public final class MultiBlockValidator {
                 controllerPos.getX(), controllerPos.getY(), controllerPos.getZ(), w, h, d,
                 postFormation);
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, pkt);
+        com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector.markPreviewSource(
+                player.getUUID(), controllerPos);
+        if (level instanceof net.minecraft.server.level.ServerLevel sl)
+            com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector.stamp(sl, pat, controllerPos, facing);
     }
 
     private static int[] toArr(java.util.List<Integer> list, int max) {

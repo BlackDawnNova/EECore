@@ -246,7 +246,7 @@ public class Blocks {
     public static final Supplier<? extends Block> OVERSIZED_LOCKED_INPUT_BUS =
             registerPartBlock("oversized_locked_input_bus", 1, 16, 0, 0, 0, "Oversized Locked Input Bus", "巨量锁定输入总线");
     public static final Supplier<? extends Block> OVERSIZED_LOCKED_INPUT_BIN =
-            registerPartBlock("oversized_locked_input_bin", 1, 0, Integer.MAX_VALUE, 16, 0, "Oversized Locked Input Bin", "巨量锁定输入仓");
+            registerPartBlock("oversized_locked_input_bin", 1, 0, Integer.MAX_VALUE, 16, 0, "Oversized Locked Input Bin", "巨量锁定流体仓");
     public static final Supplier<? extends Block> OVERSIZED_LOCKED_INPUT_ASSEMBLY =
             registerPartBlock("oversized_locked_input_assembly", 1, 16, Integer.MAX_VALUE, 16, 0, "Oversized Locked Input Assembly", "巨量锁定输入总成");
 

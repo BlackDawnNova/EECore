@@ -157,15 +157,19 @@ public final class MultiblockLoader {
         for (var e : tagBindings.entrySet())
             for (Block b : e.getValue())
                 for (char c : pattern.getDefinitions().keySet())
-                    if (pattern.getTags(c).contains(e.getKey()))
+                    if (pattern.getTags(c).contains(e.getKey())) {
                         pattern.addAlternatives(c, b.defaultBlockState());
+                        pattern.addExplicitBlock(b);
+                    }
 
         for (var e : tagCategories.entrySet())
-            for (PartCategory cat : e.getValue())
+            for (PartCategory cat : e.getValue()) {
+                pattern.addDeclaredCategory(cat);
                 for (Block b : cat.resolve())
                     for (char c : pattern.getDefinitions().keySet())
                         if (pattern.getTags(c).contains(e.getKey()))
                             pattern.addAlternatives(c, b.defaultBlockState());
+            }
 
         for (var e : perBlockLimits.entrySet())
             for (var be : e.getValue().entrySet())

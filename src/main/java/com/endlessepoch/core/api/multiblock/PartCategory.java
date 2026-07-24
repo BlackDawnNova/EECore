@@ -51,7 +51,7 @@ public final class PartCategory {
 
     public boolean matches(PartType type) {
         String p = type.getId().getPath();
-        if (suffixes == null || suffixes.length == 0) return !p.endsWith("casing");
+        if (suffixes == null || suffixes.length == 0) return !p.contains("casing");
         for (String s : suffixes) if (p.endsWith(s)) return true;
         return false;
     }

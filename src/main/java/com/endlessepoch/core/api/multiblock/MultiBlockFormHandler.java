@@ -58,15 +58,9 @@ public class MultiBlockFormHandler {
             for (int y = 0; y < pattern.height; y++)
                 for (int z = 0; z < pattern.depth; z++)
                     for (int x = 0; x < pattern.width; x++) {
-                        if (pattern.getChar(x, y, z) == 'A' || pattern.getChar(x, y, z) == ' ') continue;
-                        int rx = x - pattern.controllerX, ry = y - pattern.controllerY, rz = z - pattern.controllerZ;
-                        BlockPos wp = switch (facing) {
-                            case NORTH -> pos.offset(rx, ry, rz);
-                            case SOUTH -> pos.offset(-rx, ry, -rz);
-                            case EAST  -> pos.offset(-rz, ry, rx);
-                            case WEST  -> pos.offset(rz, ry, -rx);
-                            default    -> pos.offset(rx, ry, rz);
-                        };
+                        if (!pattern.isStructureCell(x, y, z)) continue;
+                        BlockPos wp = MultiBlockValidator.fromLocal(pos, x, y, z, facing,
+                                pattern.controllerX, pattern.controllerY, pattern.controllerZ);
                         BlockEntity be = level.getBlockEntity(wp);
                         if (be instanceof com.endlessepoch.core.api.multiblock.IPart part && machineId != null)
                             part.onFormed(machineId, pos);

@@ -1,6 +1,8 @@
 package com.endlessepoch.core.event;
 
 import com.endlessepoch.core.api.multiblock.MachineRegistry;
+import com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector;
+import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
 import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -45,7 +47,13 @@ public class BlockPlaceHandler {
             if (Math.abs(pos.getZ() - cp.getZ()) > maxR) continue;
             BlockEntity be = level.getBlockEntity(cp);
             if (be instanceof MachineControllerBlockEntity mc && mc.getMachineId() != null) {
-                mc.schedulePatternCheck(5);
+                // Skip air cells — blocks outside the structure footprint don't affect ghost preview.
+                // 跳过空气位——ECS空气位置不在结构范围内，不影响幽灵预览。
+                var patOpt = MultiBlockRegistry.get(mc.getMachineId());
+                if (patOpt.isPresent()
+                        && MultiBlockBreakDetector.isWithinStructure(pos, cp, patOpt.get(), mc.getFacing())) {
+                    mc.schedulePatternCheck(5);
+                }
             } else {
                 controllers.remove(cp);
             }

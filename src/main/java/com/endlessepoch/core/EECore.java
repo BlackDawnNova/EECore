@@ -206,8 +206,6 @@ public class EECore {
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.energy.eb.batch.Phase3Driver::onServerTickPost);
         // Phase 3 clean shutdown: pools + batch queues / Phase3 干净关机
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.energy.eb.batch.Phase3Shutdown::onServerStopping);
-        // Ghost preview for validation failures / 成形失败幽灵预览
-        NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.WorldPreviewManager.get());
         // Celestial halo effect for formed controllers / 日月星辰特效
         NeoForge.EVENT_BUS.register(com.endlessepoch.core.nova.client.CelestialRenderer.class);
         // Break detection handled by MachineControllerBlockEntity.serverTick polling / 破坏检测由BE轮询处理

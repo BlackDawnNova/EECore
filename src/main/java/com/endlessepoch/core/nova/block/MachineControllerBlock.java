@@ -129,12 +129,14 @@ public class MachineControllerBlock extends Block implements EntityBlock {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof MachineControllerBlockEntity mc && mc.getMachineId() != null) {
                 com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector.clear(pos);
-                if (mc.getOwnerUUID() != null) {
-                var emptyPkt = new com.endlessepoch.core.network.SyncValidationPacket(mc.getMachineId(),
-                        new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0, false);
-                var player = level.getPlayerByUUID(mc.getOwnerUUID());
-                if (player instanceof net.minecraft.server.level.ServerPlayer sp)
-                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, emptyPkt);
+                // Only clear ghost preview if this controller was its source / 仅当此控制器是预览来源时才清空
+                if (mc.getOwnerUUID() != null
+                        && com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector
+                                .isLastPreviewSource(mc.getOwnerUUID(), pos)) {
+                    var emptyPkt = com.endlessepoch.core.network.SyncValidationPacket.clear(mc.getMachineId());
+                    var player = level.getPlayerByUUID(mc.getOwnerUUID());
+                    if (player instanceof net.minecraft.server.level.ServerPlayer sp)
+                        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, emptyPkt);
                 }
             }
         }
@@ -183,8 +185,7 @@ public class MachineControllerBlock extends Block implements EntityBlock {
 
         if (MultiBlockFormHandler.tryForm(be, pattern.get(), mc.getFacing(), player)) {
             player.sendSystemMessage(Component.literal("Formed: " + machineId));
-            var emptyPkt = new com.endlessepoch.core.network.SyncValidationPacket(
-                    machineId, new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0, false);
+            var emptyPkt = com.endlessepoch.core.network.SyncValidationPacket.clear(machineId);
             net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
                     (net.minecraft.server.level.ServerPlayer) player, emptyPkt);
             return InteractionResult.SUCCESS;

@@ -407,7 +407,12 @@ FrameMachineLoader.load(ResourceLocation.parse("mymod:my_frame_machine"))
 // Fixed / 固定式
 new MachineDef()
     .ecs("eecore", "d1").name(...).tier(1).center(0, 49, 2)
-    .where("EE-3", PartCategory.ANY_FUNCTIONAL)
+    .where("EE-3", PartCategory.ITEM_INPUT_BUS).or(PartCategory.ITEM_OUTPUT_BUS)
+    .or(PartCategory.ENERGY_INPUT).or(PartCategory.ENERGY_OUTPUT)
+    .or(PartCategory.FLUID_INPUT).or(PartCategory.FLUID_OUTPUT)
+    .or(PartCategory.INPUT_ASSEMBLY).or(PartCategory.OUTPUT_ASSEMBLY)
+    .or(PartCategory.PARALLEL_HATCH).or(PartCategory.INPUT_BIN)
+    .limit("EE-3", PartCategory.ITEM_INPUT_BUS, 2)
     .limit("EE-3", PartCategory.ENERGY_INPUT, 2)
     .out("eecore:creative_test");
 
@@ -651,11 +656,32 @@ Define valid structural blocks for a multiblock by **category suffix** instead o
 定义多方块合法部件——**按类别后缀**替代逐个方块点名。创造与附属变体自动归入。
 
 ```java
-.where("EE-3", PartCategory.ANY_FUNCTIONAL)            // bind all non-casing parts
+.where("EE-3", PartCategory.ITEM_INPUT_BUS)            // specific category — only blocks with "input_bus" suffix
+.or(PartCategory.ENERGY_INPUT)                         // chain multiple categories with .or()
+.or(PartCategory.PARALLEL_HATCH)
 .limit("EE-3", PartCategory.ITEM_INPUT_BUS, 2)         // total item input buses ≤ 2 (incl. creative/locked variants)
 .limit("EE-3", PartCategory.INPUT_BIN, 2)              // fluid bins ≤ 2 (incl. oversized locked variants)
 .limit("EE-3", PartCategory.ENERGY_INPUT, 2)           // energy hatches ≤ 2 (dual-boost, addon included)
 ```
+
+> **Ghost preview isolation / 幽灵预览隔离:**
+> `.where(tag, Block...)` blocks and `.where(tag, PartCategory...)` categories are tracked per-pattern.
+> The ghost preview (Shift+Right-click) only accepts blocks explicitly declared for that machine.
+> Formation validation remains global — any matching PartCategory block can form any machine.
+> `.where(tag, Block...)` 显式方块和 `.where(tag, PartCategory...)` 类别按 pattern 独立追踪。
+> 幽灵预览仅接受本机显式声明的方块，成形验证保持全局匹配。
+
+#### Ghost Preview / 幽灵预览
+
+Shift+Right-click a controller to validate the structure and show a visual overlay:
+Shift+右键控制器验证结构并显示可视化覆盖层：
+
+- **Missing blocks / 缺失方块**: Semi-transparent model (green post-formation, white at 75% otherwise) / 半透明模型（成形后绿色，否则白色75%）
+- **Wrong blocks / 错误方块**: Red wireframe — block doesn't match the expected definition or any valid alternative / 红线框——方块不匹配预期且不属于任何合法替选
+- **Valid alternatives / 合法替选**: Explicit blocks from `.where(tag, Block...)` or blocks matching a declared PartCategory / 显式方块或匹配声明类别
+
+The preview auto-refreshes on block place/break within the structure's non-air footprint. Break events use deferred validation to read correct world state after block removal. Placing a new controller clears the previous ghost preview. Destroying a controller only clears the preview if that controller was its source. All preview state is per-player.
+在结构非空气范围内放置/破坏方块时预览自动刷新。破坏事件延迟至 tick 末尾以读取正确世界状态。放置新控制器清除之前幽灵预览。破坏控制器仅在它是预览来源时才清空。所有预览状态按玩家隔离。
 
 #### Creative Test Parts / 创造测试件
 

@@ -272,7 +272,7 @@
   "eecore.gui.parallel.display": "并行 %1$s/%2$s",
   "block.eecore.oversized_output_bus": "巨量输出总线",
   "block.eecore.oversized_locked_input_bus": "巨量锁定输入总线",
-  "block.eecore.oversized_locked_input_bin": "巨量锁定输入仓",
+  "block.eecore.oversized_locked_input_bin": "巨量锁定流体仓",
   "block.eecore.oversized_locked_input_assembly": "巨量锁定输入总成",
   "eecore.ecs.format.fixed": "固定式",
   "eecore.ecs.format.frame": "框架式",

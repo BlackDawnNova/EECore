@@ -91,6 +91,12 @@ public class MachineControllerItem extends BlockItem {
                 mc.stampOwner(ctx.getPlayer().getUUID(), ctx.getPlayer().getName().getString());
         }
 
+        // Clear any previous ghost preview for this player / 清除该玩家之前的幽灵预览
+        if (ctx.getPlayer() instanceof net.minecraft.server.level.ServerPlayer sp) {
+            var emptyPkt = com.endlessepoch.core.network.SyncValidationPacket.clear(machineId);
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, emptyPkt);
+        }
+
         if (ctx.getPlayer() != null && !ctx.getPlayer().isCreative())
             ctx.getItemInHand().shrink(1);
 

@@ -84,14 +84,8 @@ public final class CelestialRenderer {
         for (int y = 0; y < p.height; y++)
             for (int z = 0; z < p.depth; z++)
                 for (int x = 0; x < p.width; x++) {
-                    int rx = x - p.controllerX, ry = y - p.controllerY, rz = z - p.controllerZ;
-                    BlockPos wp = switch (facing) {
-                        case NORTH -> pos.offset(rx, ry, rz);
-                        case SOUTH -> pos.offset(-rx, ry, -rz);
-                        case EAST  -> pos.offset(-rz, ry, rx);
-                        case WEST  -> pos.offset(rz, ry, -rx);
-                        default    -> pos.offset(rx, ry, rz);
-                    };
+                    BlockPos wp = com.endlessepoch.core.api.multiblock.MultiBlockValidator.fromLocal(
+                            pos, x, y, z, facing, p.controllerX, p.controllerY, p.controllerZ);
                     if (wp.equals(playerPos)) return true;
                 }
         return false;

@@ -614,7 +614,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     private void checkStructureIntegrity() { checkStructureIntegrity(false); }
     private void checkStructureIntegrity(boolean force) {
-        if (!force && ++breakCheckTick < 100) return;
+        if (!force && ++breakCheckTick < 1200) return;
         if (force) breakCheckTick = 0;
         var pattern = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.get(machineId);
         if (pattern.isEmpty()) return;
@@ -1362,9 +1362,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 if (ownerUUID != null) {
                     var player = level.getPlayerByUUID(ownerUUID);
                     if (player instanceof net.minecraft.server.level.ServerPlayer sp) {
-                        var clearPkt = new com.endlessepoch.core.network.SyncValidationPacket(machineId,
-                                new int[0], new int[0], new int[0], new int[0],
-                                0, 0, 0, 0, 0, 0, false);
+                        var clearPkt = com.endlessepoch.core.network.SyncValidationPacket.clear(machineId);
                         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, clearPkt);
                     }
                 }
@@ -1385,14 +1383,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         Direction facing = getFacing();
         for (BlockPos localPos : pat.getNonAirPositions()) {
             int x = localPos.getX(), y = localPos.getY(), z = localPos.getZ();
-            int rx = x - pat.controllerX, ry = y - pat.controllerY, rz = z - pat.controllerZ;
-            BlockPos wp = switch (facing) {
-                case NORTH -> worldPosition.offset(rx, ry, rz);
-                case SOUTH -> worldPosition.offset(-rx, ry, -rz);
-                case EAST  -> worldPosition.offset(-rz, ry, rx);
-                case WEST  -> worldPosition.offset(rz, ry, -rx);
-                default    -> worldPosition.offset(rx, ry, rz);
-            };
+            BlockPos wp = com.endlessepoch.core.api.multiblock.MultiBlockValidator.fromLocal(
+                    worldPosition, x, y, z, facing,
+                    pat.controllerX, pat.controllerY, pat.controllerZ);
             BlockEntity be = level.getBlockEntity(wp);
             if (be instanceof IPart part && part.isFormed()
                     && machineId.equals(part.getMachineId())) {

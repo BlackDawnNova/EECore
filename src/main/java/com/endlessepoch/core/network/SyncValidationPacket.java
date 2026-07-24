@@ -59,6 +59,12 @@ public record SyncValidationPacket(
     }
 
     public static void handle(SyncValidationPacket pkt, IPayloadContext ctx) {
-        ctx.enqueueWork(() -> com.endlessepoch.core.nova.client.WorldPreviewManager.get().updateValidation(pkt));
+        ctx.enqueueWork(() -> com.endlessepoch.core.nova.client.GhostVboRenderer.handlePacket(pkt));
+    }
+
+    /** Empty packet — clears ghost preview on the client. / 空包——清空客户端幽灵预览。 */
+    public static SyncValidationPacket clear(ResourceLocation machineId) {
+        return new SyncValidationPacket(machineId,
+                new int[0], new int[0], new int[0], new int[0], 0, 0, 0, 0, 0, 0, false);
     }
 }

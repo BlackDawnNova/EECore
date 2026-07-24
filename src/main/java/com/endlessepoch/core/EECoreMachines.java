@@ -43,7 +43,16 @@ public final class EECoreMachines {
             .center(0, 49, 2)
             .effect("eecore:celestial")
             .supports("furnace", "blast_furnace", "machine", "boiler")
-            .where("EE-3", PartCategory.ANY_FUNCTIONAL)
+            .where("EE-3", PartCategory.ITEM_INPUT_BUS)
+            .or(PartCategory.ITEM_OUTPUT_BUS)
+            .or(PartCategory.INPUT_ASSEMBLY)
+            .or(PartCategory.OUTPUT_ASSEMBLY)
+            .or(PartCategory.FLUID_INPUT)
+            .or(PartCategory.FLUID_OUTPUT)
+            .or(PartCategory.ENERGY_INPUT)
+            .or(PartCategory.ENERGY_OUTPUT)
+            .or(PartCategory.PARALLEL_HATCH)
+            .or(PartCategory.INPUT_BIN)
             .limit("EE-3", PartCategory.ITEM_INPUT_BUS, 2)
             .limit("EE-3", PartCategory.ITEM_OUTPUT_BUS, 2)
             .limit("EE-3", PartCategory.INPUT_ASSEMBLY, 1)
@@ -156,16 +165,20 @@ public final class EECoreMachines {
                 for (var sup : e.getValue()) {
                     var block = sup.get();
                     for (char c : pattern.getDefinitions().keySet())
-                        if (pattern.getTags(c).contains(e.getKey()))
+                        if (pattern.getTags(c).contains(e.getKey())) {
                             pattern.addAlternatives(c, block.defaultBlockState());
+                            pattern.addExplicitBlock(block);
+                        }
                 }
             }
             for (var e : tagCategories.entrySet()) {
-                for (var cat : e.getValue())
+                for (var cat : e.getValue()) {
+                    pattern.addDeclaredCategory(cat);
                     for (var block : cat.resolve())
                         for (char c : pattern.getDefinitions().keySet())
                             if (pattern.getTags(c).contains(e.getKey()))
                                 pattern.addAlternatives(c, block.defaultBlockState());
+                }
             }
             for (var le : limits)
                 pattern.setBlockLimit(le.tag, le.sup.get(), le.max);
@@ -252,16 +265,20 @@ public final class EECoreMachines {
                 for (var sup : e.getValue()) {
                     var block = sup.get();
                     for (char c : pattern.getDefinitions().keySet())
-                        if (pattern.getTags(c).contains(e.getKey()))
+                        if (pattern.getTags(c).contains(e.getKey())) {
                             pattern.addAlternatives(c, block.defaultBlockState());
+                            pattern.addExplicitBlock(block);
+                        }
                 }
             }
             for (var e : tagCategories.entrySet()) {
-                for (var cat : e.getValue())
+                for (var cat : e.getValue()) {
+                    pattern.addDeclaredCategory(cat);
                     for (var block : cat.resolve())
                         for (char c : pattern.getDefinitions().keySet())
                             if (pattern.getTags(c).contains(e.getKey()))
                                 pattern.addAlternatives(c, block.defaultBlockState());
+                }
             }
             for (var le : limits)
                 pattern.setBlockLimit(le.tag, le.sup.get(), le.max);
