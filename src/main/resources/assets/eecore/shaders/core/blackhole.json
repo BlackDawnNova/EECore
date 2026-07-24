@@ -3,6 +3,9 @@
   "fragment": "eecore:blackhole",
   "attributes": ["Position"],
   "samplers": [
-    {"name": "SceneSampler"}
+    {"name": "MainDepthSampler"},
+    {"name": "MainColorSampler"},
+    {"name": "TextureSampler"},
+    {"name": "ColorSampler"}
   ]
 }

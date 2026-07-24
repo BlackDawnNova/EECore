@@ -1,107 +1,81 @@
 package com.endlessepoch.core.nova.client;
 
-import com.endlessepoch.core.api.multiblock.IMachineEffect;
-import com.endlessepoch.core.api.multiblock.IMultiBlockController;
-import com.endlessepoch.core.api.multiblock.MachineRegistry;
-import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;
-import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
-/**
- * Effect dispatcher: finds formed controllers, calls their machine-bound {@link IMachineEffect}.
- * <p>
- * 特效调度器：遍历成形控制器，调用机器绑定的 IMachineEffect。
- */
 public final class CelestialRenderer {
-
-    private CelestialRenderer() {}
+    private static final ResourceLocation SHADER = ResourceLocation.fromNamespaceAndPath("eecore", "celestial_test");
 
     @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+    public static void onRenderLevel(RenderLevelStageEvent e) {
+        var stage = BlackholeRenderer.showcaseMode
+            ? RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS
+            : RenderLevelStageEvent.Stage.AFTER_WEATHER;
+        if (e.getStage() != stage) return;
         if (com.endlessepoch.core.Config.p4DisableEffects) return;
-        var level = Minecraft.getInstance().level; if (level == null) return;
-        var player = Minecraft.getInstance().player; if (player == null) return;
+        var mc = Minecraft.getInstance(); if (mc.level==null) return;
+        var cam = e.getCamera().getPosition();
 
-        var ps = event.getPoseStack();
-        var cam = event.getCamera().getPosition();
-        float pt = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+        float cx=0.5f,cy=60f,cz=0.5f, tilt=(float)(Math.PI/4.0);
+        float ringR = com.endlessepoch.core.nova.client.BlackholeRenderer.currentScale / 9.0f * 35f;
+        double t=System.currentTimeMillis()*0.001;
+        float orbit=(float)(t%(2*Math.PI)), sunA=orbit, moonA=orbit+(float)Math.PI;
+        float sx=cx+ringR*(float)Math.cos(sunA), sy=cy-ringR*(float)Math.sin(sunA)*(float)Math.sin(tilt), sz=cz+ringR*(float)Math.sin(sunA)*(float)Math.cos(tilt);
+        float mx=cx+ringR*(float)Math.cos(moonA), my=cy-ringR*(float)Math.sin(moonA)*(float)Math.sin(tilt), mz=cz+ringR*(float)Math.sin(moonA)*(float)Math.cos(tilt);
 
-        int pcx = player.chunkPosition().x, pcz = player.chunkPosition().z;
-        for (int dx = -5; dx <= 5; dx++)
-            for (int dz = -5; dz <= 5; dz++) {
-                var chunk = level.getChunk(pcx + dx, pcz + dz);
-                for (BlockEntity be : chunk.getBlockEntities().values()) {
-                    if (!(be instanceof IMultiBlockController ctrl) || !ctrl.isFormed()) continue;
-                    if (be instanceof MachineControllerBlockEntity mcbe && !mcbe.isEffectEnabled()) continue;
+        var camEnt = e.getCamera().getEntity(); var look = camEnt.getViewVector(1f); var up = camEnt.getUpVector(1f);
+        Matrix4f mv = new Matrix4f().lookAt(0,0,0,(float)look.x,(float)look.y,(float)look.z,(float)up.x,(float)up.y,(float)up.z);
+        Matrix4f proj = new Matrix4f(e.getProjectionMatrix());
+        float pcx=(float)cam.x, pcy=(float)cam.y, pcz=(float)cam.z;
 
-                    var effect = findEffect(be);
-                    if (effect == null) continue;
+        float bhDist = (float)Math.sqrt((cx-pcx)*(cx-pcx)+(cy-pcy)*(cy-pcy)+(cz-pcz)*(cz-pcz));
 
-                    double sx = be.getBlockPos().getX() + 0.5 - cam.x;
-                    double sy = be.getBlockPos().getY() + 0.5 - cam.y;
-                    double sz = be.getBlockPos().getZ() + 0.5 - cam.z;
-                    if (sx*sx + sy*sy + sz*sz > 128*128) continue;
+        var shader = foundry.veil.api.client.render.VeilRenderSystem.setShader(SHADER);
+        if (shader == null) return;
+        var ua = (foundry.veil.api.client.render.shader.program.UniformAccess) shader;
 
-                    boolean inside = isInsideStructure(be, player.blockPosition());
-                    if (!inside && isBlockedBySolids(be, player)) continue;
-                    if (inside) com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
+        float[] sU = project(mv,proj,sx,sy,sz,pcx,pcy,pcz);
+        float[] mU = project(mv,proj,mx,my,mz,pcx,pcy,pcz);
+        float[] bU = project(mv,proj,cx,cy,cz,pcx,pcy,pcz);
+        setF(ua,"SunX",sU!=null?sU[0]:-1f); setF(ua,"SunY",sU!=null?sU[1]:-1f);
+        setF(ua,"MoonX",mU!=null?mU[0]:-1f); setF(ua,"MoonY",mU!=null?mU[1]:-1f);
+        setF(ua,"BhX",bU!=null?bU[0]:-1f); setF(ua,"BhY",bU!=null?bU[1]:-1f);
+        setF(ua,"BhDist", bhDist);
+        setF(ua,"Time",(float)(t%1000));
+        setF(ua,"AspectRatio",(float)mc.getWindow().getWidth()/mc.getWindow().getHeight());
 
-                    ps.pushPose();
-                    ps.translate(sx, sy, sz);
-                    effect.render(ps, be, pt);
-                    ps.popPose();
-
-                    if (inside) com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
-                }
-            }
-    }
-
-    private static IMachineEffect findEffect(BlockEntity be) {
-        if (be instanceof MachineControllerBlockEntity mcbe) {
-            var def = MachineRegistry.get(mcbe.getMachineId());
-            if (def.isPresent() && def.get().hasEffect()) return def.get().getEffect();
-            return null;
+        int seg=30; setF(ua,"RingN",seg);
+        for (int i=0; i<seg; i++) {
+            float a=i*2f*(float)Math.PI/seg;
+            float wx=cx+ringR*(float)Math.cos(a), wy=cy-ringR*(float)Math.sin(a)*(float)Math.sin(tilt), wz=cz+ringR*(float)Math.sin(a)*(float)Math.cos(tilt);
+            float[] uv=project(mv,proj,wx,wy,wz,pcx,pcy,pcz);
+            setF(ua,"RX["+i+"]", uv!=null?uv[0]:-99f);
+            setF(ua,"RY["+i+"]", uv!=null?uv[1]:-99f);
         }
-        return new CelestialEffect();
+
+        if (BlackholeRenderer.showcaseMode) {
+            com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+        } else {
+            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+            com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+        }
+        shader.bind();
+        foundry.veil.api.client.render.VeilRenderSystem.drawScreenQuad();
+        foundry.veil.api.client.render.shader.program.ShaderProgram.unbind();
     }
 
-    /** Check if player is within the formed structure. / 玩家是否在多方块结构内部。 */
-    private static boolean isInsideStructure(BlockEntity be, BlockPos playerPos) {
-        if (!(be instanceof MachineControllerBlockEntity mcbe)) return false;
-        var machineId = mcbe.getMachineId();
-        if (machineId == null) return false;
-        var opt = MultiBlockRegistry.get(machineId);
-        if (opt.isEmpty()) return false;
-        var p = opt.get();
-        Direction facing = mcbe.getFacing();
-        BlockPos pos = be.getBlockPos();
-        for (int y = 0; y < p.height; y++)
-            for (int z = 0; z < p.depth; z++)
-                for (int x = 0; x < p.width; x++) {
-                    BlockPos wp = com.endlessepoch.core.api.multiblock.MultiBlockValidator.fromLocal(
-                            pos, x, y, z, facing, p.controllerX, p.controllerY, p.controllerZ);
-                    if (wp.equals(playerPos)) return true;
-                }
-        return false;
+    private static float[] project(Matrix4f mv, Matrix4f p, float wx,float wy,float wz,float cx,float cy,float cz) {
+        Vector4f v=new Matrix4f(mv).transform(new Vector4f(wx-cx,wy-cy,wz-cz,1f));
+        Vector4f c=new Matrix4f(p).transform(v);
+        if(c.w==0||c.z<-c.w||c.z>c.w)return null;
+        float ndcX=c.x/c.w, ndcY=c.y/c.w;
+        if(Math.abs(ndcX)>1.5f||Math.abs(ndcY)>1.5f)return null;
+        return new float[]{ndcX*0.5f+0.5f, ndcY*0.5f+0.5f};
     }
 
-    /** Check if solid blocks block line-of-sight from player to controller. / 玩家与控制器之间是否有不透明方块。 */
-    private static boolean isBlockedBySolids(BlockEntity be, net.minecraft.world.entity.player.Player player) {
-        var level = player.level();
-        var eye = player.getEyePosition();
-        var to = net.minecraft.world.phys.Vec3.atCenterOf(be.getBlockPos());
-        var hit = level.clip(new net.minecraft.world.level.ClipContext(
-                eye, to,
-                net.minecraft.world.level.ClipContext.Block.COLLIDER,
-                net.minecraft.world.level.ClipContext.Fluid.NONE,
-                player));
-        return hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
-                && level.getBlockState(hit.getBlockPos()).isSolidRender(level, hit.getBlockPos());
-    }
+    private static void setF(foundry.veil.api.client.render.shader.program.UniformAccess s, String n, float v) { var u=s.getUniform(n); if(u!=null)u.setFloat(v); }
 }
