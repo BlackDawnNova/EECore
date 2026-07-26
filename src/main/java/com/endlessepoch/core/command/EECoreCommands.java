@@ -84,9 +84,9 @@ public final class EECoreCommands {
     }
 
     private static int toggleShowcase(CommandSourceStack source) {
-        boolean v = !com.endlessepoch.core.nova.client.BlackholeRenderer.showcaseMode;
-        com.endlessepoch.core.nova.client.BlackholeRenderer.showcaseMode = v;
-        source.sendSuccess(() -> Component.literal(v ? "§aShowcase mode ON — black background" : "§eShowcase mode OFF"), true);
+        boolean v = !com.endlessepoch.core.nova.client.ShowcaseRenderer.enabled;
+        com.endlessepoch.core.nova.client.ShowcaseRenderer.enabled = v;
+        source.sendSuccess(() -> Component.literal(v ? "§aShowcase ON — black background" : "§eShowcase OFF"), true);
         return 1;
     }
 

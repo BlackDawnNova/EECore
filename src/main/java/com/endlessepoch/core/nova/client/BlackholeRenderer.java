@@ -24,7 +24,6 @@ public final class BlackholeRenderer {
     private BlackholeRenderer() {}
 
     public static float currentScale = 9.0f;
-    public static boolean showcaseMode;
 
     private static ShaderInstance shader;
     private static DynamicTexture noiseTex;
@@ -39,15 +38,17 @@ public final class BlackholeRenderer {
             DefaultVertexFormat.POSITION), i -> shader = i);
     }
 
+    private static final boolean DISABLED = true;
+
     @EventBusSubscriber(modid = EECore.MOD_ID, value = Dist.CLIENT)
     public static final class Render {
         @SubscribeEvent
         public static void onRender(RenderLevelStageEvent e) {
-            if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_WEATHER) return;
-            if (shader == null) return;
+            if (DISABLED) return;
             if (com.endlessepoch.core.Config.p4DisableEffects) return;
             var mc = Minecraft.getInstance();
             if (mc.level == null) return;
+
             var main = mc.getMainRenderTarget();
             if (main == null) return;
 
@@ -100,7 +101,7 @@ public final class BlackholeRenderer {
             shader.safeGetUniform("intensity").set(0.6f);
             shader.safeGetUniform("accretionDiskRadiusScale").set(1.0f);
             shader.safeGetUniform("accretionDiskThicknessScale").set(1.0f);
-            shader.safeGetUniform("accretionDiskDensity").set(0.003f);
+            shader.safeGetUniform("accretionDiskDensity").set(0.1f);
             shader.safeGetUniform("tiltAngle").set(0.0f);
             shader.safeGetUniform("renderQuality").set(1.35f);
             shader.safeGetUniform("ditherStrength").set(0.7f);
@@ -108,9 +109,11 @@ public final class BlackholeRenderer {
             shader.safeGetUniform("diskNoiseStrength").set(1.0f);
             shader.safeGetUniform("diskTextureStrength").set(0.35f);
             shader.safeGetUniform("coreRadiusScale").set(0.2f);
-            shader.safeGetUniform("accretionDiskColor").set(1.0f, 0.7f, 0.1f);
-            shader.safeGetUniform("accretionDiskInnerColor").set(1.0f, 0.9f, 0.5f);
-            shader.safeGetUniform("accretionDiskOuterColor").set(1.0f, 0.4f, 0.05f);
+            shader.safeGetUniform("accretionDiskColor").set(1.0f, 1.0f, 1.0f);
+            shader.safeGetUniform("accretionDiskInnerColor").set(0.2f, 0.6f, 1.0f);
+            shader.safeGetUniform("accretionDiskColor2").set(1.0f, 0.5f, 0.05f);
+            shader.safeGetUniform("accretionDiskColor3").set(1.0f, 0.3f, 0.02f);
+            shader.safeGetUniform("accretionDiskOuterColor").set(0.9f, 0.1f, 0.02f);
 
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, halfFbo);
             GL30.glViewport(0, 0, hw, hh);

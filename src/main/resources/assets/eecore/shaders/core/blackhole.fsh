@@ -26,6 +26,8 @@ uniform float diskTextureStrength;
 uniform float coreRadiusScale;
 uniform vec3 accretionDiskColor;
 uniform vec3 accretionDiskInnerColor;
+uniform vec3 accretionDiskColor2;
+uniform vec3 accretionDiskColor3;
 uniform vec3 accretionDiskOuterColor;
 uniform vec2 screenSize;
 uniform float noiseTextureSize;
@@ -35,7 +37,7 @@ out vec4 fragColor;
 
 const float PI = 3.14159265;
 const float CORE_RADIUS = 0.35;
-const int MAX_ITER = 120;
+const int MAX_ITER = 300;
 const int MIN_ITER = 35;
 const float ES = 8.0;
 
@@ -44,6 +46,8 @@ float rnd(vec2 c) { return sat(fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.
 float pcurve(float x, float a, float b) { float k=pow(a+b,a+b)/(pow(a,a)*pow(b,b)); return k*pow(x,a)*pow(1.0-x,b); }
 mat3 rotX(float a) { float c=cos(a),s=sin(a); return mat3(1,0,0,0,c,-s,0,s,c); }
 
+float hash21(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float vnoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash21(i),hash21(i+vec2(1,0)),f.x),mix(hash21(i+vec2(0,1)),hash21(i+vec2(1,1)),f.x),f.y);}
 float noise(in vec3 x) {
     vec3 p=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
     return -1.0+2.0*textureLod(TextureSampler, ((p.xy+vec2(37.0,17.0)*p.z)+f.xy+0.5)/noiseTextureSize, 0.0).x;
@@ -85,13 +89,16 @@ void gasDisc(inout vec3 col, inout float al, vec3 p, float lod) {
     float th=0.1*g*accretionDiskThicknessScale; cov*=sat(1.0-abs(dy)/max(th,0.0001));
     float bl=1.0/(pow(1.0-g,2.0)*290.0+0.002); vec3 dust=accretionDiskColor*bl*8.2;
     float fa=pow(abs(dc-di)+0.4,4.0)*0.04, bb=1.0/(dy*dy*40.0+fa+0.00002);
-    vec3 b=accretionDiskColor*pow(bb,1.5); b*=mix(accretionDiskInnerColor,accretionDiskOuterColor,vec3(pow(g,2.0)));
+    float u=1.0-pow(g,2.0); vec3 bCol=accretionDiskInnerColor; bCol=mix(bCol,accretionDiskColor2,smoothstep(0.0,0.33,u)); bCol=mix(bCol,accretionDiskColor3,smoothstep(0.33,0.66,u)); bCol=mix(bCol,accretionDiskOuterColor,smoothstep(0.66,1.0,u));
+    vec3 b=accretionDiskColor*pow(bb,1.5); b*=bCol;
     dust=mix(dust,b*150.0,sat(1.0-cov)); cov=sat(cov+bb*bb*0.1); if(cov<0.01)return;
-    float ang=atan(-p.x,-p.z)/(2.0*PI)+0.5, sp=0.12;
-    vec3 rc; rc.x=dc*1.5+0.55;rc.y=ang*2.0*PI*1.5;rc.z=dy*1.5;rc*=0.95;
-    float n=1.0; vec3 tmp=rc;tmp.y+=time*sp;n*=noise(tmp*4.0)*0.5+0.5;tmp.y=rc.y-time*sp*1.414;n*=noise(tmp*8.0)*0.5+0.5;
-    if(lod<0.35){tmp.y=rc.y+time*sp;n*=noise(tmp*16.0)*0.5+0.5;}
-    dust*=mix(1.0,n*0.998+0.002,diskNoiseStrength); cov*=mix(1.0,mix(accretionDiskDensity,1.0,sat(n)),diskNoiseStrength);
+    float ang=atan(-p.x,-p.z); float an=ang/(2.0*PI)+0.5;
+    float nx=dc*1.5+0.55, ny=an*2.0*PI*1.5, sp=1.5;
+    float n=1.0;
+    n*=vnoise(vec2(nx,ny+time*sp)*4.0)*0.5+0.5;
+    n*=vnoise(vec2(nx,ny-time*sp*1.414)*8.0)*0.5+0.5;
+    if(lod<0.35){n*=vnoise(vec2(nx,ny+time*sp)*16.0)*0.5+0.5;}
+    dust*=n*0.7+0.3; cov*=n*0.7+0.3;
     cov=sat(cov*2000.0/float(MAX_ITER)); dust=max(vec3(0),dust); cov*=pcurve(g,5.0,0.9);
     col=(1.0-al)*dust*cov+col; al=(1.0-al)*cov+al;
 }
@@ -108,7 +115,8 @@ void main() {
     float entityZ=-ev4.z;
     float projScale=screenSize.y/max(entityZ,0.01);
     float maxInfluence=scale*projScale*6.0;
-    if(pxDist>maxInfluence*1.5){fragColor=vec4(sc,1.0);return;}
+    float fadeOut=1.0-smoothstep(maxInfluence*0.5,maxInfluence*2.5,pxDist);
+    if(fadeOut<0.01){fragColor=vec4(sc,1.0);return;}
 
     vec3 ro=clipToWorld(uv,0.0), rd=normalize(clipToWorld(uv,1.0)-ro);
     float dte=distance(ro,entityPos);
@@ -140,5 +148,6 @@ void main() {
     vec3 darkCore = vec3(0.0);
     vec3 finalColor = mix(lbg, darkCore, ssCore);
     if(va>0.001){finalColor=mix(finalColor,vc,va);}
+    finalColor=mix(sc,finalColor,fadeOut);
     fragColor=vec4(finalColor,1.0);
 }

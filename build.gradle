@@ -128,6 +128,11 @@ dependencies {
     implementation "foundry.veil:veil-neoforge-1.21.1:4.3.0"
     jarJar "foundry.veil:veil-neoforge-1.21.1:4.3.0"
 
+    // OBJ model loader
+    implementation "de.javagl:obj:0.4.0"
+    jarJar "de.javagl:obj:0.4.0"
+
+
     def ae2Jar = fileTree("libs").matching { include "*appliedenergistics2*" }
     if (!ae2Jar.empty) { compileOnly ae2Jar; runtimeOnly ae2Jar }
 
