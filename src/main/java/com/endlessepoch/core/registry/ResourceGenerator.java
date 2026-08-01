@@ -59,9 +59,6 @@ public class ResourceGenerator {
         return false;
     }
 
-    /**
-     * Write a JSON file to both src/ and build/resources/ under given namespace. / 写入 JSON 到指定 namespace。
-     */
     public static void writeJsonNs(String namespace, String subPath, String fileName, String json) {
         for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
             try {
@@ -82,10 +79,6 @@ public class ResourceGenerator {
         writeJsonNs("eecore", subPath, fileName, json);
     }
 
-    /**
-     * Rebuild blockstate with per-machine model refs for all 0-31 indices.
-     * 为所有 0-31 索引重建含每机器模型引用的 blockstate。
-     */
     static void writeBlockstate() {
         var indices = MachineControllerBlock.getModelIndices();
         StringBuilder sb = new StringBuilder("{\n  \"variants\": {\n");
@@ -112,10 +105,6 @@ public class ResourceGenerator {
         return "eecore:block/machine_controller";
     }
 
-    /**
-     * Generate block model + blockstate + item model for a multiblock part.
-     * 为多方块部件生成方块模型+方块状态+物品模型。
-     */
     static void writePartModel(String id, int tier, String overlayTex, String namespace) {
         String casingName = VoltageTier.fromOrdinal(tier).name().toLowerCase();
         String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
@@ -167,7 +156,6 @@ public class ResourceGenerator {
         Items.addToTag(PartBlock.toolTagForTier(tier), id);
     }
 
-    /** Generate block + item models + update blockstate for a machine controller. / 生成方块+物品模型+更新 blockstate。 */
     static void writeMachineModel(String itemId, int tier) {
         String casingName = VoltageTier.fromOrdinal(tier).name().toLowerCase();
         String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
@@ -271,10 +259,9 @@ public class ResourceGenerator {
                 + "\"features\":\"" + namespace + ":" + featName + "\",\"step\":\"underground_ores\"}";
         writeDataNs(namespace, "neoforge/biome_modifier", "add_" + featName, add);
         // TODO: remove vanilla counterpart / 原版移除待修复
-        // remove_features causes "Unbound values" crash in 1.21.1 — needs research
+        // remove_features causes "Unbound values" crash in 1.21.1 — needs research / 1.21.1 中 remove_features 触发 "Unbound values" 崩溃——待研究
     }
 
-    /** Write a data JSON to both src/ and build/resources/. / 写入 data JSON 到 src 与 build。 */
     private static void writeDataNs(String namespace, String subPath, String fileName, String json) {
         for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
             try {
@@ -410,15 +397,10 @@ public class ResourceGenerator {
         }
     }
 
-    /**
-     * Flush accumulated block tags to data/{ns}/tags/block/ JSON.
-     * 将累积的方块标签写入 data/{ns}/tags/block/ JSON。
-     */
     public static void flushTags(Map<String, LinkedHashSet<String>> tagBlocks) {
         flushTagSet(tagBlocks, "block");
     }
 
-    /** Flush accumulated item tags to data/{ns}/tags/item/ JSON. */
     public static void flushItemTags(Map<String, LinkedHashSet<String>> tagItems) {
         flushTagSet(tagItems, "item");
     }

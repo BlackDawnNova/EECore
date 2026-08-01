@@ -29,7 +29,6 @@ public class CreativeParallelHatchBlockEntity extends PartBlockEntity {
 
     public int getParallelValue() { return parallelValue; }
 
-    /** Clamp, save and notify the controller. / 钳位、保存并通知控制器。 */
     public void setParallelValue(int value) {
         int v = Math.max(MIN_PARALLEL, Math.min(value, MAX_PARALLEL));
         if (v == parallelValue) return;

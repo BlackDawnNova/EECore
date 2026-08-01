@@ -29,13 +29,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Creative generator block entity.
- * Infinite Omega energy source for testing. Supports all voltage tiers ELV~QV.
- * <p>
- * 创造模式发电机方块实体。
- * 用于测试的无限 Omega 能量源。支持所有电压等级 ELV~QV。
- */
 public class CreativeGeneratorBlockEntity extends BlockEntity
         implements MenuProvider, IOmegaEnergyStorage {
 

@@ -21,7 +21,6 @@ public final class VboBuilder {
 
     private VboBuilder() {}
 
-    /** Bake blocks at given positions into a VertexBuffer. scale=1.0 for full size, 0.75 for 75%. */
     public static VertexBuffer build(List<BlockPos> positions, List<BlockState> states,
                                       float r, float g, float b, float a, float scale) {
         var mc = Minecraft.getInstance();

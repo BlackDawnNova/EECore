@@ -68,7 +68,6 @@ public class CreativeHatchMenu extends AbstractContainerMenu {
         return level.isClientSide() ? clientTier : (be != null ? be.getCreativeTier() : clientTier);
     }
 
-    /** Synced amperage. / 已同步的安培数。 */
     public int ampValue() {
         return level.isClientSide() ? clientAmp : (be != null ? be.getAmperage() : clientAmp);
     }

@@ -26,17 +26,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
 
-/**
- * /eecore build — command-driven multiblock construction from player inventory.
- * Supports full-build or single-layer build.
- * <p>
- * 指令建造——从背包消耗材料放置多方块结构，支持整体或单层建造。
- */
 public final class CommandAutoBuild {
 
     private CommandAutoBuild() {}
 
-    /** Register /eecore build subcommand. / 注册 /eecore build 子命令。 */
     public static void register(LiteralArgumentBuilder<CommandSourceStack> root) {
         root.then(Commands.literal("build")
                 .requires(source -> source.hasPermission(2))
@@ -148,10 +141,6 @@ public final class CommandAutoBuild {
         return 1;
     }
 
-    /**
-     * Raytrace from player eye to find the block they are looking at (up to 5 blocks).
-     * 从玩家视线做射线检测，找到注视的方块（最多 5 格）。
-     */
     private static BlockPos rayTrace(ServerPlayer player, Level level) {
         Vec3 eye = player.getEyePosition();
         Vec3 look = player.getLookAngle();
@@ -162,10 +151,6 @@ public final class CommandAutoBuild {
         return null;
     }
 
-    /**
-     * Extract horizontal facing from block state, default NORTH.
-     * 从方块状态提取水平朝向，默认 NORTH。
-     */
     private static Direction getFacing(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
@@ -174,10 +159,6 @@ public final class CommandAutoBuild {
         return Direction.NORTH;
     }
 
-    /**
-     * Map pattern-local (x,y,z) to world BlockPos relative to controller, with facing rotation.
-     * 将模式局部坐标映射到世界坐标，相对控制器位置+朝向旋转。
-     */
     static BlockPos patternToWorld(BlockPos controllerPos,
                                     int x, int y, int z,
                                     int cx, int cy, int cz, Direction facing) {

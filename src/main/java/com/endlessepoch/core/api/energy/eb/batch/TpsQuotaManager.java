@@ -31,7 +31,6 @@ public final class TpsQuotaManager {
     private int index;
     private int filled;
     private long lastNano;
-    /** Current tier: 2 = full, 1 = reduced, 0 = emergency. / 当前档位。 */
     private int tier = 2;
 
     /**

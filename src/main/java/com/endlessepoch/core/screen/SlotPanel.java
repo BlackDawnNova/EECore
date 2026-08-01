@@ -12,14 +12,12 @@ abstract class SlotPanel extends DraggablePanel {
         super(x, y, title); this.screen = screen;
     }
 
-    /** Draw one slot (item + count + hover) at panel-local coords */
     protected void renderSlot(GuiGraphics g, Font font, ItemStack stack, int sx, int sy, int mx, int my) {
         g.renderItem(stack, sx, sy);
         g.renderItemDecorations(font, stack, sx, sy);
         DispatchUtil.slotHover(g, screen.mc(), sx, sy, 16, 16, mx, my);
     }
 
-    /** Handle click on a slot via real game packet */
     protected boolean clickSlot(Player p, int idx, int btn, net.minecraft.world.inventory.ClickType type) {
         screen.mc().gameMode.handleInventoryMouseClick(p.containerMenu.containerId, idx, btn, type, p);
         return true;

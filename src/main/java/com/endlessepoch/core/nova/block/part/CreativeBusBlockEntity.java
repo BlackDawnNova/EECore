@@ -17,7 +17,6 @@ import net.neoforged.neoforge.items.ItemStackHandler;
  */
 public class CreativeBusBlockEntity extends InputBusBlockEntity implements VoidStats {
 
-    /** Max per-slot template count. / 单槽模板数量上限。 */
     public static final int MAX_TEMPLATE_COUNT = 1_000_000;
     private static final int DEFAULT_TEMPLATE_COUNT = 64;
 
@@ -159,10 +158,8 @@ public class CreativeBusBlockEntity extends InputBusBlockEntity implements VoidS
         return templateCounts[slot];
     }
 
-    /** Per-slot presented count. / 该槽对外呈现数量。 */
     public int getTemplateCount(int slot) { return templateCount(slot); }
 
-    /** Set per-slot count (clamped [1, 1,000,000]) and wake the machine. / 设槽数量（钳位）并唤醒机器。 */
     public void setTemplateCount(int slot, int count) {
         if (isOutput() || templateCounts == null || slot < 0 || slot >= templateCounts.length) return;
         templateCounts[slot] = Math.max(1, Math.min(count, MAX_TEMPLATE_COUNT));
@@ -170,7 +167,6 @@ public class CreativeBusBlockEntity extends InputBusBlockEntity implements VoidS
         wakeController();
     }
 
-    /** Accepts and destroys everything; slots always read empty. / 无限吞噬，槽位恒为空。 */
     private ItemStackHandler voidSink(int slotCount) {
         return new ItemStackHandler(slotCount) {
             @Override public synchronized ItemStack getStackInSlot(int slot) { return ItemStack.EMPTY; }
@@ -182,7 +178,6 @@ public class CreativeBusBlockEntity extends InputBusBlockEntity implements VoidS
         };
     }
 
-    /** Set or clear a phantom template — clearing also resets the count. / 设置或清除幻影模板——清除同时重置数量。 */
     public void setTemplate(int slot, ItemStack stack) {
         if (isOutput() || slot < 0 || slot >= getSlotCount()) return;
         if (stack.isEmpty() && templateCounts != null && slot < templateCounts.length)

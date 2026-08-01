@@ -37,7 +37,6 @@ public final class GhostVboRenderer {
     private static List<BlockPos> wrongPositions = Collections.emptyList();
     private static boolean active;
 
-    /** Handle a validation packet directly — extracts data and delegates to setGhostData. */
     public static void handlePacket(com.endlessepoch.core.network.SyncValidationPacket pkt) {
         if (pkt.patternId().getPath().equals("clear") && pkt.missingWorldPositions().isEmpty()
                 && pkt.wrongWorldPositions().isEmpty()) {
@@ -50,7 +49,6 @@ public final class GhostVboRenderer {
                 pkt.postFormation());
     }
 
-    /** Bake VBO for missing blocks, store wrong positions for red wireframe. */
     public static void setGhostData(ResourceLocation patternId, List<BlockPos> missWorld,
                                      List<BlockPos> missLocal, List<BlockPos> wrongWorld,
                                      List<BlockPos> wrongLocal, boolean postFormation) {
@@ -62,7 +60,6 @@ public final class GhostVboRenderer {
         if (patOpt.isEmpty()) return;
         MultiBlockPattern pat = patOpt.get();
 
-        // Missing: pre-formation 75% normal / post-formation green semi-transparent
         if (!missWorld.isEmpty()) {
             var states = new ArrayList<BlockState>();
             for (BlockPos local : missLocal)

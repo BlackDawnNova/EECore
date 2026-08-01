@@ -23,10 +23,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-/**
- * Minimal transmitter test block.
- * Shift+right-click triggers multiblock formation.
- */
 public class TransmitterTestBlock extends Block implements EntityBlock {
 
     public TransmitterTestBlock(Properties properties) {

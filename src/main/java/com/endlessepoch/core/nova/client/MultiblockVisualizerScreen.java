@@ -1406,7 +1406,7 @@ public class MultiblockVisualizerScreen extends Screen {
 
     @Override public boolean isPauseScreen() { return false; }
 
-    // ── Block category grouping for visualizer / 可视化器方块分类 ──
+    // Block category grouping for visualizer / 可视化器方块分类 
 
     private record BlockGroup(String label, java.util.List<BlockState> blocks) {}
 

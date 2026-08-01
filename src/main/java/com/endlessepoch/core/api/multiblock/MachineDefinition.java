@@ -15,7 +15,7 @@ public class MachineDefinition implements Supplier<Block> {
     private final int tier;
     private final ResourceLocation ecsFile;
     private final Map<String, Set<Block>> tagBindings;
-    private String model; // block model path, e.g. "eecore:block/scanner_controller"
+    private String model;
 
     private Supplier<? extends Block> blockSupplier;
     private Supplier<? extends Item> itemSupplier;

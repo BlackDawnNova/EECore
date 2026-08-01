@@ -13,11 +13,6 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
 
-/**
- * Custom recipe type and serializer registrations.
- * <p>
- * 自定义配方类型和序列化器注册。
- */
 public class EECoreRecipeTypes {
     public static final DeferredRegister<RecipeType<?>> RECIPE_TYPES =
             DeferredRegister.create(Registries.RECIPE_TYPE, EECore.MOD_ID);

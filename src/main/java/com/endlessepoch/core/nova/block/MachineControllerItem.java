@@ -23,7 +23,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.*;
 
-/** BlockItem carrying a machine ID, written to BE on placement. Model index allocated by MachineControllerBlock. / 携带机器ID的控制器物品，放置时写入BE。模型索引由 MachineControllerBlock 分配。 */
 public class MachineControllerItem extends BlockItem {
 
     private final ResourceLocation machineId;

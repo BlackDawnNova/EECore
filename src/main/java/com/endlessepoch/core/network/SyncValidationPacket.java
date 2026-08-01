@@ -10,7 +10,6 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.*;
 
-/** Server→client: missing/wrong block positions after multiblock validation / 服务器→客户端: 多方块验证缺失/错误方块位置 */
 public record SyncValidationPacket(
     ResourceLocation patternId,
     int[] missingLocal, int[] missingWorld,

@@ -72,7 +72,6 @@ public class MachineMenu extends AbstractContainerMenu {
     public int getEffectiveParallel() { return Math.max(1, data.get(16)); }
     /** Hardware parallel cap (hatches). / 硬件并行上限（并行仓）。 */
     public int getHardwareParallel() { return Math.max(1, data.get(17)); }
-    /** Batch pipeline currently running. / 批处理进行中。 */
     public boolean isBatchActive() { return data.get(18) != 0; }
 
     @Override public void broadcastChanges() {

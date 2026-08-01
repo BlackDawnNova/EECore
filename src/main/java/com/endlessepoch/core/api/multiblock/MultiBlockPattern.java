@@ -10,7 +10,7 @@ public final class MultiBlockPattern {
     public final int width, height, depth;
     public final int controllerX, controllerY, controllerZ;
 
-    private final String[] layerData; // [y] = packed String (all Z rows)
+    private final String[] layerData;
     private final Map<Character, BlockState> definitions;
     private final Map<Character, Set<BlockState>> alternatives = new LinkedHashMap<>();
     private final Map<Character, List<String>> tags = new LinkedHashMap<>();
@@ -158,16 +158,12 @@ public final class MultiBlockPattern {
         }
     }
 
-    /** .where(tag, Block...)显式声明的方块，不含PartCategory.resolve()全局结果。 */
     public void addExplicitBlock(Block block) { explicitBlocks.add(block); }
 
-    /** 是否被显式声明为合法替选。 */
     public boolean isExplicitBlock(Block block) { return explicitBlocks.contains(block); }
 
-    /** .where(tag, PartCategory...)声明的类别。 */
     public void addDeclaredCategory(PartCategory cat) { declaredCategories.add(cat); }
 
-    /** 方块是否匹配此 pattern 声明的任意 PartCategory。 */
     public boolean matchesDeclaredCategory(Block block) {
         for (var cat : declaredCategories)
             if (cat.matches(block)) return true;

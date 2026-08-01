@@ -100,7 +100,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private double lastSpeedHeat = -1;
     private int lastSpeedOcMul = -1; // oc part of the displayed multiplier — recalc when the plan's oc changes / 显示倍率的超频部分——计划超频变化时重算
     private double batchMaxHeat = 10.0;
-    // Phase 4: unified plan version — replaces tier/oc/energy/lock-hash fields
+    // Phase 4: unified plan version — replaces tier/oc/energy/lock-hash fields / Phase4 统一计划版本号——替代原四字段陈旧守卫
     private final java.util.concurrent.atomic.AtomicLong planVersion = new java.util.concurrent.atomic.AtomicLong(0);
     private long batchSnapshotVersion = -1;
     int batchCompletions;
@@ -326,17 +326,11 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         setChanged();
     }
 
-    /** All input bus positions in the formed structure. / 结构中所有输入总线位置。 */
     public List<BlockPos> getInputBuses() { if (formed && !partsScanned) scanParts(); return Collections.unmodifiableList(inputBusPos); }
-    /** All output bus positions in the formed structure. / 结构中所有输出总线位置。 */
     public List<BlockPos> getOutputBuses() { if (formed && !partsScanned) scanParts(); return Collections.unmodifiableList(outputBusPos); }
-    /** All energy input positions. / 能源输入位置。 */
     public List<BlockPos> getEnergyInputs() { if (formed && !partsScanned) scanParts(); return Collections.unmodifiableList(energyInputPos); }
-    /** All energy output positions. / 能源输出位置。 */
     public List<BlockPos> getEnergyOutputs() { if (formed && !partsScanned) scanParts(); return Collections.unmodifiableList(energyOutputPos); }
-    /** All fluid input positions. / 流体输入位置。 */
     public List<BlockPos> getFluidInputs() { if (formed && !partsScanned) scanParts(); return Collections.unmodifiableList(fluidInputPos); }
-    /** All fluid output positions. / 流体输出位置。 */
     public List<BlockPos> getFluidOutputs() { if (formed && !partsScanned) scanParts(); return Collections.unmodifiableList(fluidOutputPos); }
 
     public boolean wasEverFormed() { return wasEverFormed; }
@@ -390,7 +384,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     public boolean isPaused() { return paused; }
 
-    /** Tick backpressure and log state transitions. / 推进背压状态机并记录状态转换。 */
     private void tickBackpressure(com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State desired) {
         var before = backpressure.getState();
         backpressure.tick(desired);
@@ -417,20 +410,16 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                 : net.minecraft.core.registries.BuiltInRegistries.ITEM.getId(processingInput.getItem());
     }
 
-    /** Batch pipeline currently running. / 批处理进行中。 */
     public boolean isBatchActive() { return batchActive(); }
 
-    /** Effective parallel for GUI: live batch value, else hardware cap. / GUI 显示的有效并行：批中取实时值，否则硬件上限。 */
     public int getDisplayEffectiveParallel() {
         return batchActive() && lastEffParallel > 0 ? lastEffParallel : getParallelCap();
     }
 
     public ResourceLocation getCurrentProfileId() { return currentProfileId; }
 
-    /** Lowest requiredTier ordinal rejected by the voltage gate, -1 = none. / 被电压门槛拒绝的最低需求电压序数，-1=无。 */
     public int getVoltageBlockedTier() { return voltageBlockedTier; }
 
-    /** Matched recipe is waiting for energy. / 配方已匹配但在等能量。 */
     public boolean isEnergyBlocked() { return backpressure.getState() == com.endlessepoch.core.api.energy.eb.BackpressureStateMachine.State.VOLTAGE_LOW; }
 
     /**
@@ -464,7 +453,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return max;
     }
 
-    /** Get the machine's energy storage. / 获取机器能源存储。 */
     public com.endlessepoch.core.api.energy.OmegaStorage getEnergyStorage() { return energyStorage; }
     public com.endlessepoch.core.api.energy.eb.HeatComponent getHeatComponent() { return heatComponent; }
     public int getCurrentHeatBoost() { return currentHeatBoost; }
@@ -486,7 +474,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     public java.util.List<ResourceLocation> getSupportedTypes() { return supportedTypes; }
 
-    /** Cycle to previous supported profile. / 切换到上一个支持的机器种类。 */
     public void prevProfile() {
         if (supportedTypes.size() <= 1) return;
         int idx = supportedTypes.indexOf(currentProfileId);
@@ -496,7 +483,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         setChanged();
     }
 
-    /** Set machine profile by ID (must be in supported list). / 按ID设置机器种类（必须在支持列表内）。 */
     public void selectProfile(ResourceLocation id) {
         if (supportedTypes.contains(id)) {
             currentProfileId = id;
@@ -504,7 +490,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
     }
 
-    /** Cycle to next supported profile. / 切换到下一个支持的机器种类。 */
     public void nextProfile() {
         if (supportedTypes.size() <= 1) return;
         int idx = supportedTypes.indexOf(currentProfileId);
@@ -531,7 +516,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     public void scheduleStructureCheck() { pendingStructureCheck = true; }
 
-    /** Schedule a pattern re-check after delayTicks. / 延迟调度成形重检。 */
     public void schedulePatternCheck(int delayTicks) {
         if (level == null || level.isClientSide() || machineId == null) return;
         if (scheduledCheckTick <= 0 || delayTicks < scheduledCheckTick) {
@@ -554,6 +538,8 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         tickMachine(tick);
         flowTrackerTick(tick);
         if (pendingStructureCheck) { pendingStructureCheck = false; checkStructureIntegrity(true); }
+        // Cool-down fallback: catch non-event breaks (TNT/fluids/pistons). / 冷却兜底：捕获无事件破坏（TNT/流体/活塞）。
+        checkStructureIntegrity();
     }
 
     private void tryFormIfScheduled() {
@@ -642,6 +628,11 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                             pattern.get(), machineId, worldPosition, getFacing(), level, sp, true);
                 }
             }
+        } else if (!formed) {
+            // Event-driven re-form: blocks restored → validateFrame passes → form again.
+            // 事件驱动重新成形：补回方块后 validateFrame 通过 → 重新成形。
+            com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.tryForm(
+                    this, pat, getFacing(), null);
         }
     }
 
@@ -656,7 +647,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
                         .orElse(net.minecraft.world.item.crafting.RecipeType.SMELTING);
     }
 
-    // ── Event-driven recipe processing / 事件驱动配方处理 ──
+    // Event-driven recipe processing / 事件驱动配方处理
 
     /**
      * Extract Ω across all energy input hatches. Main-thread only.
@@ -697,7 +688,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return com.endlessepoch.core.Config.p3BaseParallel;
     }
 
-    /** Σ voltage × amperage from all energy input hatches. / 所有能源输入仓的电压×安培合计。 */
     private long getEnergyRate() {
         long totalRate = 0;
         for (var ep : energyInputPos) {
@@ -795,15 +785,13 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         tickBackpressure(why);
     }
 
-    // ── Batch pipeline (Phase 3) / 批处理管线 ──
+    // Batch pipeline (Phase 3) / 批处理管线
 
-    /** Whether the active profile's recipe type is registered for batch processing. / 当前档位配方类型是否已注册可批处理。 */
     private boolean isBatchCapable() {
         if (currentProfileId == null) return false;
         return com.endlessepoch.core.api.recipe.RecipeSnapshotCache.isBatchCapable(getRecipeType());
     }
 
-    /** Quick pre-check: does ANY input bus item have a matching recipe? / 快速预检：输入总线里是否有任何物品能匹配到配方？ */
     private boolean hasAnyMatchingRecipe() {
         var rt = getRecipeType();
         if (rt == null) return false;
@@ -821,7 +809,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return false;
     }
 
-    /** Total items across input buses (creative buses report their template counts). / 输入总线物品总数（创造总线按模板数量计）。 */
     private long countPendingItems() {
         long total = 0;
         for (var ip : inputBusPos) {
@@ -969,7 +956,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
      */
     private void tickBatch(long tick) {
         long ph = com.endlessepoch.core.api.energy.eb.HashUtil.hash(worldPosition);
-        // Phase 4: unified version check replaces 4-field stale-plan guard
+        // Phase 4: unified version check replaces 4-field stale-plan guard / Phase4 统一版本校验替代四字段陈旧计划守卫
         if (planVersion.get() != batchSnapshotVersion) {
             LOGGER.info("[EB-P4] batch plan invalidated at {} (planVersion {} != snapshot {})", worldPosition, planVersion.get(), batchSnapshotVersion);
             invalidateBatch();
@@ -1090,7 +1077,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return writeBackOpsHeavy(r, budget, tick);
     }
 
-    /** Per-op loop for light write-back (budget ≤ 64). / 单 op 循环（轻路径）。 */
     private int writeBackOpsLight(com.endlessepoch.core.api.energy.eb.batch.ShardResultUnit r,
                                   int budget, long tick) {
         var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.byId((int) r.inputItemId());
@@ -1120,7 +1106,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return done;
     }
 
-    /** Batched write-back for heavy load (budget > 64). / 批量写回（重路径）。 */
     private int writeBackOpsHeavy(com.endlessepoch.core.api.energy.eb.batch.ShardResultUnit r,
                                    int budget, long tick) {
         var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.byId((int) r.inputItemId());
@@ -1159,7 +1144,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     // Batched write-back helpers / 批量写回辅助方法
 
-    /** Max ops that fit in output buses for this shard unit. / 该分片单元可写入输出总线的最大 ops 数。 */
     private int countOutputSpace(com.endlessepoch.core.api.energy.eb.batch.ShardResultUnit r) {
         // MAX_VALUE doubles as "unlimited" (oversized bus) — track "any real output seen"
         // separately so unlimited capacity isn't mistaken for the empty-outputs sentinel.
@@ -1179,7 +1163,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return found ? max : 0;
     }
 
-    /** Ops affordable from energy hatches (simulate, cap at budget). / 能源仓可支撑的 op 数。 */
     private int countEnergyAffordable(long energyPerOp, int budgetCap) {
         if (energyPerOp <= 0) return budgetCap;
         long total = energyPerOp;
@@ -1201,7 +1184,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return n;
     }
 
-    /** Count how many matching items exist in input buses, capped. / 输入总线中匹配物品数量。 */
     private int countMatchingInputs(net.minecraft.world.item.Item item, int cap) {
         int total = 0;
         for (var ip : inputBusPos) {
@@ -1222,7 +1204,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return total;
     }
 
-    /** Extract {@code count} matching items from input buses. / 从输入总线取出 count 个匹配物品。 */
     private boolean extractInputs(net.minecraft.world.item.Item item, int count) {
         int remaining = count;
         for (var ip : inputBusPos) {
@@ -1247,7 +1228,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return remaining == 0;
     }
 
-    /** Insert batched outputs: multiply each output count by {@code batch}. / 批量写入：每种产物数量 ×batch。 */
     private void insertOutputsBatched(com.endlessepoch.core.api.energy.eb.batch.ShardResultUnit r, int batch) {
         for (int i = 0; i < r.outputItemIds().length; i++) {
             var out = net.minecraft.core.registries.BuiltInRegistries.ITEM.byId((int) r.outputItemIds()[i]);
@@ -1257,7 +1237,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         }
     }
 
-    /** How many stacks of (item, count) fit in output buses. / 输出总线能塞进多少组 (item, perOp)。 */
     private int countInsertCapacity(net.minecraft.world.item.Item item, int perOp) {
         int total = 0;
         for (var op : outputBusPos) {
@@ -1278,7 +1257,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return total;
     }
 
-    /** Extract one matching item from any input bus. / 从任一输入总线取出 1 个匹配物品。 */
     private boolean extractOneInput(net.minecraft.world.item.Item item) {
         for (var ip : inputBusPos) {
             if (level.getBlockEntity(ip) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
@@ -1294,7 +1272,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return false;
     }
 
-    /** Insert one op's outputs into output buses. / 将单次加工的全部产物写入输出总线。 */
     private boolean insertOutputs(com.endlessepoch.core.api.energy.eb.batch.ShardResultUnit r,
                                   boolean simulate) {
         for (int i = 0; i < r.outputItemIds().length; i++) {
@@ -1306,7 +1283,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return true;
     }
 
-    /** Insert a stack fully into any output bus slot. / 将整叠完整塞进任一输出总线槽位。 */
     private boolean insertStack(net.minecraft.world.item.ItemStack stack, boolean simulate) {
         for (var op : outputBusPos) {
             if (level.getBlockEntity(op) instanceof com.endlessepoch.core.nova.block.part.InputBusBlockEntity bus) {
@@ -1321,7 +1297,6 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         return false;
     }
 
-    /** Completion tick arrived: output + heat + auto-continue. / 完工: 出货+热量+续投 */
     private void completeRecipe(long tick) {        for (var result : cachedResults) {
             for (var op : outputBusPos) {
                 var be = level.getBlockEntity(op);
@@ -1348,9 +1323,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     private boolean needsKickoff; // re-publish kick-off after world load / 读档后补发启动事件
 
     private void tryFormation() {
-        if (machineId == null) return;
         var pattern = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.get(machineId);
-        if (pattern.isEmpty()) return;
         var pat = pattern.get();
         boolean ok = pat.isFrameBased()
                 || com.endlessepoch.core.api.multiblock.MultiBlockValidator.validate(level, pat, worldPosition, getFacing());
@@ -1358,7 +1331,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             com.endlessepoch.core.api.multiblock.MultiBlockFormHandler.tryForm(
                     this, pat, getFacing(), null);
             if (formed) {
-                // scanParts + publishProcessEvent are now in onMultiblockFormed()
+                // scanParts + publishProcessEvent are now in onMultiblockFormed() / 扫描部件与启动事件已移入 onMultiblockFormed()
                 if (ownerUUID != null) {
                     var player = level.getPlayerByUUID(ownerUUID);
                     if (player instanceof net.minecraft.server.level.ServerPlayer sp) {

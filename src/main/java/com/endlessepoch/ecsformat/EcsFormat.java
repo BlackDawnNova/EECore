@@ -4,10 +4,10 @@ package com.endlessepoch.ecsformat;
  * ECS binary format constants. / ECS 二进制格式常量
  */
 public final class EcsFormat {
-    public static final byte[] MAGIC = {0x45, 0x45, 0x43, 0x53}; // "EECS"
+    public static final byte[] MAGIC = {0x45, 0x45, 0x43, 0x53};
     public static final byte VERSION = 3;
-    public static final byte VOXEL_COMPRESSED = 2; // v3+: non-air only, 8-bit palette index
-    public static final byte VOXEL_16BIT_COMPRESSED = 3; // v3+: non-air only, 16-bit palette index
+    public static final byte VOXEL_COMPRESSED = 2; // v3+: non-air only, 8-bit palette index / v3+：仅非空气，8 位调色板索引
+    public static final byte VOXEL_16BIT_COMPRESSED = 3; // v3+: non-air only, 16-bit palette index / v3+：仅非空气，16 位调色板索引
     public static final byte FLAG_COMPRESSED = 0x01;
     public static final byte FLAG_FRAME_BASED = 0x02;
     public static final byte FLAG_16BIT_PALETTE = 0x04;

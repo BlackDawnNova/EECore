@@ -74,7 +74,6 @@ public class CreativeVoidScreen extends CreativePartScreen<CreativeVoidMenu> {
         }
     }
 
-    /** 16×16 fluid still-texture icon. / 16×16 流体静止贴图图标。 */
     private void drawFluidIcon(GuiGraphics g, int fluidId, int x, int y) {
         var fluid = BuiltInRegistries.FLUID.byId(fluidId);
         var st = new FluidStack(fluid, 1000);

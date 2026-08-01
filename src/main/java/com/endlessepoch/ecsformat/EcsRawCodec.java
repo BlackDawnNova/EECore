@@ -133,7 +133,6 @@ public final class EcsRawCodec {
         int cx = readVarInt(in), cy = readVarInt(in), cz = readVarInt(in);
         boolean frameBased = (flags & EcsFormat.FLAG_FRAME_BASED) != 0;
         int palSize = readVarInt(in);
-        // 16-bit when palSize > 256 OR FLAG_16BIT_PALETTE is set
         boolean use16Bit = palSize > 256 || (flags & EcsFormat.FLAG_16BIT_PALETTE) != 0;
         List<EcsPaletteEntry> palette = new ArrayList<>();
         for (int i = 0; i < palSize; i++) {

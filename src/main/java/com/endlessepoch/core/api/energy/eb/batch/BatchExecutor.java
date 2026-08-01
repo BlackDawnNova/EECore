@@ -91,12 +91,10 @@ public final class BatchExecutor {
         return out != null ? out : List.of();
     }
 
-    /** ceil(units / 16) / 分片数 */
     static int shardCount(int units) {
         return (units + SHARD_SIZE - 1) / SHARD_SIZE;
     }
 
-    /** Clamp [1024, 16384] then apply scale, min 1 shard. / 钳位后按限流缩放，至少 1 分片。 */
     static int effectiveCap() {
         int cap = Math.max(1024, Math.min(16384, Config.p3GlobalMaxShards));
         return Math.max(1, (int) (cap * concurrencyScale));
@@ -146,7 +144,6 @@ public final class BatchExecutor {
         return new ArrayList<>(agg.values());
     }
 
-    /** Merge two aggregated lists by recipe×item key. / 按聚合键合并两个结果列表。 */
     static List<ShardResultUnit> mergeResults(List<ShardResultUnit> a, List<ShardResultUnit> b) {
         Map<ShardResultUnit.AggKey, ShardResultUnit> agg = new LinkedHashMap<>();
         for (var u : a) agg.merge(new ShardResultUnit.AggKey(u.recipeIdHash(), u.inputItemId()), u,

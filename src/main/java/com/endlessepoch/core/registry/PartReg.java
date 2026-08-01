@@ -21,7 +21,6 @@ import java.util.function.Supplier;
 public final class PartReg {
     private PartReg() {}
 
-    /** namespace → (langKey → translation) / 命名空间 → (翻译键 → 翻译) */
     public static final Map<String, Map<String, String>> TRANS_EN = new LinkedHashMap<>();
     public static final Map<String, Map<String, String>> TRANS_ZH = new LinkedHashMap<>();
 

@@ -16,11 +16,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Blocks;
 
-/**
- * JEI recipe category — upper recipe slots + lower energy info.
- * <p>
- * JEI 配方分类——上方配方区，下方能量信息区。
- */
 public class MachineRecipeCategory extends AbstractRecipeCategory<MachineRecipe> {
 
     public static final RecipeType<MachineRecipe> TYPE =

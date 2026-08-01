@@ -40,7 +40,7 @@ public class LockedOversizedBusBlockEntity extends InputBusBlockEntity implement
     @Override public boolean isCreative() { return false; }
     @Override public boolean isOversized() { return true; }
 
-    // ── ILockedSlotBus / 锁槽接口 ──
+    // ILockedSlotBus / 锁槽接口 
 
     @Override
     public ItemStack getLockItem(int slot) {
@@ -54,7 +54,7 @@ public class LockedOversizedBusBlockEntity extends InputBusBlockEntity implement
         return fi >= 0 && fi < lockFluids.length && !lockFluids[fi].isEmpty();
     }
 
-    // ── Fluid auto-lock for assemblies / 总成流体自动锁 ──
+    // Fluid auto-lock for assemblies / 总成流体自动锁 
 
     @Override
     protected FluidTank createFluidTank(int capacity, boolean output) {
@@ -125,7 +125,7 @@ public class LockedOversizedBusBlockEntity extends InputBusBlockEntity implement
         }
     }
 
-    // ── Inventory / 库存 ──
+    // Inventory / 库存 
 
     @Override
     protected ItemStackHandler createInventory(int slotCount) {
@@ -204,7 +204,7 @@ public class LockedOversizedBusBlockEntity extends InputBusBlockEntity implement
         };
     }
 
-    // ── NBT / 持久化 ──
+    // NBT / 持久化 
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider provider) {

@@ -88,8 +88,6 @@ public final class RecipeSnapshotCache {
         EECore.LOGGER.info("RecipeSnapshotCache: reloaded {} recipes total across {} types", total, EXTRACTORS.size());
     }
 
-    // === Event subscriber ===
-
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
         reload(event.getServer().getRecipeManager());

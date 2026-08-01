@@ -26,7 +26,6 @@ public class WindowBuffer {
         this.subscriber = subscriber;
     }
 
-    /** Push an event into the buffer. / 推入事件。 */
     public void offer(EeEvent event) {
         if (count.get() >= Config.ebBufferCapacity) {
             // Evict oldest to admit the newest — under storm the buffer keeps the freshest events

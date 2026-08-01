@@ -28,7 +28,6 @@ public class CreativeOversizedBusBlockEntity extends InputBusBlockEntity {
     @Override public boolean isCreative() { return true; } // 4×4 grid / 4×4 网格
     @Override public boolean isOversized() { return true; }
 
-    /** Real count for tooltip. / 悬浮显示的真实数量。 */
     public long getStoredAmount(int slot) {
         return slot >= 0 && slot < storedAmount.length ? storedAmount[slot] : 0;
     }

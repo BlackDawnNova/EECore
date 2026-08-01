@@ -22,12 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-/**
- * Block registry for EECore.
- * Holds DeferredRegister and supplier entries for all mod blocks.
- * <p>
- * EECore 方块注册表，包含所有模组方块的延迟注册与供应器。
- */
 public class Blocks {
     public static final DeferredRegister<Block> BLOCKS =
             DeferredRegister.create(Registries.BLOCK, EECore.MOD_ID);
@@ -150,12 +144,10 @@ public class Blocks {
     private static final List<PartItemDef> DEFERRED_ITEMS = new ArrayList<>();
     private record PartItemDef(String path, int tier, String en, String zh) {}
 
-    /** Register block + defer item registration. / 注册方块 + 延迟物品。 */
     public static Supplier<? extends Block> registerPartBlock(String path, int tier, int slots, int fluidCap, long energyCap) {
         return registerPartBlock(path, tier, slots, fluidCap, 0, energyCap, null, null);
     }
 
-    /** Register block + item name (for auto item registration). / 方块+名字（自动注册物品）。 */
     public static Supplier<? extends Block> registerPartBlock(String path, int tier, int slots, int fluidCap, int fluidSlots,
                                                                 long energyCap, String en, String zh) {
         return registerPartBlock(path, tier, slots, fluidCap, fluidSlots, energyCap, 1, en, zh);
@@ -232,7 +224,6 @@ public class Blocks {
     /** Infinite fluid source — bucket click sets the template. / 无限流体源——用桶灌入即设模板。 */
     public static final Supplier<? extends Block> CREATIVE_FLUID_INPUT =
             registerPartBlock("creative_fluid_input", 1, 0, 16000, 0, 0, "Creative Fluid Input Hatch", "创造流体输入仓");
-    /** Void fluid sink. / 虚空流体输出。 */
     public static final Supplier<? extends Block> CREATIVE_FLUID_OUTPUT =
             registerPartBlock("creative_fluid_output", 1, 0, 16000, 0, 0, "Creative Fluid Output Hatch", "创造流体输出仓");
     /** Tier-11 parallel hatch → 16384 parallel via the standard formula, zero extra code. / QV 并行仓——标准公式直接得 16384 并行，零新代码。 */
@@ -241,7 +232,6 @@ public class Blocks {
     /** Infinite items + fluid templates in one part — 4×4 items left, 4×4 fluids right. / 无限物品+流体模板二合一——左 4×4 物品、右 4×4 流体。 */
     public static final Supplier<? extends Block> CREATIVE_INPUT_ASSEMBLY =
             registerPartBlock("creative_input_assembly", 1, 16, 16000, 16, 0, "Creative Input Assembly", "创造输入总成");
-    /** Void items + fluids in one part. / 物品+流体全吞二合一。 */
     public static final Supplier<? extends Block> CREATIVE_OUTPUT_ASSEMBLY =
             registerPartBlock("creative_output_assembly", 1, 16, 16000, 16, 0, "Creative Output Assembly", "创造输出总成");
     public static final Supplier<? extends Block> FLUID_INPUT  = registerPartBlock("fluid_input",  1, 0, 8000, 0, 0, "Fluid Input Hatch", "流体输入仓");

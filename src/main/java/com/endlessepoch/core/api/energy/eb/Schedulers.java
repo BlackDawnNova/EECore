@@ -92,7 +92,6 @@ public final class Schedulers {
         }
     }
 
-    /** 0 = auto fallback / 0 表示取自动值 */
     private static int resolve(int configured, int auto) {
         return configured > 0 ? configured : auto;
     }

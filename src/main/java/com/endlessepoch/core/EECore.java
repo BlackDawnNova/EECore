@@ -162,7 +162,7 @@ public class EECore {
         BlockEntities.BLOCK_ENTITIES.register(modEventBus);
         com.endlessepoch.core.registry.OreRegistry.BLOCKS.register(modEventBus);
         com.endlessepoch.core.registry.OreRegistry.registerAll(
-            // id/R/G/B/英文/中文/工具标签/替换标签/矿团大小/数量/最低Y/最高Y/原版矿名/群系标签
+            // id/R/G/B/nameEn/nameZh/toolTag/replaceTag/size/count/minY/maxY/vanillaOre/biomeTag / id/R/G/B/英文/中文/工具标签/替换标签/矿团大小/数量/最低Y/最高Y/原版矿名/群系标签
             new Material("iron",      0xAF, 0x8E, 0x77, "Iron",     "铁",   "minecraft:needs_stone_tool", "minecraft:stone_ore_replaceables",   8, 20, -64,  64, "minecraft:ore_iron",        "#c:is_overworld"),
             new Material("copper",    0xC1, 0x67, 0x46, "Copper",  "铜",   "minecraft:needs_stone_tool", "minecraft:stone_ore_replaceables",   8, 16, -16, 112, "minecraft:ore_copper",      "#c:is_overworld"),
             new Material("gold",      0xFF, 0xD7, 0x00, "Gold",    "金",   "minecraft:needs_iron_tool",  "minecraft:stone_ore_replaceables",   6,  4, -64,  32, "minecraft:ore_gold",        "#c:is_overworld"),
@@ -241,6 +241,10 @@ public class EECore {
      * 通用初始化：注册 NovaNet 节点系统和多方块控制器方块。
      */
     private void commonSetup(FMLCommonSetupEvent event) {
+        // Controller BE types must tick (break detection etc.) — addons register theirs too.
+        // 控制器 BE 类型必须 tick（破坏检测等）——附属自定义控制器同样注册。
+        com.endlessepoch.core.nova.block.MachineControllerBlock.registerControllerType(BlockEntities.MACHINE_CONTROLLER.get());
+        com.endlessepoch.core.nova.block.MachineControllerBlock.registerControllerType(BlockEntities.DISPATCH_CONTROLLER.get());
         NovaNetRegistry reg = new NovaNetRegistry();
         NovaNodeRegistration.init(reg);
 
@@ -529,6 +533,11 @@ public class EECore {
                 com.endlessepoch.core.network.SetGridDensityPacket.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(
                         () -> com.endlessepoch.core.network.SetGridDensityPacket.handle(payload, context))
+        );
+        registrar.playToClient(
+                com.endlessepoch.core.network.GridStorageUpdatePacket.TYPE,
+                com.endlessepoch.core.network.GridStorageUpdatePacket.STREAM_CODEC,
+                (payload, context) -> com.endlessepoch.core.network.GridStorageUpdatePacket.handle(payload, context)
         );
     }
 }

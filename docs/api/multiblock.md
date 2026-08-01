@@ -318,9 +318,12 @@ Use in .ecs files as structural blocks for the multibody.
 ### IMachineEffect / 机器特效接口
 
 ```java
+@FunctionalInterface
 public interface IMachineEffect {
-    void render(BlockPos controllerPos, MachineDefinition def, PoseStack pose, float partialTick);
+    void render(PoseStack ps, BlockEntity be, float partialTick);
 }
+// ps — PoseStack already translated to structure center / 已推到结构中心
+// be — the controller block entity / 控制器 BE
 ```
 
 ### MachineEffectRegistry / 特效注册表
@@ -436,6 +439,18 @@ new FrameMachineDef()
 - 内部尺寸 1×1×1 到 `.frame()` 声明的最大值均可，外壳 = 内部 + 2（每面一层）
 - 使用 `EcsDump ceshi.ecs` 查看解码后的格式类型
 
+### Automatic Detection / 自动检测
+
+Formation and break detection run automatically for both fixed and frame machines — no right-click needed:
+
+固定式与框架式机器均自动检测成形/破坏，无需右键：
+
+- **Place → auto-form**: global `BlockPlaceHandler` event → block inside structure footprint → `schedulePatternCheck(5)` → auto-form in 5 ticks. / 放置 → 自动成形：全局放置事件 → 结构范围内 → 5 tick 延迟自动成形。
+- **Break → auto-disband**: `MultiBlockBreakDetector` break event → force re-check → `onMultiblockBroken` immediately. / 破坏 → 自动解体：破坏事件 → 强制重检 → 立即解体。
+- **Restore → auto-reform**: force re-check passes again → re-form immediately. / 补回 → 自动重成形：强制重检通过 → 立即重成形。
+- **1200-tick fallback**: catches non-event breaks (TNT/fluids/pistons). / 1200 tick 冷却兜底：捕获无事件破坏（TNT/流体/活塞）。
+- **Addon custom controller BE types must call `MachineControllerBlock.registerControllerType(type)`** or the BE never ticks (break detection dead). / 附属自定义控制器 BE 类型必须调用 `registerControllerType(type)`，否则 BE 不 tick（破坏检测失效）。
+
 ### EcsDump / 解码工具
 
 ```bash
@@ -491,12 +506,13 @@ MultiBlockRegistry.getAll(playerId);
 
 ### TagDefRegistry
 
-Tags define valid blocks for pattern characters. Limits use `MultiblockLoader.limit()` instead.
-标签定义 Pattern 字符的有效方块。上限用 `MultiblockLoader.limit()`。
+Tags define valid blocks for pattern characters, with a per-tag count limit.
+标签定义 Pattern 字符的有效方块及标签级数量上限。
 
 ```java
 TagDefRegistry.register("myaddon:input_hatch",
-    Set.of(SLV_HATCH, LV_HATCH, HV_HATCH)
+    Set.of(SLV_HATCH, LV_HATCH, HV_HATCH),
+    3    // per-tag max count / 标签级数量上限
 );
 ```
 
@@ -583,7 +599,7 @@ PartBlock.VALID_AMPERAGES              // {1, 2, 4, 8, 16}
 PartBlock.DEFAULT_BUS_SLOTS            // 2 (built-in test bus uses 16)
 PartBlock.DEFAULT_ASSEMBLY_SLOTS       // 4
 PartBlock.MAX_SLOTS                    // 81
-PartBlock.busSlotsForTier(tier)         // (1+min(9,tier))²: LV 4, MV 9, HV 16, ..., cap 100
+Blocks.busSlotsForTier(tier)             // (1+min(9,tier))²: LV 4, MV 9, HV 16, ..., cap 100
 PartBlock.isCreativeBus(type)           // "creative_" prefix detection
 ```
 
@@ -772,7 +788,7 @@ public class MyScreen extends MachineScreen<MyMenu> {
 ```
 
 - `imageWidth`/`imageHeight`: custom dimensions / 自定义尺寸
-- `BG`: protected, override for custom texture / 覆写贴图
+- Background texture is fixed (private `BG`); override `renderBg` for a custom background / 背景贴图为内部固定值，自定义背景需覆写 `renderBg`
 - Title auto-resolves bilingual via menu buffer / 标题通过菜单缓冲区双语解析
 - Right side reserved slots (6 positions) / 右侧预留槽位(6个)
 

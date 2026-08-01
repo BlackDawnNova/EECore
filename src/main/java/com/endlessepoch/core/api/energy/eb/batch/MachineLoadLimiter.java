@@ -81,7 +81,6 @@ public final class MachineLoadLimiter {
         return true;
     }
 
-    /** Machine has nothing queued or in flight. / 该机器无排队也无在途分块。 */
     public static boolean isIdle(long posHash) {
         var q = QUEUES.get(posHash);
         return q == null || (q.chunks.isEmpty() && q.inFlightShards.get() == 0);

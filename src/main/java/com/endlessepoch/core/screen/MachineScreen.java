@@ -306,9 +306,8 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         return mx >= bx && mx < bx + bw && my >= by && my < by + bh;
     }
 
-    /** Draw heat bar: 🔥 [████████░░░░] 65%. Color shifts blue→green→orange→red. / 热量条 */
     private void drawHeatBar(GuiGraphics g, int sx, int sy, MachineMenu mm) {
-        int heat = mm.getHeatMille(); // 0-1000
+        int heat = mm.getHeatMille();
         if (heat <= 0) return;
         String label = "🔥 " + (heat / 10) + "%";
         g.drawString(font, label, sx, sy, 0xFF_FFAA00);
@@ -317,24 +316,23 @@ public class MachineScreen<T extends AbstractContainerMenu> extends AbstractCont
         int barW = 60, barH = 10;
         int filled = Math.max(1, barW * heat / 1000);
 
-        // Color gradient: cold (0x4488FF blue) → warm (0x44CC44 green) → hot (0xFF8800 orange) → max (0xFF2222 red)
+        // Color gradient: cold (0x4488FF blue) → warm (0x44CC44 green) → hot (0xFF8800 orange) → max (0xFF2222 red) / 颜色渐变：冷(蓝) → 温(绿) → 热(橙) → 极限(红)
         int color;
         if (heat < 333) {
             float t = heat / 333f;
-            color = lerpColor(0xFF_4488FF, 0xFF_44CC44, t); // blue → green
+            color = lerpColor(0xFF_4488FF, 0xFF_44CC44, t);
         } else if (heat < 666) {
             float t = (heat - 333) / 333f;
-            color = lerpColor(0xFF_44CC44, 0xFF_FF8800, t); // green → orange
+            color = lerpColor(0xFF_44CC44, 0xFF_FF8800, t);
         } else {
             float t = (heat - 666) / 334f;
-            color = lerpColor(0xFF_FF8800, 0xFF_FF2222, t); // orange → red
+            color = lerpColor(0xFF_FF8800, 0xFF_FF2222, t);
         }
         g.fill(barX, sy, barX + filled, sy + barH, color);
         g.fill(barX, sy, barX + barW, sy + barH, 0x44_FFFFFF); // outline / 外框
         g.fill(barX + filled, sy, barX + barW, sy + barH, 0xFF_333333); // empty / 空区域
     }
 
-    /** Linear interpolate two ARGB colors / 两色线性插值 */
     private static int lerpColor(int a, int b, float t) {
         int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
         int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;

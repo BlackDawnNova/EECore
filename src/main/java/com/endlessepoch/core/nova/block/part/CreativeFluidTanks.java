@@ -41,7 +41,6 @@ final class CreativeFluidTanks {
         };
     }
 
-    /** Swallows everything, always reads empty; execute-fills are tallied. / 全吞恒空，实灌记账。 */
     static FluidTank voidSink(int capacity, Consumer<FluidStack> onVoided) {
         return new FluidTank(capacity) {
             @Override public int fill(FluidStack resource, FluidAction action) {

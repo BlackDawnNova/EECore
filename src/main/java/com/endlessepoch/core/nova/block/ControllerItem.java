@@ -1,5 +1,4 @@
 package com.endlessepoch.core.nova.block;
-/** Sends structure preview to client when right-clicking air. / 右键空气发送结构预览到客户端。 */
 
 import com.endlessepoch.core.api.multiblock.EECoreCodec;
 import com.endlessepoch.core.api.multiblock.MultiBlockRegistry;

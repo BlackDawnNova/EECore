@@ -41,7 +41,6 @@ public final class Phase3Driver {
         if (Config.p3MainThreadAdaptive) {
             double tps = TpsQuotaManager.GLOBAL.tps(event.getServer().tickRateManager().tickrate());
             if (tps <= 19.0) {
-                // Proportional decrease: ×0.5 at 16 TPS up to ×1.0 at 19 / 比例缩减：16 TPS 时 ×0.5，19 时 ×1.0
                 double ratio = (tps - 16.0) / (19.0 - 16.0);
                 if (tps <= 16.0) ratio = 0;
                 double factor = 0.5 + 0.5 * ratio;
@@ -82,7 +81,6 @@ public final class Phase3Driver {
         logTierChanges(tpsScale, cpuScale);
     }
 
-    /** Log throttle transitions once per change. / 限流档位变化各记一条日志。 */
     private static void logTierChanges(double tpsScale, double cpuScale) {
         int tpsTier = TpsQuotaManager.GLOBAL.tier();
         if (tpsTier != lastTpsTier) {

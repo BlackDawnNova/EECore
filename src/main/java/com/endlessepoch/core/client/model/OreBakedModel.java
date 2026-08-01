@@ -64,7 +64,6 @@ public class OreBakedModel implements IDynamicBakedModel {
         return List.of();
     }
 
-    /** 克隆quad并替换sprite+UV，可选沿法线外扩顶点 / Clone quads with new sprite UV, optionally inflating along face normal */
     private static List<BakedQuad> remapQuads(List<BakedQuad> quads, TextureAtlasSprite target) {
         return remapQuads(quads, target, false);
     }
@@ -104,7 +103,6 @@ public class OreBakedModel implements IDynamicBakedModel {
         return out;
     }
 
-    /** 按材质+SPOT_INDEX选矿斑贴图 / Per-material ore spots texture, variant selected by SPOT_INDEX */
     private TextureAtlasSprite getOreTexture(BlockState state, ModelData data) {
         String material = state.getBlock() instanceof OreBlock ob ? ob.getMaterialId() : "iron";
         int spotIdx = data.has(OreBlockEntity.SPOT_INDEX)

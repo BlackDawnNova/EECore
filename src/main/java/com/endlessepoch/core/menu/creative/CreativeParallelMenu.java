@@ -56,7 +56,6 @@ public class CreativeParallelMenu extends AbstractContainerMenu {
             this.addSlot(new net.minecraft.world.inventory.Slot(inv, col, 8 + col * 18, 142));
     }
 
-    /** Saved parallel value (synced). / 已保存的并行数（已同步）。 */
     public int savedValue() {
         return level.isClientSide() ? clientValue : (be != null ? be.getParallelValue() : clientValue);
     }

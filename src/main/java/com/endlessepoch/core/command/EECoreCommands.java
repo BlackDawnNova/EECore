@@ -27,12 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * EECore command registration and execution.
- * Handles /eecore reload, debug, export, import subcommands.
- * <p>
- * EECore 命令注册与执行，管理 reload / debug / export / import 子命令。
- */
 public final class EECoreCommands {
 
     private static final ResourceLocation DEBUG_MBVIZ_ID =

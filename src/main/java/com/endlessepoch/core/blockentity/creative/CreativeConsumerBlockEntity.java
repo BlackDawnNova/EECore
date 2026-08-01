@@ -28,13 +28,6 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Creative consumer block entity.
- * Receives Omega energy, supports auto/manual mode, displays per-second receive rate.
- * <p>
- * 创造模式消耗器方块实体。
- * 接收 Omega 能量，支持自动/手动模式，显示每秒接收速率。
- */
 public class CreativeConsumerBlockEntity extends BlockEntity implements MenuProvider, IOmegaEnergyStorage {
 
     private final OmegaStorage storage = new OmegaStorage(

@@ -210,10 +210,6 @@ public class MachineModelLoader implements IGeometryLoader<MachineModelLoader.Ge
         }
     }
 
-    /**
-     * Thin wrapper delegating to MasterBaked for a specific model index.
-     * 薄包装层，将请求委托给 MasterBaked 的特定模型索引。
-     */
     static class VariantBaked implements IDynamicBakedModel {
         private final MasterBaked master;
         private final int idx;

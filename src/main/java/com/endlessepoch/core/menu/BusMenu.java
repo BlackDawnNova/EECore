@@ -304,7 +304,7 @@ public class BusMenu extends AbstractContainerMenu {
     }
     @Override public boolean stillValid(Player p){return p.distanceToSqr(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)<=64;}
 
-    // ── Data-slot provider chain / 数据槽注册链 ──
+    // Data-slot provider chain / 数据槽注册链 
 
     private interface SlotProvider {
         boolean active(boolean creative, boolean isOutput, boolean oversized, boolean locked, int slotCount, int fluidSlots);

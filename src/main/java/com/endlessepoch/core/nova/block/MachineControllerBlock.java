@@ -48,6 +48,15 @@ public class MachineControllerBlock extends Block implements EntityBlock {
     private static final Map<String, Integer> MODEL_INDEX = new LinkedHashMap<>();
     private static int nextModelIndex = 4;
 
+    /** BE types that tick the controller — addon custom controllers must register theirs. / 需要 tick 的控制器 BE 类型——附属自定义控制器必须注册。 */
+    private static final java.util.Set<net.minecraft.world.level.block.entity.BlockEntityType<?>> CONTROLLER_TYPES =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** Register a controller BE type for ticking. / 注册控制器 BE 类型使其 tick。 */
+    public static void registerControllerType(net.minecraft.world.level.block.entity.BlockEntityType<?> type) {
+        CONTROLLER_TYPES.add(type);
+    }
+
     public MachineControllerBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(MODEL, 0));
@@ -114,13 +123,11 @@ public class MachineControllerBlock extends Block implements EntityBlock {
     @Nullable
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        if (level.isClientSide() && type == BlockEntities.MACHINE_CONTROLLER.get()) {
+        if (!CONTROLLER_TYPES.contains(type)) return null;
+        if (level.isClientSide()) {
             return (l, p, s, e) -> ((MachineControllerBlockEntity) e).clientTick();
         }
-        if (!level.isClientSide() && type == BlockEntities.MACHINE_CONTROLLER.get()) {
-            return (l, p, s, e) -> ((MachineControllerBlockEntity) e).serverTick();
-        }
-        return null;
+        return (l, p, s, e) -> ((MachineControllerBlockEntity) e).serverTick();
     }
 
     @Override

@@ -32,6 +32,8 @@ import java.util.List;
 /**
  * Scanner controller block — placed as part of a structure, detected as 'K' by the scanner.
  * Records the player's facing when placed so the scanner normalizes the pattern to north-facing.
+ * 扫描器控制方块——作为结构的一部分放置，被扫描器识别为 'K'。
+ * 放置时记录玩家朝向，扫描器据此将结构归一化为朝北。
  */
 public class ScannerControllerBlock extends Block implements EntityBlock {
 

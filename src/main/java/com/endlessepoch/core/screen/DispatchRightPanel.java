@@ -64,16 +64,8 @@ public class DispatchRightPanel {
         g.drawString(screen.font(), rTitle, x + DispatchScreen.DIV_X + 1, y + screen.panelY() + 2, hov ? DispatchScreen.C_HL : 0xFF_404040, false);
         int py = y + screen.panelY() + 17, ph = screen.H - screen.panelY() - 17;
         if (screen.leftPanel == 1) {
-            int vis = ph / 18;
-            for (int i = 0; i < Math.min(vis, screen.MACHINES.size()); i++) {
-                int mi = screen.machineScroll + i;
-                if (mi >= screen.MACHINES.size()) break;
-                var m = screen.MACHINES.get(mi);
-                int ry = py + i * 18, sc = m.status() == 1 ? DispatchScreen.C_G : (m.status() == 2 ? DispatchScreen.C_R : DispatchScreen.C_TD);
-                g.fill(x + DispatchScreen.DIV_X + 80, ry + 5, x + DispatchScreen.DIV_X + 86, ry + 11, sc);
-                g.drawString(screen.font(), m.name(), x + DispatchScreen.DIV_X + 6, ry, m.status() == 2 ? DispatchScreen.C_TD : DispatchScreen.C_T, false);
-                g.drawString(screen.font(), m.status() == 1 ? "运行" : (m.status() == 2 ? "离线" : "待机"), x + DispatchScreen.DIV_X + 90, ry, DispatchScreen.C_TD, false);
-            }
+            MachineListRenderer.render(g, screen.font(), screen, x + DispatchScreen.DIV_X + 2, py, DispatchScreen.W - DispatchScreen.DIV_X - 8, mx, my,
+                    screen.MACHINES, screen.machineScroll, ph / 18, 0, 0, 0, 0);
         }
     }
 
@@ -102,7 +94,7 @@ public class DispatchRightPanel {
         int ph = screen.H - screen.panelY() - 12;
         if (!DispatchUtil.hit(mx, my, x + DispatchScreen.DIV_X, yy + screen.panelY() + 17, DispatchScreen.W - DispatchScreen.DIV_X, ph)) return false;
         if (screen.leftPanel == 1) {
-            int maxM = Math.max(0, screen.MACHINES.size() - ph / 18);
+            int maxM = MachineListRenderer.maxScroll(screen.MACHINES, ph / 18);
             if (maxM > 0) screen.machineScroll = Math.clamp(screen.machineScroll - (int) Math.signum(sy), 0, maxM);
         } else {
             int cols = 9, total = (screen.PATTERN_SLOTS + cols - 1) / cols, vis = ph / 18;

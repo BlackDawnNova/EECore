@@ -9,7 +9,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/** Sync energy hatch data from server to client after interaction. / 能源仓数据即时同步包。 */
 public record EnergySyncPacket(BlockPos pos, String energyStored, String energyCapacity) implements CustomPacketPayload {
     public static final Type<EnergySyncPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(EECore.MOD_ID, "energy_sync"));
     public static final StreamCodec<RegistryFriendlyByteBuf, EnergySyncPacket> CODEC =

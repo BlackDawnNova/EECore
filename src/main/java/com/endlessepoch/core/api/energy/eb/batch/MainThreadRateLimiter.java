@@ -25,7 +25,6 @@ public final class MainThreadRateLimiter {
         currentLimit = limit;
     }
 
-    /** Grant up to wanted units from the remaining budget. / 从剩余预算中授予至多 wanted 单元。 */
     public static int acquire(int wanted) {
         int granted = Math.max(0, Math.min(wanted, budget));
         budget -= granted;
@@ -37,7 +36,6 @@ public final class MainThreadRateLimiter {
         if (unused > 0) budget += unused;
     }
 
-    /** Remaining budget this tick. / 本 tick 剩余预算。 */
     public static int remaining() {
         return budget;
     }

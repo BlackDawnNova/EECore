@@ -46,7 +46,7 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
     static final ResourceLocation SPRITES = ResourceLocation.parse("eecore:textures/gui/dispatch/dispatch_sprites.png");
     static final ResourceLocation INV_BG = ResourceLocation.parse("eecore:textures/gui/dispatch/inv_bg.png");
 
-    private static final List<ItemStack> ALL = createDummies();
+    private List<ItemStack> items = List.of(); // network items from server, synced on change / ME 网络物品（服务端变化同步）
     final List<ItemStack> filtered = new ArrayList<>();
     int scrollOffset, leftPanel;
     int sortMode;
@@ -66,9 +66,10 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
     DispatchLeftPanel leftPanelComp = new DispatchLeftPanel(this);
     DispatchRightPanel rightPanelComp = new DispatchRightPanel(this);
     DispatchSearch searchComp = new DispatchSearch(this);
-    DraggablePanel barA, barD;
+    EncodePanel barA;
     InventoryPanel barB;
     MainPanel barC;
+    WarehousePanel barD;
 
     public DispatchScreen(DispatchMenu menu, net.minecraft.world.entity.player.Inventory inv, Component title) {
         super(menu, inv, title);
@@ -115,19 +116,19 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
         if (splitMerge) {
             if (!searchComp.isVisible()) ; else searchComp.setVisible(false);
             if (barA == null) { int cx = width / 2, cy = height / 2;
-                barA = new DraggablePanel(cx - 80, cy - 20, "编码");
+                barA = new EncodePanel(this, cx - 80, cy - 20);
                 barB = new InventoryPanel(this, cx - 80, cy + 6);
                 barC = new MainPanel(this, cx + 10, cy - 20);
-                barD = new DraggablePanel(cx + 10, cy + 6, "仓库"); }
+                barD = new WarehousePanel(this, cx + 10, cy + 6); }
             DraggablePanel[] all = {barA, barB, barC, barD}, collapsed = new DraggablePanel[4], expanded = new DraggablePanel[4];
             int ci = 0, ei = 0;
             for (DraggablePanel b : all) if (b.collapsed) collapsed[ci++] = b; else expanded[ei++] = b;
             for (int i = 0; i < ci; i++) collapsed[i].render(g, font(), mx, my);
             int topHover = -1;
             for (int i = ei - 1; i >= 0; i--)
-                if (DraggablePanel.hit(mx, my, expanded[i].x, expanded[i].y, expanded[i].w, expanded[i].h)) { topHover = i; break; }
+                if (panelHit(expanded[i], mx, my)) { topHover = i; break; }
             for (int i = 0; i < ei; i++) {
-                boolean covered = topHover >= 0 && topHover != i && DraggablePanel.hit(mx, my, expanded[i].x, expanded[i].y, expanded[i].w, expanded[i].h);
+                boolean covered = topHover >= 0 && topHover != i && panelHit(expanded[i], mx, my);
                 int hmx = covered ? -1 : mx, hmy = covered ? -1 : my;
                 g.pose().pushPose();
                 g.pose().translate(0, 0, i * 300);
@@ -142,6 +143,12 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
         int x = leftPos, y = topPos;
         if (!searchComp.isVisible()) searchComp.setVisible(true);
         g.drawString(font, menu.getNameZh(), x + 8, y + 5, 0xFF_404040, false);
+        // formed indicator light / 成形指示灯
+        boolean formed = menu.isFormed();
+        int lx = x + 8 + font.width(menu.getNameZh()) + 8, ly = y + 7;
+        g.fill(lx, ly, lx + 8, ly + 8, formed ? C_G : C_R);
+        if (DispatchUtil.hit(mx, my, lx, ly, 8, 8))
+            g.renderTooltip(font, Component.translatable(formed ? "eecore.dispatch.formed" : "eecore.dispatch.unformed"), mx, my);
         toolbar.draw(g, x, y, mx, my);
         toolbar.drawFg(g, x, y, mx, my);
         toolbar.drawTooltips(g, x, y, mx, my);
@@ -195,7 +202,9 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
     }
 
     @Override public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        if (splitMerge && barA != null && barA.mouseScrolled(mx, my, sy)) return true;
         if (splitMerge && barC != null && barC.mouseScrolled(mx, my, sy)) return true;
+        if (splitMerge && barD != null && barD.mouseScrolled(mx, my, sy)) return true;
         if (splitMerge) return true;
         if (DispatchUtil.hit(mx, my, leftPos + GRID_X, topPos + GRID_Y, W - 16, rows * ROW_H)) {
             int maxOff = Math.max(0, (filtered.size() + COLS - 1) / COLS - rows);
@@ -210,12 +219,14 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
     @Override public boolean mouseClicked(double mx, double my, int btn) {
         int x = leftPos, y = topPos;
         if (splitMerge && barA != null) {
-            // expanded first (topmost wins), then collapsed / 展开优先→折叠
+            // topmost panel + sidebar only — occluded panels stay dead / 顶层扩展区域(含侧边栏)优先，被盖面板不响应
             DraggablePanel[] all = {barA, barB, barC, barD};
             DraggablePanel[] expanded = new DraggablePanel[4], folded = new DraggablePanel[4];
             int ei = 0, fi = 0;
             for (DraggablePanel b : all) if (b.collapsed) folded[fi++] = b; else expanded[ei++] = b;
-            for (int i = ei - 1; i >= 0; i--) if (expanded[i].mouseClicked(mx, my, btn)) return true;
+            int top = -1;
+            for (int i = ei - 1; i >= 0; i--) if (panelHit(expanded[i], mx, my)) { top = i; break; }
+            if (top >= 0 && expanded[top].mouseClicked(mx, my, btn)) return true;
             for (int i = fi - 1; i >= 0; i--) if (folded[i].mouseClicked(mx, my)) return true;
         }
         if (toolbar.mouseClicked(mx, my, x, y, btn)) return true;
@@ -238,13 +249,18 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
     }
 
     @Override public boolean charTyped(char cp, int mod) {
-        if (splitMerge) return barC != null && barC.charTyped(cp, mod);
+        if (splitMerge) {
+            if (barC != null && barC.charTyped(cp, mod)) return true;
+            if (barD != null && barD.charTyped(cp, mod)) return true;
+            return false;
+        }
         if (!splitMerge && searchComp.handleCharTyped(cp, mod)) return true;
         return super.charTyped(cp, mod);
     }
     @Override public boolean keyPressed(int key, int scan, int mod) {
-        if (splitMerge && barC != null && barC.keyPressed(key, scan, mod)) return true;
         if (splitMerge) {
+            if (barC != null && barC.keyPressed(key, scan, mod)) return true;
+            if (barD != null && barD.keyPressed(key, scan, mod)) return true;
             if (key == 256) { onClose(); return true; }
             return true;
         }
@@ -252,11 +268,17 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
         return super.keyPressed(key, scan, mod);
     }
 
+    /** Server grid storage update / 服务端网格存储更新 */
+    public void onGridUpdate(List<ItemStack> list) {
+        items = list;
+        onSearch(searchComp.getValue());
+    }
+
     void onSearch(String q) {
-        filtered.clear(); String lq = q.trim(); if (lq.isEmpty()) { filtered.addAll(ALL); scrollOffset = 0; storageScroll = 0; return; }
+        filtered.clear(); String lq = q.trim(); if (lq.isEmpty()) { filtered.addAll(items); scrollOffset = 0; storageScroll = 0; return; }
         boolean modF = lq.startsWith("@"), tagF = lq.startsWith("#"), tooltipF = lq.startsWith("$"), starF = lq.startsWith("*"), patF = lq.startsWith("!");
         String term = (modF || tagF || tooltipF || starF || patF) ? lq.substring(1).toLowerCase(Locale.ROOT) : lq.toLowerCase(Locale.ROOT);
-        for (ItemStack s : ALL) {
+        for (ItemStack s : items) {
             String name = s.getDisplayName().getString().toLowerCase(Locale.ROOT); boolean match;
             if (patF) match = false;
             else if (modF) match = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).getNamespace().toLowerCase(Locale.ROOT).contains(term);
@@ -275,10 +297,10 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
     static final ItemStack[] DUMMY_QUEUE = {new ItemStack(Items.PISTON, 16), new ItemStack(Items.IRON_PICKAXE, 3), new ItemStack(Items.LADDER, 64), new ItemStack(Items.CHEST, 8), new ItemStack(Items.IRON_DOOR, 4)};
     static final ItemStack[] DUMMY_PATTERNS = {new ItemStack(Items.CRAFTING_TABLE), new ItemStack(Items.FURNACE), new ItemStack(Items.IRON_PICKAXE), new ItemStack(Items.DIAMOND_SWORD), new ItemStack(Items.BREAD), new ItemStack(Items.OAK_PLANKS, 4), new ItemStack(Items.STICK, 4), new ItemStack(Items.TORCH, 4), new ItemStack(Items.STONE_PICKAXE), new ItemStack(Items.GOLDEN_APPLE), new ItemStack(Items.IRON_CHESTPLATE), new ItemStack(Items.BOW), new ItemStack(Items.IRON_SWORD), new ItemStack(Items.STONE_SWORD), new ItemStack(Items.WOODEN_PICKAXE), new ItemStack(Items.GOLDEN_PICKAXE), new ItemStack(Items.DIAMOND_PICKAXE), new ItemStack(Items.NETHERITE_PICKAXE), new ItemStack(Items.STONE_AXE), new ItemStack(Items.IRON_AXE), new ItemStack(Items.FLINT_AND_STEEL), new ItemStack(Items.COOKED_BEEF, 64), new ItemStack(Items.ENDER_EYE, 16), new ItemStack(Items.NETHER_STAR, 1), new ItemStack(Items.DRAGON_EGG, 1), new ItemStack(Items.ELYTRA, 1), new ItemStack(Items.TOTEM_OF_UNDYING, 1), new ItemStack(Items.NETHERITE_SCRAP, 4), new ItemStack(Items.DIAMOND_HORSE_ARMOR, 1), new ItemStack(Items.ENCHANTED_GOLDEN_APPLE, 1), new ItemStack(Items.MUSIC_DISC_CAT, 1), new ItemStack(Items.SCULK_SENSOR, 16), new ItemStack(Items.AMETHYST_CLUSTER, 8), new ItemStack(Items.SPONGE, 4), new ItemStack(Items.SEA_LANTERN, 16), new ItemStack(Items.PRISMARINE_BRICKS, 32)};
 
-    private static List<ItemStack> createDummies() {
-        List<ItemStack> l = new ArrayList<>(); add(l, Items.DIAMOND, 64); add(l, Items.IRON_INGOT, 128); add(l, Items.GOLD_INGOT, 64); add(l, Items.NETHERITE_INGOT, 1); add(l, Items.COPPER_INGOT, 256); add(l, Items.REDSTONE, 512); add(l, Items.LAPIS_LAZULI, 128); add(l, Items.EMERALD, 32); add(l, Items.COAL, 1024); add(l, Items.QUARTZ, 256); add(l, Items.AMETHYST_SHARD, 64); add(l, Items.ENDER_PEARL, 16); add(l, Items.BLAZE_ROD, 32); add(l, Items.SLIME_BALL, 64); add(l, Items.GLOWSTONE_DUST, 128); add(l, Items.GUNPOWDER, 256); add(l, Items.OBSIDIAN, 64); add(l, Items.GLASS, 512); add(l, Items.STONE, 4096); add(l, Items.OAK_LOG, 256); add(l, Items.IRON_BLOCK, 16); add(l, Items.GOLD_BLOCK, 8); add(l, Items.DIAMOND_BLOCK, 2); add(l, Items.CRAFTING_TABLE, 64); add(l, Items.FURNACE, 32); add(l, Items.CHEST, 48); add(l, Items.HOPPER, 16); add(l, Items.PISTON, 32); add(l, Items.STICKY_PISTON, 16); add(l, Items.REPEATER, 64); add(l, Items.COMPARATOR, 32); add(l, Items.DISPENSER, 16); add(l, Items.DROPPER, 32); add(l, Items.OBSERVER, 16); add(l, Items.NOTE_BLOCK, 64); add(l, Items.TNT, 32); add(l, Items.BOOKSHELF, 8); add(l, Items.ENCHANTING_TABLE, 1); add(l, Items.ANVIL, 4); add(l, Items.BREWING_STAND, 8); add(l, Items.CAULDRON, 16); add(l, Items.BEACON, 1); add(l, Items.CONDUIT, 1); add(l, Items.LODESTONE, 1); add(l, Items.LANTERN, 32); add(l, Items.SOUL_LANTERN, 16); add(l, Items.CHAIN, 64); add(l, Items.IRON_BARS, 32); add(l, Items.IRON_DOOR, 4); add(l, Items.IRON_TRAPDOOR, 8); add(l, Items.ARROW, 256); add(l, Items.SPECTRAL_ARROW, 64); add(l, Items.BOW, 1); add(l, Items.CROSSBOW, 2); add(l, Items.SHIELD, 4); add(l, Items.TRIDENT, 1); add(l, Items.FISHING_ROD, 2); add(l, Items.SHEARS, 4); add(l, Items.FLINT_AND_STEEL, 8); add(l, Items.CLOCK, 1); add(l, Items.COMPASS, 1); add(l, Items.MAP, 4); add(l, Items.NAME_TAG, 8); add(l, Items.SADDLE, 2); add(l, Items.LEAD, 16);
-        return l;
+    /** Hit test panel + sidebar strip (width by actual buttons) / 展开面板+侧边栏扩展区域命中（侧边栏条按实际按钮宽度） */
+    private static boolean panelHit(DraggablePanel p, double mx, double my) {
+        if (my < p.y - 15 || my > p.y + p.h) return false;
+        if (my < p.y) return mx >= p.x && mx <= p.x + p.sidebarW();
+        return mx >= p.x && mx <= p.x + p.w;
     }
-
-    private static void add(List<ItemStack> l, net.minecraft.world.item.Item i, int c) { l.add(new ItemStack(i, c)); }
 }

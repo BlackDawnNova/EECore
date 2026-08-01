@@ -89,9 +89,15 @@ public class BlockPlaceHandler {
         for (var def : MachineRegistry.getAll()) {
             var p = def.getPattern().orElse(null);
             if (p != null) {
-                int r = Math.max(Math.max(p.controllerX + 1, p.width - p.controllerX),
-                        Math.max(p.controllerY + 1, p.height - p.controllerY));
-                r = Math.max(r, Math.max(p.controllerZ + 1, p.depth - p.controllerZ));
+                int r;
+                if (p.isFrameBased()) {
+                    // Frame: shell = inner + 2, controller near an edge / 框架式：外壳=内部+2，控制器贴边
+                    r = (Math.max(p.getInnerW(), Math.max(p.getInnerH(), p.getInnerD())) + 2) / 2 + 1;
+                } else {
+                    r = Math.max(Math.max(p.controllerX + 1, p.width - p.controllerX),
+                            Math.max(p.controllerY + 1, p.height - p.controllerY));
+                    r = Math.max(r, Math.max(p.controllerZ + 1, p.depth - p.controllerZ));
+                }
                 if (r > max) max = r;
             }
         }

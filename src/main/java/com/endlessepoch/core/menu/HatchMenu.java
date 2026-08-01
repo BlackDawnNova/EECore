@@ -100,7 +100,6 @@ public class HatchMenu extends AbstractContainerMenu {
         if (i < tankCount) { fId[i] = id; fAmt[i] = amt; fCap[i] = cap; }
     }
 
-    /** Handle fluid container click on visual slot. / 处理流体容器点击。 */
     public ItemStack handleFluidClick(int tankIdx, ItemStack held) {
         if (hatch == null || tankIdx >= hatch.getFluidTanks().size()) return held;
         var ft = hatch.getFluidTanks().get(tankIdx);

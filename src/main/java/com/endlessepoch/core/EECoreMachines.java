@@ -35,7 +35,6 @@ public final class EECoreMachines {
 
     // Machine Definitions / 机器定义
 
-    /** EECore Creative Test Machine / EECore创造测试机 */
     public static final MachineDef CREATIVE_TEST = new MachineDef()
             .ecs("eecore", "d1")
             .name("EECore Creative Test Machine", "EECore创造测试机")
@@ -80,7 +79,6 @@ public final class EECoreMachines {
 
     // Internal helpers / 内部辅助
 
-    /** Holds fixed-format machine registration parameters. / 持有固定式机器注册参数。 */
     private static class MachineDef {
         private String ecsNs, ecsPath, nameEn, nameZh, outNs, outPath;
         private int tier;

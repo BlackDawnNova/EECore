@@ -47,10 +47,10 @@ public class PartBlock extends Block implements EntityBlock {
     private final PartType partType;
     final int tier;
     final int slotCount;
-    final int fluidCapacity;   // mB, 0 = no tank
-    final long energyCapacity; // Ω, 0 = no energy storage
-    public final int fluidSlots; // GUI fluid display count, 1-27
-    private int amperage = 1;  // energy hatch amperage / 能源仓安培数，默认 1A
+    final int fluidCapacity;
+    final long energyCapacity;
+    public final int fluidSlots;
+    private int amperage = 1;
 
     public static final int DEFAULT_BUS_SLOTS = 2;
     public static final int DEFAULT_ASSEMBLY_SLOTS = 4;
@@ -73,15 +73,10 @@ public class PartBlock extends Block implements EntityBlock {
 
     // Constructors / 构造器（tier + 显式功能参数）
 
-    /** Structural part (casing). */
     public PartBlock(Properties p, PartType type, int tier) { this(p, type, tier, 0, 0, 0, 0); }
-    /** Item bus with slot count. */
     public PartBlock(Properties p, PartType type, int tier, int sc) { this(p, type, tier, sc, 0, 0, 0); }
-    /** Assembly: slots + fluid capacity. */
     public PartBlock(Properties p, PartType type, int tier, int sc, int fc) { this(p, type, tier, sc, fc, 0, 0); }
-    /** Energy hatch or full config. */
     public PartBlock(Properties p, PartType type, int tier, int sc, int fc, long ec) { this(p, type, tier, sc, fc, ec, 0); }
-    /** Full config with fluid slots. */
     public PartBlock(Properties p, PartType type, int tier, int sc, int fc, long ec, int fs) {
         super(p); this.partType = type; this.tier = tier;
         this.slotCount = clamp(sc, isBusType(type) ? 1 : 0, MAX_SLOTS);
@@ -190,6 +185,8 @@ public class PartBlock extends Block implements EntityBlock {
             return new CreativeParallelHatchBlockEntity(pos, state, partType, tier);
         if (partType.getId().getPath().endsWith("ae_interface"))
             return new AeInterfaceBlockEntity(pos, state, partType, tier);
+        if (partType.getId().getPath().endsWith("dispatch_me_port"))
+            return new DispatchMePortBlockEntity(pos, state, partType, tier);
         return new PartBlockEntity(pos, state, partType, tier);
     }
 

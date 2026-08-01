@@ -42,21 +42,18 @@ public final class HeatMapCache {
 
     private HeatMapCache() {}
 
-    /** Read-locked lookup. / 读锁查询 */
     public static HeatConfig get(ResourceLocation recipeId) {
         LOCK.readLock().lock();
         try { return CACHE.get(recipeId); }
         finally { LOCK.readLock().unlock(); }
     }
 
-    /** Write-locked insert. / 写锁插入 */
     public static void put(ResourceLocation recipeId, HeatConfig config) {
         LOCK.writeLock().lock();
         try { CACHE.put(recipeId, config); }
         finally { LOCK.writeLock().unlock(); }
     }
 
-    /** Atomic replace. / 原子替换 */
     public static void reload(Map<ResourceLocation, HeatConfig> newMap) {
         LOCK.writeLock().lock();
         try { CACHE.clear(); CACHE.putAll(newMap); }

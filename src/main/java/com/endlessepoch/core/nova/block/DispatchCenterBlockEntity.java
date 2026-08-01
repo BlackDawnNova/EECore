@@ -52,7 +52,7 @@ public class DispatchCenterBlockEntity extends MachineControllerBlockEntity
 
     @Override public BlockEntityType<?> getType() { return BlockEntities.DISPATCH_CONTROLLER.get(); }
 
-    // ITerminalHost
+    // ITerminalHost / 终端宿主接口
     @Override public MEStorage getInventory() {
         return new SupplierStorage(() -> {
             IGridNode node = getActionableNode();
@@ -67,21 +67,21 @@ public class DispatchCenterBlockEntity extends MachineControllerBlockEntity
     }
     @Override public ILinkStatus getLinkStatus() { return ILinkStatus.ofManagedNode(getMainNode()); }
 
-    // IConfigurableObject
+    // IConfigurableObject / 可配置对象接口
     @Override public IConfigManager getConfigManager() { return configManager; }
 
-    // ISubMenuHost
+    // ISubMenuHost / 子菜单宿主接口
     @Override
     public void returnToMainMenu(Player player, ISubMenu subMenu) {
         MenuOpener.returnTo(com.endlessepoch.core.registry.Menus.DISPATCH.get(), player, MenuLocators.forBlockEntity(this));
     }
     @Override public ItemStack getMainMenuIcon() { return new ItemStack(getBlockState().getBlock().asItem()); }
 
-    // IActionHost
+    // IActionHost / 动作宿主接口
     @Override public IGridNode getActionableNode() { return mainNode.getNode(); }
     public IManagedGridNode getMainNode() { return mainNode; }
 
-    // Lifecycle
+    // Lifecycle / 生命周期
     @Override public void onLoad() { super.onLoad(); if (level != null && !level.isClientSide()) mainNode.create(level, worldPosition); }
     @Override public void setRemoved() { super.setRemoved(); mainNode.destroy(); }
     @Override public void onChunkUnloaded() { super.onChunkUnloaded(); mainNode.destroy(); }

@@ -35,7 +35,7 @@ public class HeatComponent {
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-    // ── Read ──
+    // Read / 读 
 
     /**
      * Get current heat for a profile, applying lazy cooling.
@@ -63,7 +63,7 @@ public class HeatComponent {
         finally { lock.readLock().unlock(); }
     }
 
-    // ── Write ──
+    // Write / 写 
 
     /**
      * Apply heat gain for one recipe completion, then cap at maxHeat.
@@ -119,7 +119,7 @@ public class HeatComponent {
         }
     }
 
-    // ── NBT ──
+    // NBT / 持久化 
 
     public void saveToNBT(CompoundTag tag) {
         lock.readLock().lock();

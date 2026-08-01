@@ -20,7 +20,6 @@ import java.io.InputStream;
 import java.nio.file.*;
 import java.util.*;
 
-/** 从.ecs定义多方块机器的构建器，创建MachineDefinition。 */
 public final class MultiblockLoader {
     private final ResourceLocation ecsFile;
     private final Map<String, Set<Block>> tagBindings = new LinkedHashMap<>();

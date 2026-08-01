@@ -7,21 +7,6 @@ import net.minecraft.world.item.TooltipFlag;
 
 import java.util.List;
 
-/**
- * Item base class with animated tooltip support.
- * <p>
- * Other mods extend this and pass an {@link ItemTooltipAnimation} in the constructor.
- * The tooltip automatically renders with the configured animation effects.
- *
- * <pre>{@code
- * // In another mod:
- * public class MyCoolItem extends AnimatedItem {
- *     public MyCoolItem() {
- *         super(new Properties(), ItemTooltipAnimation.legendary("my_mod.my_item.desc"));
- *     }
- * }
- * }</pre>
- */
 public abstract class AnimatedItem extends Item {
 
     protected final ItemTooltipAnimation animation;

@@ -53,7 +53,6 @@ public class OreRegistry {
         "dull_ore", "dull_ore_small", "fine_ore", "flint_ore", "diamond_ore"
     };
 
-    /** 自动生成贴图+注册全部矿石 / Generate textures + register all ores */
     public static void registerAll(Material... materials) {
         String ns = EECore.MOD_ID;
         Path spotDir = ResourceGenerator.PROJECT_ROOT

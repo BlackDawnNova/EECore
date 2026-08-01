@@ -52,7 +52,6 @@ public abstract class CreativePartScreen<T extends AbstractContainerMenu> extend
     /** Part-specific content between title and inventory. / 标题与背包之间的部件内容区。 */
     protected abstract void renderContent(GuiGraphics g);
 
-    /** Send a container button click to the server. / 向服务端发送容器按钮点击。 */
     protected void clickButton(int id) {
         if (this.minecraft != null && this.minecraft.gameMode != null)
             this.minecraft.gameMode.handleInventoryButtonClick(this.menu.containerId, id);

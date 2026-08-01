@@ -36,15 +36,6 @@ public class MachineReg {
     /** All registered machine items for creative tab. / 所有已注册机器物品。 */
     public static final List<Supplier<BlockItem>> ITEMS = new ArrayList<>();
 
-    /**
-     * Register a machine. Block + BE + item + model all auto-generated.
-     * @param id           registry name (e.g. "steam_boiler")
-     * @param machineTypeId machine type ID (e.g. "eecore:boiler")
-     * @param nameEn       English display name
-     * @param nameZh       Chinese display name
-     * @param tier         voltage tier (0-11)
-     * @param color        map color for the block
-     */
     public static Supplier<? extends Block> register(String id, String machineTypeId,
                                                       String nameEn, String nameZh,
                                                       int tier, MapColor color) {

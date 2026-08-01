@@ -53,7 +53,6 @@ public class CreativeFluidGhostHandler implements IGhostIngredientHandler<HatchS
         return targets;
     }
 
-    /** FluidStack directly, or the fluid inside an item (bucket etc.). / 直接流体，或物品内含流体（桶等）。 */
     private static FluidStack extractFluid(Object ingredient) {
         if (ingredient instanceof FluidStack fs) return fs;
         if (ingredient instanceof ItemStack is && !is.isEmpty())

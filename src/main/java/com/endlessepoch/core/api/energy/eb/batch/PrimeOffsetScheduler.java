@@ -18,10 +18,6 @@ public final class PrimeOffsetScheduler {
 
     private PrimeOffsetScheduler() {}
 
-    /**
-     * Whether the machine at posHash may start a batch on this tick.
-     * 该机器本 tick 是否允许启动批处理。
-     */
     public static boolean canProcess(long posHash, long gameTick, String mode) {
         long[] primes = switch (mode) {
             case "PERFORMANCE" -> PERFORMANCE_PRIMES;

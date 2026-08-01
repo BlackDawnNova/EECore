@@ -2,7 +2,6 @@ package com.endlessepoch.core.api.energy.eb;
 
 import net.minecraft.core.BlockPos;
 
-/** BlockPos → long hash and segment assignment. / 方块坐标→long哈希+分片分配。 */
 public final class HashUtil {
     private HashUtil() {}
 

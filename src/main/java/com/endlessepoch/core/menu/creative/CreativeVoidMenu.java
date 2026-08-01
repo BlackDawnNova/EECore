@@ -23,7 +23,6 @@ import java.util.List;
  */
 public class CreativeVoidMenu extends AbstractContainerMenu {
 
-    /** Entries shown in the GUI. / GUI 显示的条目数。 */
     public static final int SHOWN = 8;
     // Layout: [i*3]=registry id, [i*3+1]=count (clamped to int), [i*3+2]=fluid flag
     // 布局：[i*3]=注册ID，[i*3+1]=数量（钳位 int），[i*3+2]=流体标志
@@ -80,7 +79,6 @@ public class CreativeVoidMenu extends AbstractContainerMenu {
     public int entryId(int i) { return data.get(i * 3); }
     /** Count of shown entry i (items or mB). / 第 i 条数量（物品或 mB）。 */
     public int entryCount(int i) { return data.get(i * 3 + 1); }
-    /** Entry i is a fluid. / 第 i 条是流体。 */
     public boolean entryFluid(int i) { return data.get(i * 3 + 2) != 0; }
 
     @Override

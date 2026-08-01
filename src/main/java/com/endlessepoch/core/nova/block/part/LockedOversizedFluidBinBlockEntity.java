@@ -49,7 +49,7 @@ public class LockedOversizedFluidBinBlockEntity extends InputBusBlockEntity impl
         return tank >= 0 && tank < lockFluids.length ? lockFluids[tank].copy() : FluidStack.EMPTY;
     }
 
-    // ── ILockedSlotBus — fluid tank as "slot" / 流体罐当作"槽" ──
+    // ILockedSlotBus — fluid tank as "slot" / 流体罐当作"槽" 
 
     @Override public boolean isSlotLocked(int slot) { return isTankLocked(slot); }
 
@@ -64,7 +64,7 @@ public class LockedOversizedFluidBinBlockEntity extends InputBusBlockEntity impl
         return slot >= 0 && slot < tanks.size() ? tanks.get(slot).getFluidAmount() : 0;
     }
 
-    // ── Auto-locking fluid tank / 自动锁流体罐 ──
+    // Auto-locking fluid tank / 自动锁流体罐 
 
     @Override
     protected FluidTank createFluidTank(int capacity, boolean output) {
@@ -111,7 +111,7 @@ public class LockedOversizedFluidBinBlockEntity extends InputBusBlockEntity impl
         return -1;
     }
 
-    // ── NBT / 持久化 ──
+    // NBT / 持久化 
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider provider) {

@@ -3,7 +3,6 @@ package com.endlessepoch.core.api.energy.eb;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 
-/** ItemStack → long triple (itemId, count, nbtHash). / 物品→long三元组。 */
 public final class ItemSnapshotUtil {
     private ItemSnapshotUtil() {}
 

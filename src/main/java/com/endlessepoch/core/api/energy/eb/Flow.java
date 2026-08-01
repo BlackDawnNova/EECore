@@ -16,12 +16,10 @@ public class Flow {
         this.buffer = new WindowBuffer(subscriber);
     }
 
-    /** Create a Flow with the given subscriber. / 创建流并绑定订阅者。 */
     public static Flow create(Subscriber subscriber) {
         return new Flow(subscriber);
     }
 
-    /** Publish an event into the pipeline. / 发布事件。 */
     public void publish(EeEvent event) {
         if (!subscriber.isUnsubscribed())
             buffer.offer(event);
@@ -41,7 +39,6 @@ public class Flow {
         buffer.resync(gameTick);
     }
 
-    /** Cancel subscription and clean up. / 取消订阅并清理。 */
     public void dispose() {
         subscriber.onComplete();
     }

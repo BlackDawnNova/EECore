@@ -27,7 +27,7 @@ public class WrenchItem extends Item {
 
     @Override
     public float getDestroySpeed(ItemStack stack, BlockState state) {
-        return isEECoreBlock(state.getBlock()) ? WRENCH_SPEED : 9.0f; // netherite speed on vanilla
+        return isEECoreBlock(state.getBlock()) ? WRENCH_SPEED : 9.0f; // netherite speed on vanilla / 原版方块按下界合金速度
     }
 
     private static boolean isEECoreBlock(Block block) {

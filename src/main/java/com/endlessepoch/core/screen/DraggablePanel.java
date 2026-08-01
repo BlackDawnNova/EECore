@@ -50,9 +50,8 @@ public class DraggablePanel {
 
     public void mouseReleased() { dragging = false; }
 
-    protected void onSidebarRightClick() {} // override for merge action
+    protected void onSidebarRightClick() {} // override for merge action / 覆写以实现合并动作
 
-    /** Render sidebar with button: bg left2+mid15+right4, btn 13x14 three-state */
     protected void renderSidebar(GuiGraphics g, Font font, int sx, int sy, int mx, int my, boolean pressed) {
         g.blit(DispatchScreen.SPRITES, sx, sy, 213, 134, 2, 17, 512, 512);
         g.blit(DispatchScreen.SPRITES, sx + 2, sy, 215, 134, 15, 17, 512, 512);
@@ -73,4 +72,7 @@ public class DraggablePanel {
     protected static boolean hit(double mx, double my, int bx, int by, int bw, int bh) {
         return mx >= bx && mx <= bx + bw && my >= by && my <= by + bh;
     }
+
+    /** Sidebar strip width for occlusion (by button count) / 展开时侧边栏条宽度（按按钮数量），遮挡判定用 */
+    int sidebarW() { return 21; }
 }

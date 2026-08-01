@@ -2,7 +2,6 @@ package com.endlessepoch.core.api.energy.eb;
 
 import java.lang.management.ManagementFactory;
 
-/** CPU usage sampler (every ~20 ticks). / CPU 占用率采样器。 */
 public final class CpuMonitor {
 
     private static final com.sun.management.OperatingSystemMXBean BEAN =

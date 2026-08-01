@@ -30,9 +30,7 @@ import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
  */
 public class CreativeHatchBlockEntity extends PartBlockEntity implements VoidStats {
 
-    /** GUI-adjustable voltage tier for the energy-input variant. / 能源输入型的 GUI 可调电压档。 */
     private int creativeTier = 1; // LV default / 默认 LV
-    /** GUI-adjustable amperage (1/2/4/8/16). / GUI 可调安培数。 */
     private int creativeAmp = 16;
     private OmegaStorage creativeStorage;
     /** Swallowed fluid mB (fluid-output variant), registry id → mB. / 吞噬流体计量（流体输出型）。 */
@@ -45,7 +43,6 @@ public class CreativeHatchBlockEntity extends PartBlockEntity implements VoidSta
 
     public boolean isEnergyInput() { return getAbilities().contains(PartAbility.ENERGY_INPUT); }
 
-    /** Infinite-source fluid template variant? / 是否为无限流体模板型（流体输入）。 */
     public boolean isFluidTemplate() { return getAbilities().contains(PartAbility.FLUID_INPUT); }
 
     /**
@@ -63,7 +60,6 @@ public class CreativeHatchBlockEntity extends PartBlockEntity implements VoidSta
 
     public int getCreativeTier() { return creativeTier; }
 
-    /** Set the source tier (clamped ELV..QV) and rebuild the storage. / 设置源电压档（钳位）并重建储能。 */
     public void setCreativeTier(int tier) {
         int t = Math.max(0, Math.min(tier, VoltageTier.values().length - 1));
         if (t == creativeTier) return;
@@ -73,7 +69,6 @@ public class CreativeHatchBlockEntity extends PartBlockEntity implements VoidSta
         wakeController();
     }
 
-    /** Cycle amperage through the legal steps. / 在合法安培档位间循环。 */
     public void cycleAmp(boolean up) {
         int idx = 0;
         for (int i = 0; i < PartBlock.VALID_AMPERAGES.length; i++)
@@ -140,7 +135,6 @@ public class CreativeHatchBlockEntity extends PartBlockEntity implements VoidSta
 
     // VoidStats — fluid-output variant / 虚空统计（流体输出型）
 
-    /** Void fluid sink variant? / 是否为虚空流体型（流体输出）。 */
     public boolean isFluidVoid() { return getAbilities().contains(PartAbility.FLUID_OUTPUT); }
 
     private void recordVoidedFluid(FluidStack stack) {

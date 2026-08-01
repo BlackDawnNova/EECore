@@ -111,7 +111,7 @@ public class Fluids {
 
     public record FluidReg(Supplier<? extends FluidType> type, Supplier<? extends Fluid> src, Supplier<? extends Fluid> flowing, Supplier<BucketItem> bucket) {}
 
-    // ── Registered fluids ──
+    // Registered fluids / 已注册流体
     public static final FluidReg STEAM = register("steam", 0xFFE0E0E0, 400, "Steam", "蒸汽", UPRIGHT);
     public static final FluidReg STEAM_SH = register("superheated_steam", 0xFFF5E8D0, 600, "Superheated Steam", "过热蒸汽", INVERTED);
 }

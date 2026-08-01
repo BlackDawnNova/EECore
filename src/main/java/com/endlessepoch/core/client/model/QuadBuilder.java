@@ -13,7 +13,6 @@ public final class QuadBuilder {
 
     private QuadBuilder() {}
 
-    /** Generate a face quad covering the full sprite bounds precisely. */
     public static BakedQuad face(Direction dir, float x1, float y1, float z1,
                                   float x2, float y2, float z2,
                                   TextureAtlasSprite sprite, boolean shade) {
@@ -22,7 +21,6 @@ public final class QuadBuilder {
         return new BakedQuad(vertices, -1, dir, sprite, shade);
     }
 
-    /** Generate a face quad with custom UV. */
     public static BakedQuad face(Direction dir, float x1, float y1, float z1,
                                   float x2, float y2, float z2,
                                   TextureAtlasSprite sprite,
@@ -36,31 +34,30 @@ public final class QuadBuilder {
         return new BakedQuad(vertices, -1, dir, sprite, shade);
     }
 
-    /** Vertex data for one face — 8 ints/vertex × 4 vertices = 32 ints (1.21.1 format). */
     private static int[] singleFace(Direction dir, float x1, float y1, float z1,
                                      float x2, float y2, float z2,
                                      float uMin, float vMin, float uMax, float vMax,
                                      boolean shade) {
-        int[] data = new int[32]; // 4 vertices × 8 ints
+        int[] data = new int[32];
         float nx = dir.getStepX(), ny = dir.getStepY(), nz = dir.getStepZ();
         float[][] corners = faceCorners(dir, x1, y1, z1, x2, y2, z2);
         float[][] uvs = {
             {uMin, vMax}, {uMax, vMax}, {uMax, vMin}, {uMin, vMin}
         };
-        // Full-bright lightmap: skyLight=15, blockLight=15
+        // Full-bright lightmap: skyLight=15, blockLight=15 / 满亮光照贴图：天光=15、方块光=15
         int lightmap = shade ? 0x00F000F0 : 0x00F000F0;
         int normal = packNormal(nx, ny, nz);
 
         for (int v = 0; v < 4; v++) {
             int off = v * 8;
-            data[off]     = Float.floatToRawIntBits(corners[v][0]); // pos X
-            data[off + 1] = Float.floatToRawIntBits(corners[v][1]); // pos Y
-            data[off + 2] = Float.floatToRawIntBits(corners[v][2]); // pos Z
-            data[off + 3] = -1;                                      // color (white)
-            data[off + 4] = Float.floatToRawIntBits(uvs[v][0]);      // UV0 U
-            data[off + 5] = Float.floatToRawIntBits(uvs[v][1]);      // UV0 V
-            data[off + 6] = lightmap;                                 // UV2 (lightmap)
-            data[off + 7] = normal;                                   // Normal
+            data[off]     = Float.floatToRawIntBits(corners[v][0]);
+            data[off + 1] = Float.floatToRawIntBits(corners[v][1]);
+            data[off + 2] = Float.floatToRawIntBits(corners[v][2]);
+            data[off + 3] = -1;
+            data[off + 4] = Float.floatToRawIntBits(uvs[v][0]);
+            data[off + 5] = Float.floatToRawIntBits(uvs[v][1]);
+            data[off + 6] = lightmap;
+            data[off + 7] = normal;
         }
         return data;
     }

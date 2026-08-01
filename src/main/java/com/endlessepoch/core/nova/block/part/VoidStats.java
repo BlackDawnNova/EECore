@@ -13,12 +13,10 @@ public interface VoidStats {
     /** Registry id + swallowed count; fluid entries count in mB. / 注册 ID + 吞噬数量；流体条目按 mB 计。 */
     record Entry(int id, long count, boolean fluid) {}
 
-    /** Max distinct types tracked. / 最多追踪的种类数。 */
     int MAX_TRACKED = 16;
 
     /** Snapshot of tracked entries, insertion order. / 已追踪条目快照，按插入顺序。 */
     List<Entry> voidEntries();
 
-    /** Reset all counters. / 清零全部计数。 */
     void clearVoidStats();
 }

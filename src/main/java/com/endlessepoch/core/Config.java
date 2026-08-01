@@ -17,7 +17,7 @@ public class Config {
 
     public static final ModConfigSpec SPEC;
 
-    // ── Cached values — set during onLoad, safe to read from any thread / 缓存值 — onLoad 时赋值，任意线程安全读取 ──
+    // Cached values — set during onLoad, safe to read from any thread / 缓存值 — onLoad 时赋值，任意线程安全读取 
     public static volatile boolean heatEnabled = true;
     public static volatile double heatUpRate = 0.1;
     public static volatile double coolDownRate = 0.005;
@@ -58,28 +58,28 @@ public class Config {
     public static volatile boolean p4SpeculationEnabled = true;
     public static volatile boolean p4DisableEffects;
 
-    // ── General / 通用 ──
+    // General / 通用 
     public static final ModConfigSpec.DoubleValue STEP_LOSS_FACTOR;
 
-    // ── Heat Map / 热图系统 ──
+    // Heat Map / 热图系统 
     public static final ModConfigSpec.BooleanValue HEAT_ENABLED;
     public static final ModConfigSpec.DoubleValue HEAT_UP_RATE;
     public static final ModConfigSpec.DoubleValue HEAT_COOL_DOWN_RATE;
     public static final ModConfigSpec.DoubleValue HEAT_SWITCH_DECAY;
     public static final ModConfigSpec.DoubleValue HEAT_SPEED_BOOST_MAX;
 
-    // ── Scheduling / 调度 ──
+    // Scheduling / 调度 
     public static final ModConfigSpec.IntValue EB_WINDOW_NANOS;
     public static final ModConfigSpec.IntValue EB_MAX_BATCH;
     public static final ModConfigSpec.IntValue EB_STALE_TICKS;
     public static final ModConfigSpec.IntValue EB_BUFFER_CAPACITY;
 
-    // ── Thread Pool / 线程池 ──
+    // Thread Pool / 线程池 
     public static final ModConfigSpec.IntValue EB_BG_THREADS;
     public static final ModConfigSpec.IntValue EB_FJ_PARALLELISM;
     public static final ModConfigSpec.IntValue EB_SEGMENT_COUNT;
 
-    // ── Phase 3 — execution layer / Phase 3 执行层 ──
+    // Phase 3 — execution layer / Phase 3 执行层 
     public static final ModConfigSpec.IntValue P3_BATCH_SIZE;
     public static final ModConfigSpec.IntValue P3_MAIN_THREAD_LIMIT;
     public static final ModConfigSpec.BooleanValue P3_MAIN_THREAD_ADAPTIVE;
@@ -104,14 +104,14 @@ public class Config {
     public static final ModConfigSpec.BooleanValue P4_SPECULATION_ENABLED;
     public static final ModConfigSpec.BooleanValue P4_DISABLE_EFFECTS;
 
-    // ── Debug / 调试 ──
+    // Debug / 调试 
     public static final ModConfigSpec.BooleanValue EB_DEBUG_LOG;
     public static final ModConfigSpec.IntValue EB_DEBUG_INTERVAL;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
 
-        // ── General / 通用 ──
+        // General / 通用 
         b.comment("EECore global configuration / EECore 全局配置").push("general");
         STEP_LOSS_FACTOR = b
                 .comment(
@@ -120,7 +120,7 @@ public class Config {
                 .defineInRange("stepLossFactor", 0.8, 0.0, 1.0);
         b.pop();
 
-        // ── Heat Map / 热图系统 ──
+        // Heat Map / 热图系统 
         b.comment("HeatMap system — recipe heat tracking / 热图系统 — 配方热量追踪").push("heatMap");
         HEAT_ENABLED = b
                 .comment("Enable heat tracking for recipes. Disable to skip all heat calculation.",
@@ -144,7 +144,7 @@ public class Config {
                 .defineInRange("speedBoostMax", 1.5, 1.0, 10.0);
         b.pop();
 
-        // ── Scheduling / 调度 ──
+        // Scheduling / 调度 
         b.comment("Event buffer scheduling / 事件缓冲调度").push("scheduling");
         EB_WINDOW_NANOS = b
                 .comment("WindowBuffer flush window in nanoseconds (10ms = 10_000_000).",
@@ -164,7 +164,7 @@ public class Config {
                 .defineInRange("bufferCapacity", 16384, 512, 131072);
         b.pop();
 
-        // ── Thread Pool / 线程池 ──
+        // Thread Pool / 线程池 
         b.comment("Thread pool configuration / 线程池配置").push("threadPool");
         EB_BG_THREADS = b
                 .comment("Background thread count. 0 = auto (CPU-1 server, CPU/2 client). Requires restart.",
@@ -180,7 +180,7 @@ public class Config {
                 .defineInRange("segmentCount", 0, 0, 256);
         b.pop();
 
-        // ── Phase 3 — execution layer / Phase 3 执行层 ──
+        // Phase 3 — execution layer / Phase 3 执行层 
         b.comment(
                 "Phase 3 — parallel batch execution layer.",
                 "Phase 3 — 并行批处理执行层。").push("phase3");
@@ -279,7 +279,7 @@ public class Config {
                 .define("p4DisableEffects", false);
         b.pop();
 
-        // ── Debug / 调试 ──
+        // Debug / 调试 
         b.comment("Debug and logging / 调试与日志").push("debug");
         EB_DEBUG_LOG = b
                 .comment("Enable EB framework debug logging. Verbose — disable in production.",

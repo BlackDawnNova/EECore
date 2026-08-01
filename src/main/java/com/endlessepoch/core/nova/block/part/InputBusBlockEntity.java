@@ -70,9 +70,7 @@ public class InputBusBlockEntity extends PartBlockEntity implements MenuProvider
     public IItemHandler getInventory() { return inventory; }
     public int getSlotCount() { return inventory.getSlots(); }
     public boolean isOutput() { return output; }
-    /** Phantom-template infinite bus? / 是否为幻影模板无限总线。 */
     public boolean isCreative() { return false; }
-    /** BigInteger-capable storage? / 是否为 BigInteger 容量存储。 */
     public boolean isOversized() { return false; }
     /** Real stored count for slot i — oversized subclasses override this. / 槽i真实数量，巨量子类覆写。 */
     public long getStoredAmount(int slot) {

@@ -75,7 +75,6 @@ public class BusScreen extends AbstractContainerScreen<BusMenu> {
         closeCountPopup();
     }
 
-    /** Full-count string for tooltips (no abbreviation). / tooltip 用的完整数量（不缩略）。 */
     private static String fmtCount(long n) {
         if (n >= 1_000_000_000L) return String.format("%.1fB", n / 1_000_000_000.0);
         if (n >= 1_000_000L)     return String.format("%.1fM", n / 1_000_000.0);

@@ -20,14 +20,10 @@ public final class MultiBlockBreakDetector {
 
     private MultiBlockBreakDetector() {}
 
-    /** Record that this controller was the source of the player's last ghost preview. */
-    /** 记录此控制器为该玩家上一次幽灵预览的来源。 */
     public static void markPreviewSource(UUID playerId, BlockPos ctrl) {
         LAST_PREVIEW_CTRL.put(playerId, ctrl.immutable());
     }
 
-    /** Whether destroying this controller should clear the player's ghost preview. */
-    /** 破坏此控制器时是否应该清空该玩家的幽灵预览。 */
     public static boolean isLastPreviewSource(UUID playerId, BlockPos ctrl) {
         var last = LAST_PREVIEW_CTRL.get(playerId);
         return last != null && last.equals(ctrl);
@@ -128,11 +124,12 @@ public final class MultiBlockBreakDetector {
             if (machineId == null || !(level instanceof ServerLevel sl)) continue;
             var patOpt = MultiBlockRegistry.get(machineId);
             if (patOpt.isEmpty()) continue;
-            if (!isWithinStructure(pos, ctrl, patOpt.get(), mc.getFacing())) continue;
+            boolean inside = isWithinStructure(pos, ctrl, patOpt.get(), mc.getFacing());
+            if (!inside) continue;
             mc.scheduleStructureCheck();
             if (isBreak) {
                 sl.getServer().execute(() -> {
-                    // Controller may have been destroyed — skip if BE is gone.
+                    // Controller may have been destroyed — skip if BE is gone. / 控制器可能已被拆除——BE 已消失则跳过。
                     if (!(sl.getBlockEntity(ctrl) instanceof com.endlessepoch.core.nova.block.MachineControllerBlockEntity currentMc))
                         return;
                     var owner = sl.getPlayerByUUID(currentMc.getOwnerUUID());
@@ -153,6 +150,10 @@ public final class MultiBlockBreakDetector {
 
     public static boolean isWithinStructure(BlockPos pos, BlockPos ctrl,
                                               MultiBlockPattern p, Direction facing) {
+        // Frame patterns have no voxel grid (w/h/d=0) — findControllers already
+        // filtered by the stamped bounding box, so any pos reaching here is inside.
+        // 框架式无栅格（w/h/d=0）——findControllers 已按登记边界框过滤，能到这里即在结构内。
+        if (p.isFrameBased()) return true;
         BlockPos local = MultiBlockValidator.toLocal(pos, ctrl, facing,
                 p.controllerX, p.controllerY, p.controllerZ);
         return p.isStructureCell(local.getX(), local.getY(), local.getZ());

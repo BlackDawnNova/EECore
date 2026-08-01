@@ -57,7 +57,6 @@ public class ScannerControllerBlockEntity extends BlockEntity implements IMultiB
     @Override
     public String getOwnerName() { return ownerName; }
 
-    /** Get the direction this controller is facing (read from block state). / 获取控制器朝向（从方块状态读取）。 */
     public Direction getFacing() {
         if (getBlockState().hasProperty(ScannerControllerBlock.FACING)) {
             return getBlockState().getValue(ScannerControllerBlock.FACING);
@@ -75,10 +74,6 @@ public class ScannerControllerBlockEntity extends BlockEntity implements IMultiB
         setChanged();
     }
 
-    /**
-     * Sync formed state to client via update packet.
-     * 通过更新包将成形状态同步到客户端。
-     */
     @Nullable
     @Override
     public Packet<ClientGamePacketListener> getUpdatePacket() {

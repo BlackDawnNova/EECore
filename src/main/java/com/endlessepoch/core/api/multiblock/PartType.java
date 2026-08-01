@@ -57,5 +57,5 @@ public final class PartType {
     public static PartType get(ResourceLocation id) { return REGISTRY.get(id); }
     public static Collection<PartType> values() { return Collections.unmodifiableCollection(REGISTRY.values()); }
 
-    static { /* forces static init of built-in types */ }
+    static { /* forces static init of built-in types / 强制触发内置类型静态初始化 */ }
 }

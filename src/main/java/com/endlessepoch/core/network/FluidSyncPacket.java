@@ -8,7 +8,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/** Sync fluid tank data from server to client after interaction. / 流体数据即时同步包。 */
 public record FluidSyncPacket(BlockPos pos, int tankIdx, ResourceLocation fluidId, int amount, int capacity) implements CustomPacketPayload {
     public static final Type<FluidSyncPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(EECore.MOD_ID,"fluid_sync"));
     public static final StreamCodec<RegistryFriendlyByteBuf,FluidSyncPacket> CODEC =

@@ -35,7 +35,7 @@ public final class AnimatedText {
         MutableComponent out = Component.empty();
         long t = System.currentTimeMillis() / 25;
         for (int i = 0; i < text.length(); i++) {
-            int hue = 120 + (int)((t + i * 12) % 60); // green(120) ↔ cyan(180)
+            int hue = 120 + (int)((t + i * 12) % 60);
             out.append(Component.literal(String.valueOf(text.charAt(i)))
                     .withStyle(s -> s.withColor(hslToRgb(hue, 1f, 0.65f))));
         }
@@ -60,7 +60,6 @@ public final class AnimatedText {
      * @param text        the text to animate / 要动画化的文本
      * @param tickDivisor speed: lower = faster (default 20) / 速度：值越低越快（默认 20）
      * @param huePerChar  hue degrees between characters (default 10) / 字符之间的色调度数（默认 10）
-     * @param saturation  0.0 ~ 1.0
      * @param lightness   0.0 ~ 1.0 (0.7 = vibrant) / 0.0 ~ 1.0（0.7 = 鲜艳）
      */
     public static MutableComponent rainbow(String text, int tickDivisor, int huePerChar,

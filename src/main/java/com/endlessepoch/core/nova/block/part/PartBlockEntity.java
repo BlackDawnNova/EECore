@@ -129,7 +129,6 @@ public class PartBlockEntity extends BlockEntity implements IPart, MenuProvider 
     public OmegaStorage getEnergyStorage() { return energyStorage; }
     /** Voltage tier ordinal of this part. / 部件电压等级序数。 */
     public int getTier() { return tier; }
-    /** Energy hatch amperage. / 能源仓安培数。 */
     public int getAmperage() { return amperage; }
 
     /**

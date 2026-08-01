@@ -30,7 +30,6 @@ public final class SegmentQueueManager {
 
     private SegmentQueueManager() {}
 
-    /** Route event to the correct shard via posHash. / 按posHash路由事件到分片。 */
     public static void enqueue(EeEvent event) {
         var local = LOCAL.get();
         local.add(event);
@@ -47,7 +46,6 @@ public final class SegmentQueueManager {
         }
     }
 
-    /** Drain a segment into the given consumer. / 排空一个分片到消费者。 */
     public static int drainTo(int segment, java.util.function.Consumer<EeEvent> consumer, int max) {
         var q = SEGMENTS[segment];
         int count = 0;

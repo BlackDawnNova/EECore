@@ -15,14 +15,10 @@ import net.neoforged.neoforge.items.ItemStackHandler;
 
 import java.util.Set;
 
-/**
- * Bridges ME network and EECore machine. Placed alongside InputBus/OutputBus.
- * Internal buffer → InputBus at machine rate, OutputBus → buffer, buffer → ME.
- */
 public class AeInterfaceBlockEntity extends PartBlockEntity {
 
     private final ItemStackHandler buffer;
-    private Object aeNode; // IGridNode via adjacent IInWorldGridNodeHost
+    private Object aeNode;
     private int ticksSinceSync;
 
     public AeInterfaceBlockEntity(BlockPos pos, BlockState state, PartType type, int tier) {

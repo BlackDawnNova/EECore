@@ -21,11 +21,11 @@ class MainPanel extends SlotPanel {
     private static final int[] ST_SRC = {173, 180, 189};
     private static final int[] ST_W = {5, 7, 7};
     private static final int SD_U = 173, SD_V = 175;
-    private static final int DN_U = 173, DN_V = 186; // density: 5×6 +2 6×8 +2 7×8 +2 7×8
+    private static final int DN_U = 173, DN_V = 186;
     private static final int[] DN_SRC = {0, 8, 16, 25}, DN_W = {5, 6, 7, 7}, DN_H = {6, 8, 8, 8};
-    private static final int[] DN_ROWS = {3, 4, 5, 6}; // split density
-    private int densityIdx; // 0=3, 1=4, 2=5, 3=6
-    private int sbW = 111; // left2+mid15×7+right4
+    private static final int[] DN_ROWS = {3, 4, 5, 6};
+    private int densityIdx;
+    private int sbW = 111;
 
     @Override public void render(GuiGraphics g, Font font, int mx, int my) {
         if (collapsed) { renderCollapsed(g, font, mx, my); return; }
@@ -41,10 +41,18 @@ class MainPanel extends SlotPanel {
         renderExtendedSidebar(g, font, x, y - SB_Y, mx, my);
         g.drawString(font, Component.literal(title), x + 8, y + 6, 0xFF_404040, false);
         search.render(g, mx, my, 0);
+        if (DispatchUtil.hit(mx, my, x + 78, y + 5, 72, 12)) {
+            java.util.List<Component> stt = new java.util.ArrayList<>();
+            stt.add(Component.translatable("eecore.dispatch.search.title"));
+            stt.add(Component.translatable("eecore.dispatch.search.hint_mod").withStyle(s -> s.withColor(DispatchScreen.C_TD)));
+            stt.add(Component.translatable("eecore.dispatch.search.hint_tag").withStyle(s -> s.withColor(DispatchScreen.C_TD)));
+            stt.add(Component.translatable("eecore.dispatch.search.hint_tooltip").withStyle(s -> s.withColor(DispatchScreen.C_TD)));
+            stt.add(Component.translatable("eecore.dispatch.search.hint_fuzzy").withStyle(s -> s.withColor(DispatchScreen.C_TD)));
+            g.renderTooltip(font, stt, java.util.Optional.empty(), mx, my);
+        }
     }
 
     private void renderExtendedSidebar(GuiGraphics g, Font font, int sx, int sy, int mx, int my) {
-        // bg: left2 + mid15×7 + right4 = 111
         g.blit(DispatchScreen.SPRITES, sx, sy, 213, 134, 2, 17, 512, 512);
         for (int i = 0; i < 7; i++)
             g.blit(DispatchScreen.SPRITES, sx + 2 + i * 15, sy, 215, 134, 15, 17, 512, 512);
@@ -101,7 +109,7 @@ class MainPanel extends SlotPanel {
         int dirYOff = dirDown ? 1 : 0;
         int dirU = dirDown ? 198 : (dirH ? 185 : 172);
         g.blit(DispatchScreen.SPRITES, dirX, dirY + dirYOff, dirU, 138, 13, 14, 512, 512);
-        int ascSrc = screen.sortAsc ? SD_U : SD_U + 8; // asc 5×8, desc at +3+5=+8
+        int ascSrc = screen.sortAsc ? SD_U : SD_U + 8;
         g.blit(DispatchScreen.SPRITES, dirX + 4, dirY + 2 + dirYOff, ascSrc, SD_V, 5, 8, 512, 512);
         if (dirH) {
             String[] dirSub = {"eecore.dispatch.dir.asc", "eecore.dispatch.dir.desc"};
@@ -236,4 +244,5 @@ class MainPanel extends SlotPanel {
 
     @Override public boolean mouseClicked(double mx, double my) { return mouseClicked(mx, my, 0); }
     @Override protected void onSidebarRightClick() { screen.splitMerge = false; }
+    @Override int sidebarW() { return sbW; }
 }

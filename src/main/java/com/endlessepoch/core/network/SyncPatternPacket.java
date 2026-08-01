@@ -110,11 +110,6 @@ public record SyncPatternPacket(
         );
     }
 
-    /**
-     * Reconstruct a MultiBlockPattern from this packet.
-     * <p>
-     * 从此数据包重建 MultiBlockPattern。
-     */
     public MultiBlockPattern toPattern() {
         String[][] layers = new String[height][depth];
         int idx = 0;

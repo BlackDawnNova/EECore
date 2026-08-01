@@ -115,10 +115,6 @@ public class Items {
 
     /** Parts are now auto-registered via Blocks.flushPartItems() — items + models + lang all in one call. / 部件现由 flushPartItems 自动注册。 */
 
-    /**
-     * Register a part item with voltage-tier casing + custom overlay (for addon mods).
-     * 注册部件物品（附属 Mod 用）。
-     */
     public static Supplier<BlockItem> registerPartItem(Supplier<? extends Block> blockSupplier, String id, int tier, String overlayTex) {
         var sup = ITEMS.register(id,
                 () -> new BlockItem(blockSupplier.get(), new Item.Properties().stacksTo(64)));
