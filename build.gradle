@@ -11,6 +11,7 @@ group = mod_group_id
 repositories {
     mavenLocal()
     maven { url "https://maven.blamejared.com" }
+    maven { url "https://jitpack.io" }
 }
 
 base {
@@ -131,6 +132,10 @@ dependencies {
     // OBJ model loader
     implementation "de.javagl:obj:0.4.0"
     jarJar "de.javagl:obj:0.4.0"
+
+    // PinIn — pinyin search (JECH jars it, NeoForge deduplicates)
+    implementation "com.github.Towdium:PinIn:1.6.0"
+    jarJar "com.github.Towdium:PinIn:1.6.0"
 
 
     def ae2Jar = fileTree("libs").matching { include "*appliedenergistics2*" }

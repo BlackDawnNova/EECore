@@ -17,7 +17,7 @@ public class MachineDefinition implements Supplier<Block> {
     private final Map<String, Set<Block>> tagBindings;
     private String model; // block model path, e.g. "eecore:block/scanner_controller"
 
-    private Supplier<Block> blockSupplier;
+    private Supplier<? extends Block> blockSupplier;
     private Supplier<? extends Item> itemSupplier;
     private Supplier<MultiBlockPattern> patternSupplier;
     private IMachineEffect effect;
@@ -56,7 +56,7 @@ public class MachineDefinition implements Supplier<Block> {
 
     // Setters / 设置器
 
-    public void setBlockSupplier(Supplier<Block> supplier) { this.blockSupplier = supplier; }
+    public void setBlockSupplier(Supplier<? extends Block> supplier) { this.blockSupplier = supplier; }
     public void setItemSupplier(Supplier<? extends Item> supplier) { this.itemSupplier = supplier; }
     public void setPatternSupplier(Supplier<MultiBlockPattern> supplier) { this.patternSupplier = supplier; }
 

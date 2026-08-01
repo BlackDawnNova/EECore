@@ -26,8 +26,13 @@ public final class FrameMachineLoader {
     private int innerW, innerH, innerD;
     private final Map<String, Map<Block, Integer>> perBlockLimits = new LinkedHashMap<>();
     private final Map<String, Map<PartCategory, Integer>> categoryLimits = new LinkedHashMap<>();
+    private java.util.function.Supplier<? extends Block> blockSupplier;
 
     private FrameMachineLoader(ResourceLocation ecsFile) { this.ecsFile = ecsFile; }
+
+    public FrameMachineLoader blockSupplier(java.util.function.Supplier<? extends Block> supplier) {
+        this.blockSupplier = supplier; return this;
+    }
     public static FrameMachineLoader load(ResourceLocation ecsFile) { return new FrameMachineLoader(ecsFile); }
 
     public FrameMachineLoader name(String en, String zh) { this.nameEn = en; this.nameZh = zh; return this; }
@@ -102,7 +107,7 @@ public final class FrameMachineLoader {
         if (model != null) def.setModel(model);
         if (effect != null) def.setEffect(effect);
 
-        def.setBlockSupplier(com.endlessepoch.core.registry.Blocks.MACHINE_CONTROLLER);
+        def.setBlockSupplier(blockSupplier != null ? blockSupplier : com.endlessepoch.core.registry.Blocks.MACHINE_CONTROLLER);
         def.setPatternSupplier(() -> pattern);
 
         MultiBlockRegistry.registerMod(machineId, pattern);
@@ -112,7 +117,7 @@ public final class FrameMachineLoader {
             MultiBlockRegistry.bindControllerToPattern(ctrlDef.getBlock(), machineId);
 
         String path = itemId != null ? itemId : machineId.getPath();
-        Items.registerMachineItem(path, machineId, en, zh, tier, null);
+        Items.registerMachineItem(path, machineId, en, zh, tier, null, blockSupplier);
 
         MachineRegistry.register(def);
         EECore.LOGGER.info("FrameMachineLoader: registered {} → {}", machineId, path);

@@ -1,5 +1,0 @@
--cp
-build/classes/java/main
--d
-build/classes/java/main
-src/main/java/com/endlessepoch/core/api/multiblock/MultiBlockValidator.java

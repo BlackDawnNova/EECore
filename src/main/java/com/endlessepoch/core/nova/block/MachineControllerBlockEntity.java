@@ -1415,8 +1415,15 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     public Component getDisplayName() { return Component.literal(""); }
 
     @Nullable
+    public final java.util.Map<java.util.UUID, Integer> playerDensities = new java.util.HashMap<>();
+
     @Override
     public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
+        if (this instanceof DispatchCenterBlockEntity dc) {
+            int dens = playerDensities.getOrDefault(player.getUUID(), 3);
+            var menu = new com.endlessepoch.core.menu.DispatchMenu(id, inv, dc, dens);
+            return menu;
+        }
         return new MachineMenu(id, inv, this);
     }
 
@@ -1432,6 +1439,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         if (ownerName != null) tag.putString("ownerName", ownerName);
         if (machineId != null) tag.putString("machineId", machineId.toString());
         if (currentProfileId != null) tag.putString("profile", currentProfileId.toString());
+        var densTag = new net.minecraft.nbt.CompoundTag();
+        playerDensities.forEach((uuid, d) -> densTag.putInt(uuid.toString(), d));
+        tag.put("playerDensities", densTag);
         net.minecraft.nbt.ListTag st = new net.minecraft.nbt.ListTag();
         for (var t : supportedTypes) st.add(net.minecraft.nbt.StringTag.valueOf(t.toString()));
         tag.put("supportedTypes", st);
@@ -1464,6 +1474,10 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             machineId = ResourceLocation.tryParse(tag.getString("machineId"));
         if (tag.contains("profile"))
             currentProfileId = ResourceLocation.tryParse(tag.getString("profile"));
+        playerDensities.clear();
+        var densTag = tag.getCompound("playerDensities");
+        for (var key : densTag.getAllKeys())
+            try { playerDensities.put(java.util.UUID.fromString(key), densTag.getInt(key)); } catch (Exception ignored) {}
         if (tag.contains("supportedTypes")) {
             var list = new java.util.ArrayList<ResourceLocation>();
             for (var t : tag.getList("supportedTypes", net.minecraft.nbt.Tag.TAG_STRING))

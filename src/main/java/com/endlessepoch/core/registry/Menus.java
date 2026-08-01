@@ -2,6 +2,7 @@ package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.menu.BusMenu;
+import com.endlessepoch.core.menu.DispatchMenu;
 import com.endlessepoch.core.menu.HatchMenu;
 import com.endlessepoch.core.menu.MachineMenu;
 import com.endlessepoch.core.menu.creative.CreativeConsumerMenu;
@@ -55,5 +56,10 @@ public class Menus {
     public static final Supplier<MenuType<HatchMenu>> HATCH =
             MENUS.register("hatch",
                     () -> IMenuTypeExtension.create(HatchMenu::new)
+            );
+
+    public static final Supplier<MenuType<DispatchMenu>> DISPATCH =
+            MENUS.register("dispatch",
+                    () -> IMenuTypeExtension.create(DispatchMenu::new)
             );
 }

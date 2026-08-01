@@ -184,7 +184,8 @@ public class Items {
      * Block model: tier casing body + machine overlay / 方块模型=电压外壳+机器面板
      * Item model:   tier casing body + 12x12 front panel / 物品模型=外壳体+面板
      */
-    public static void registerMachineItem(String itemId, ResourceLocation machineId, String nameEn, String nameZh, int tier, String[] supportedTypes) {
+    public static void registerMachineItem(String itemId, ResourceLocation machineId, String nameEn, String nameZh,
+                                            int tier, String[] supportedTypes, java.util.function.Supplier<? extends net.minecraft.world.level.block.Block> blockSupplier) {
         int modelIndex = com.endlessepoch.core.nova.block.MachineControllerBlock.allocateModelIndex(itemId);
         java.util.List<net.minecraft.resources.ResourceLocation> types = java.util.List.of();
         if (supportedTypes != null) {
@@ -193,8 +194,9 @@ public class Items {
                     .toList();
         }
         final var finalTypes = types;
+        final var bs = blockSupplier != null ? blockSupplier : Blocks.MACHINE_CONTROLLER;
         var sup = ITEMS.register(itemId,
-                () -> new MachineControllerItem(Blocks.MACHINE_CONTROLLER.get(),
+                () -> new MachineControllerItem(bs.get(),
                         new Item.Properties().stacksTo(64), machineId, nameEn, nameZh, modelIndex,
                         finalTypes));
         MACHINE_ITEMS.add(() -> sup.get());

@@ -4,6 +4,7 @@ import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.block.OreBlockEntity;
 import com.endlessepoch.core.blockentity.creative.CreativeConsumerBlockEntity;
 import com.endlessepoch.core.blockentity.creative.CreativeGeneratorBlockEntity;
+import com.endlessepoch.core.nova.block.DispatchCenterBlockEntity;
 import com.endlessepoch.core.nova.block.MachineControllerBlockEntity;
 import com.endlessepoch.core.nova.block.ScannerControllerBlockEntity;
 import com.endlessepoch.core.nova.block.part.PartBlockEntity;
@@ -36,6 +37,12 @@ public class BlockEntities {
             BLOCK_ENTITIES.register("scanner_controller",
                     () -> BlockEntityType.Builder.of(ScannerControllerBlockEntity::new,
                             Blocks.SCANNER_CONTROLLER.get()).build(null)
+            );
+
+    public static final Supplier<BlockEntityType<DispatchCenterBlockEntity>> DISPATCH_CONTROLLER =
+            BLOCK_ENTITIES.register("dispatch_controller",
+                    () -> BlockEntityType.Builder.of(DispatchCenterBlockEntity::new,
+                            Blocks.DISPATCH_CONTROLLER.get()).build(null)
             );
 
     public static final Supplier<BlockEntityType<MachineControllerBlockEntity>> MACHINE_CONTROLLER =

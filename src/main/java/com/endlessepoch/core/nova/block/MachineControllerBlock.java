@@ -154,14 +154,19 @@ public class MachineControllerBlock extends Block implements EntityBlock {
                     var def = com.endlessepoch.core.api.multiblock.MachineRegistry.get(mc.getMachineId());
                     String en = def.map(com.endlessepoch.core.api.multiblock.MachineDefinition::getNameEn).orElse("Machine");
                     String zh = def.map(com.endlessepoch.core.api.multiblock.MachineDefinition::getNameZh).orElse("机器");
-                    player.openMenu(mc, buf -> {
-                        buf.writeBlockPos(pos);
-                        buf.writeUtf(en);
-                        buf.writeUtf(zh);
-                        var types = mc.getSupportedTypes();
-                        buf.writeVarInt(types.size());
-                        for (var t : types) buf.writeUtf(t.toString());
-                    });
+                    if (mc instanceof DispatchCenterBlockEntity) {
+                        int dens = mc.playerDensities.getOrDefault(player.getUUID(), 3);
+                        player.openMenu(mc, buf -> { buf.writeBlockPos(pos); buf.writeVarInt(dens); buf.writeUtf(en); buf.writeUtf(zh); });
+                    } else {
+                        player.openMenu(mc, buf -> {
+                            buf.writeBlockPos(pos);
+                            buf.writeUtf(en);
+                            buf.writeUtf(zh);
+                            var types = mc.getSupportedTypes();
+                            buf.writeVarInt(types.size());
+                            for (var t : types) buf.writeUtf(t.toString());
+                        });
+                    }
                 }
             }
             return InteractionResult.sidedSuccess(level.isClientSide());

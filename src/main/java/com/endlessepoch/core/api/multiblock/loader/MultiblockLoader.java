@@ -138,7 +138,7 @@ public final class MultiblockLoader {
             MultiBlockRegistry.bindControllerToPattern(ctrlDef.getBlock(), machineId);
 
         String path = itemId != null ? itemId : machineId.getPath();
-        Items.registerMachineItem(path, machineId, en, zh, tier, supportedTypes);
+        Items.registerMachineItem(path, machineId, en, zh, tier, supportedTypes, null);
 
         MachineRegistry.register(def);
         EECore.LOGGER.info("MultiblockLoader: registered {} → {}", machineId, path);

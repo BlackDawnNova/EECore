@@ -4,6 +4,7 @@ import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.api.multiblock.PartType;
 import com.endlessepoch.core.block.creative.CreativeConsumerBlock;
 import com.endlessepoch.core.block.creative.CreativeGeneratorBlock;
+import com.endlessepoch.core.nova.block.DispatchControllerBlock;
 import com.endlessepoch.core.nova.block.ScannerBoundaryBlock;
 import com.endlessepoch.core.nova.block.MachineControllerBlock;
 import com.endlessepoch.core.nova.block.ScannerControllerBlock;
@@ -66,6 +67,15 @@ public class Blocks {
                     .mapColor(MapColor.COLOR_LIGHT_BLUE)
                     .strength(2.0f)
                     .noOcclusion()
+            )
+    );
+
+    public static final Supplier<Block> DISPATCH_CONTROLLER = BLOCKS.register(
+            "dispatch_controller",
+            () -> new DispatchControllerBlock(BlockBehaviour.Properties.of()
+                    .strength(3.0f, 6.0f)
+                    .requiresCorrectToolForDrops()
+                    .mapColor(MapColor.COLOR_BLACK)
             )
     );
 

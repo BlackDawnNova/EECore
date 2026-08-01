@@ -29,8 +29,11 @@ public final class KerrRenderer {
     private static DynamicTexture sunDynamicTex;
     private static boolean loaded;
 
+    private static final boolean DISABLED = true;
+
     @SubscribeEvent
     public static void onRender(RenderLevelStageEvent e) {
+        if (DISABLED) return;
         if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_WEATHER) return;
         var mc = Minecraft.getInstance(); if (mc.level == null || mc.player == null) return;
         var cam = e.getCamera().getPosition();

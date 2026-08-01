@@ -68,6 +68,7 @@ public final class EECoreMachines {
             .ecs("eecore", "ddzx")
             .name("Dispatch Center", "调度中心")
             .tier(11)
+            .blockSupplier(() -> com.endlessepoch.core.registry.Blocks.DISPATCH_CONTROLLER.get())
             .frame("A", 11, 11, 11)
             .where("A", () -> com.endlessepoch.core.registry.Blocks.DISPATCH_CASING.get())
             .or(() -> com.endlessepoch.core.registry.Blocks.DISPATCH_CASING_II.get())
@@ -252,7 +253,14 @@ public final class EECoreMachines {
             var b = FrameMachineLoader.load(ResourceLocation.fromNamespaceAndPath(ecsNs, ecsPath))
                     .name(nameEn, nameZh).tier(tier).frame(frameCasingTag, innerW, innerH, innerD);
             if (effect != null) b.effect(effect);
+            if (blockSupplier != null) b.blockSupplier(blockSupplier);
             b.register(getOutId());
+        }
+
+        private java.util.function.Supplier<? extends net.minecraft.world.level.block.Block> blockSupplier;
+
+        FrameMachineDef blockSupplier(java.util.function.Supplier<? extends net.minecraft.world.level.block.Block> s) {
+            this.blockSupplier = s; return this;
         }
 
         void applyBindings() {

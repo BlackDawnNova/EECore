@@ -86,3 +86,11 @@ assets/<modid>/textures/block/machines/<machine_id>/
 ## Dependency / 依赖
 
 NeoForge: `21.1.234+`
+
+| 依赖 | 许可 | 说明 |
+|------|------|------|
+| [PinIn](https://github.com/Towdium/PinIn) | MIT | 拼音搜索，已内嵌（jar-in-jar），与 JECh 自动去重不冲突 |
+
+## Credit / 鸣谢
+
+- [PinIn](https://github.com/Towdium/PinIn) (MIT) by Juntong Liu (Towdium) — 中文拼音搜索支持 / Pinyin search support
