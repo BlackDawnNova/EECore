@@ -1,1 +1,1 @@
-{"parent":"eecore:block/ee_base_12","textures":{"particle":"eecore:block/casings/voltage/mv/side","all":"eecore:block/casings/voltage/mv/side","front":"eecore:block/parts/dispatch_casing_ii/overlay_front"}}
+{"parent":"eecore:block/ee_base_12","textures":{"particle":"eecore:block/casings/voltage/mv/side","all":"eecore:block/casings/voltage/mv/side","front":"eecore:block/dispatch/dispatch_casing_ii"}}

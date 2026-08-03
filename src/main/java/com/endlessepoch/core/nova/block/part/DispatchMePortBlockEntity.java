@@ -19,6 +19,7 @@ public class DispatchMePortBlockEntity extends PartBlockEntity implements IInWor
         this.mainNode = GridHelper.createManagedNode(this, (be, node) -> be.setChanged())
                 .setVisualRepresentation(getBlockState().getBlock().asItem())
                 .setInWorldNode(true)
+                .setExposedOnSides(java.util.EnumSet.allOf(Direction.class))
                 .setTagName("me_port");
     }
 

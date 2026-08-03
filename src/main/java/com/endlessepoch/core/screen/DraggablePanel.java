@@ -58,7 +58,7 @@ public class DraggablePanel {
         g.blit(DispatchScreen.SPRITES, sx + 17, sy, 230, 134, 4, 17, 512, 512);
         boolean hov = hit(mx, my, sx + 3, sy + 1, 13, 14);
         int u = pressed ? 198 : (hov ? 185 : 172), yOff = pressed ? 1 : 0;
-        g.blit(DispatchScreen.SPRITES, sx + 3, sy + 3 + yOff, u, 138, 13, 14, 512, 512);
+        g.blit(DispatchScreen.SPRITES, sx + 3, sy + 3, u, 138, 13, 14, 512, 512);
         g.blit(DispatchScreen.SPRITES, sx + 6, sy + 6 + yOff, 172, 154, 7, 7, 512, 512);
         if (hov) {
             java.util.List<Component> tt = new java.util.ArrayList<>();

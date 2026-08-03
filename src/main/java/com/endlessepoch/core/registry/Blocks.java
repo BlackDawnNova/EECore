@@ -176,9 +176,16 @@ public class Blocks {
     /** Called after Items.ITEMS is registered — flush deferred part items. / Items 就绪后批量注册物品。 */
     public static void flushPartItems() {
         for (PartItemDef d : DEFERRED_ITEMS) {
+            // Texture path by convention: block/dispatch/<name> if present, else parts/<name>/overlay_front.
+            // Dispatch blocks keep static face textures under block/dispatch/ — resolved by file check, no name branches.
+            // 贴图路径按约定解析：block/dispatch/<名> 存在则用之，否则 parts/<名>/overlay_front。
+            String dispatchTex = "eecore:block/dispatch/" + d.path;
+            String overlayTex = ResourceGenerator.hasTextureOnDisk(dispatchTex)
+                    ? dispatchTex
+                    : "eecore:block/parts/" + d.path + "/overlay_front";
             PartReg.registerItem(Items.ITEMS, () -> findPartBlock(d.path), Items.PART_ITEMS,
                     "eecore", d.path, d.tier,
-                    "eecore:block/parts/" + d.path + "/overlay_front", d.en, d.zh);
+                    overlayTex, d.en, d.zh);
         }
         DEFERRED_ITEMS.clear();
     }

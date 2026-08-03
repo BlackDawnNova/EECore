@@ -244,9 +244,11 @@ tasks.register('genMachineModels') {
         def resBase = java.nio.file.Path.of(System.getProperty('user.dir'), 'src/main/resources')
 
         // modelIndex = allocation order in EECoreMachines.registerAll()
+        // optional 'model' = custom block model override (generated controller.json forwards to it)
+        // 可选 'model' = 自定义方块模型覆盖（生成的 controller.json 转发到它）
         def machines = [
             [itemId: 'creative_test',   tier: 1,  index: 4],
-            [itemId: 'dispatch_center', tier: 11, index: 5],
+            [itemId: 'dispatch_center', tier: 11, index: 5, model: 'eecore:block/dispatch/dispatch_controller'],
         ]
 
         // Item models — child of ee_machine_item with per-machine textures
@@ -255,6 +257,11 @@ tasks.register('genMachineModels') {
         java.nio.file.Files.createDirectories(itemDir)
         for (def m : machines) {
             def casing = tierNames[m.tier]
+            if (m.model != null) {
+                java.nio.file.Files.writeString(itemDir.resolve("${m.itemId}.json"),
+                        '{"parent":"' + m.model + '"}')
+                continue
+            }
             java.nio.file.Files.writeString(itemDir.resolve("${m.itemId}.json"),
                     '{"parent":"eecore:item/ee_machine_item","textures":{"all":"eecore:block/casings/voltage/' + casing + '/side","front":"eecore:block/machines/' + m.itemId + '/overlay_front"}}')
         }
@@ -265,6 +272,11 @@ tasks.register('genMachineModels') {
 
             def blockDir = resBase.resolve("assets/eecore/models/block/machines/${m.itemId}")
             java.nio.file.Files.createDirectories(blockDir)
+            if (m.model != null) {
+                java.nio.file.Files.writeString(blockDir.resolve('controller.json'),
+                        '{"parent":"' + m.model + '"}')
+                continue
+            }
             def emissiveTex = resBase.resolve("assets/eecore/textures/block/machines/${m.itemId}/overlay_front_e.png")
             def hasEmissive = java.nio.file.Files.exists(emissiveTex)
             if (hasEmissive) {

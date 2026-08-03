@@ -1,0 +1,22 @@
+{
+  "animation": {
+    "frametime": 3,
+    "interpolate": true
+  },
+  "texture": {
+    "emissive": true
+  },
+  "ctm": {
+    "ctm_version": 1,
+    "layer": "BLOOM",
+    "gregtech": true,
+    "extra": {
+      "light": 15
+    }
+  },
+  "fusion": {
+    "type": "base",
+    "emissive": true,
+    "render_type": "cutout"
+  }
+}

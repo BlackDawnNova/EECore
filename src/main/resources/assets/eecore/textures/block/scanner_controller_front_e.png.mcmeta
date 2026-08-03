@@ -1,4 +1,12 @@
 {
-  "animation": { "frametime": 8 },
-  "texture": { "emissive": true }
+  "animation": {
+    "frametime": 4
+  },
+  "texture": {
+    "emissive": true
+  },
+  "fusion": {
+    "type": "base",
+    "emissive": true
+  }
 }

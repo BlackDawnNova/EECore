@@ -1,5 +1,9 @@
 {
   "animation": {
     "frametime": 8
+  },
+  "fusion": {
+    "type": "base",
+    "emissive": true
   }
 }

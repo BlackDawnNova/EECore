@@ -45,15 +45,25 @@ public class ResourceGenerator {
      * → checks "assets/eecore/textures/block/parts/input_bus/overlay_front_e.png"
      */
     static boolean hasEmissiveTexture(String overlayTex) {
-        int colon = overlayTex.indexOf(':');
+        return hasTextureOnDisk(overlayTex + "_e");
+    }
+
+    /**
+     * Check if a texture file exists on disk (classpath or project resources).
+     * Resolves overlay paths by convention — no hardcoded per-block branches.
+     * 检查贴图文件是否存在（classpath 或项目资源）。按约定解析路径，无硬编码分支。
+     * texPath "eecore:block/dispatch/dispatch_casing" → checks "assets/eecore/textures/block/dispatch/dispatch_casing.png"
+     */
+    static boolean hasTextureOnDisk(String texPath) {
+        int colon = texPath.indexOf(':');
         if (colon < 0) return false;
-        String ns = overlayTex.substring(0, colon);
-        String tex = overlayTex.substring(colon + 1);
-        String emissivePath = "assets/" + ns + "/textures/" + tex + "_e.png";
-        if (ResourceGenerator.class.getClassLoader().getResource(emissivePath) != null)
+        String ns = texPath.substring(0, colon);
+        String tex = texPath.substring(colon + 1);
+        String path = "assets/" + ns + "/textures/" + tex + ".png";
+        if (ResourceGenerator.class.getClassLoader().getResource(path) != null)
             return true;
         for (String base : new String[]{"src/main/resources", "build/resources/main"}) {
-            if (java.nio.file.Files.exists(PROJECT_ROOT.resolve(base).resolve(emissivePath)))
+            if (java.nio.file.Files.exists(PROJECT_ROOT.resolve(base).resolve(path)))
                 return true;
         }
         return false;
@@ -157,6 +167,10 @@ public class ResourceGenerator {
     }
 
     static void writeMachineModel(String itemId, int tier) {
+        // Skip if already generated at build time (genMachineModels, e.g. custom model override)
+        // 构建期已生成（含自定义模型覆盖）则跳过，避免运行期覆盖回默认模板
+        if (java.nio.file.Files.exists(PROJECT_ROOT.resolve(
+                "src/main/resources/assets/eecore/models/block/machines/" + itemId + "/controller.json"))) return;
         String casingName = VoltageTier.fromOrdinal(tier).name().toLowerCase();
         String casingTex = "eecore:block/casings/voltage/" + casingName + "/side";
         String overlayFront = "eecore:block/machines/" + itemId + "/overlay_front";

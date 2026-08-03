@@ -1,5 +1,7 @@
 package com.endlessepoch.core.screen;
 
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEFluidKey;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -50,6 +52,7 @@ class MainPanel extends SlotPanel {
             stt.add(Component.translatable("eecore.dispatch.search.hint_fuzzy").withStyle(s -> s.withColor(DispatchScreen.C_TD)));
             g.renderTooltip(font, stt, java.util.Optional.empty(), mx, my);
         }
+        drawTrashCursor(g, mx, my);
     }
 
     private void renderExtendedSidebar(GuiGraphics g, Font font, int sx, int sy, int mx, int my) {
@@ -75,7 +78,7 @@ class MainPanel extends SlotPanel {
         boolean down = h && btnDown();
         int yOff = down ? 1 : 0;
         int btnU = down ? 198 : (h ? 185 : 172);
-        g.blit(DispatchScreen.SPRITES, dbx, dby + yOff, btnU, 138, 13, 14, 512, 512);
+        g.blit(DispatchScreen.SPRITES, dbx, dby, btnU, 138, 13, 14, 512, 512);
         int[] iconIdx = {1, 2, 0};
         g.blit(DispatchScreen.SPRITES, sx + 21, sy + 5 + yOff, DM_ICONS + iconIdx[screen.displayMode] * (IW + 1), DM_V, IW, IH, 512, 512);
         if (h) {
@@ -92,7 +95,7 @@ class MainPanel extends SlotPanel {
         boolean sdown = sh && btnDown();
         int syOff = sdown ? 1 : 0;
         int sbu = sdown ? 198 : (sh ? 185 : 172);
-        g.blit(DispatchScreen.SPRITES, sbx, sby + syOff, sbu, 138, 13, 14, 512, 512);
+        g.blit(DispatchScreen.SPRITES, sbx, sby, sbu, 138, 13, 14, 512, 512);
         int sm = screen.sortMode;
         g.blit(DispatchScreen.SPRITES, sbx + (13 - ST_W[sm]) / 2, sby + 2 + syOff, ST_SRC[sm], ST_V, ST_W[sm], 8, 512, 512);
         if (sh) {
@@ -108,7 +111,7 @@ class MainPanel extends SlotPanel {
         boolean dirDown = dirH && btnDown();
         int dirYOff = dirDown ? 1 : 0;
         int dirU = dirDown ? 198 : (dirH ? 185 : 172);
-        g.blit(DispatchScreen.SPRITES, dirX, dirY + dirYOff, dirU, 138, 13, 14, 512, 512);
+        g.blit(DispatchScreen.SPRITES, dirX, dirY, dirU, 138, 13, 14, 512, 512);
         int ascSrc = screen.sortAsc ? SD_U : SD_U + 8;
         g.blit(DispatchScreen.SPRITES, dirX + 4, dirY + 2 + dirYOff, ascSrc, SD_V, 5, 8, 512, 512);
         if (dirH) {
@@ -125,7 +128,7 @@ class MainPanel extends SlotPanel {
         boolean dnDown = dnH && btnDown();
         int dnYOff = dnDown ? 1 : 0;
         int dnU = dnDown ? 198 : (dnH ? 185 : 172);
-        g.blit(DispatchScreen.SPRITES, dnX, dnY + dnYOff, dnU, 138, 13, 14, 512, 512);
+        g.blit(DispatchScreen.SPRITES, dnX, dnY, dnU, 138, 13, 14, 512, 512);
         int di = densityIdx;
         int dnxOff = (13 - DN_W[di]) / 2 + (di == 1 ? 1 : 0);
         g.blit(DispatchScreen.SPRITES, dnX + dnxOff, dnY + (14 - DN_H[di]) / 2 - 1 + dnYOff, DN_U + DN_SRC[di], DN_V, DN_W[di], DN_H[di], 512, 512);
@@ -142,18 +145,23 @@ class MainPanel extends SlotPanel {
         boolean setDown = setH && btnDown();
         int setYOff = setDown ? 1 : 0;
         int setU = setDown ? 198 : (setH ? 185 : 172);
-        g.blit(DispatchScreen.SPRITES, setX, setY + setYOff, setU, 138, 13, 14, 512, 512);
+        g.blit(DispatchScreen.SPRITES, setX, setY, setU, 138, 13, 14, 512, 512);
         g.blit(DispatchScreen.SPRITES, setX + 3, setY + 2 + setYOff, SD_U + 16, SD_V, 7, 8, 512, 512);
         if (setH) g.renderTooltip(font, Component.translatable("eecore.dispatch.tooltip.settings"), mx, my);
 
         int tbx = sx + 93, tby = sy + 3;
         boolean th = DispatchUtil.hit(mx, my, tbx, tby, 13, 14);
         boolean tdown = th && btnDown();
-        int tyOff = tdown ? 1 : 0;
-        int tbu = tdown ? 198 : (th ? 185 : 172);
-        g.blit(DispatchScreen.SPRITES, tbx, tby + tyOff, tbu, 138, 13, 14, 512, 512);
+        int tyOff = (screen.trashMode || tdown) ? 1 : 0;
+        int tbu = (screen.trashMode || tdown) ? 198 : (th ? 185 : 172);
+        g.blit(DispatchScreen.SPRITES, tbx, tby, tbu, 138, 13, 14, 512, 512);
         g.blit(DispatchScreen.SPRITES, tbx + 3, tby + 2 + tyOff, 198, ST_V, 7, 8, 512, 512);
-        if (th) g.renderTooltip(font, Component.translatable("eecore.dispatch.tooltip.trash"), mx, my);
+        if (th) {
+            var tt = new java.util.ArrayList<net.minecraft.network.chat.Component>();
+            tt.add(net.minecraft.network.chat.Component.translatable("eecore.dispatch.tooltip.trash"));
+            tt.add(net.minecraft.network.chat.Component.translatable("eecore.dispatch.tooltip.trash.desc").withStyle(s -> s.withColor(DispatchScreen.C_TD)));
+            g.renderTooltip(font, tt, java.util.Optional.empty(), mx, my);
+        }
     }
 
     private void renderGrid(GuiGraphics g, Font font, int mx, int my) {
@@ -165,21 +173,31 @@ class MainPanel extends SlotPanel {
                 int idx = screen.scrollOffset * COLS + r * COLS + c;
                 if (idx >= total) break;
                 int sx = x + GX + c * CELL, sy = y + 19 + r * CELL;
-                g.renderItem(filtered.get(idx), sx, sy);
-                DispatchUtil.slotHover(g, screen.mc(), sx, sy, 16, 16, mx, my);
+                DispatchScreen.GridEntry e = filtered.get(idx);
+                if (e.key() instanceof AEItemKey ik) {
+                    g.renderItem(ik.toStack(1), sx, sy);
+                    if (e.count() > 1) DispatchScreen.drawCount(g, font, DispatchScreen.fmt(e.count()), sx, sy);
+                } else if (e.key() instanceof AEFluidKey fk) {
+                    DispatchScreen.drawFluidIcon(g, screen.mc(), fk, sx, sy);
+                    if (e.count() > 0) DispatchScreen.drawCount(g, font, DispatchScreen.fmtFluid(e.count()), sx, sy);
+                }
+                if (screen.trashMode && screen.trashPendingKey != null && e.key().equals(screen.trashPendingKey)) {
+                    DispatchUtil.slotSelect(g, sx, sy, 16, 16);
+                }
+                if (screen.trashMode) DispatchUtil.slotSelectHover(g, sx, sy, 16, 16, mx, my);
+                else DispatchUtil.slotHover(g, screen.mc(), sx, sy, 16, 16, mx, my);
             }
-        if (DispatchUtil.hit(mx, my, x + GX, y + 19, COLS * CELL, gridRows * CELL)) {
-            int c = (int)(mx - x - GX) / CELL, r = (int)(my - y - 19) / CELL;
-            if (c >= 0 && c < COLS && r >= 0 && r < gridRows) {
-                int idx = screen.scrollOffset * COLS + r * COLS + c;
-                if (idx >= 0 && idx < total) g.renderTooltip(font, filtered.get(idx), mx, my);
-            }
-        }
+        GridActions.tooltip(g, font, screen, x + GX, y + 19, COLS, gridRows, CELL, mx, my);
         int maxOff = Math.max(0, (total + COLS - 1) / COLS - gridRows);
         if (maxOff <= 0) return;
         int sbX = x + 169, sbY = y + 18, sbH = gridRows * CELL;
         int hY = sbY + (int) ((long) (sbH - 15) * screen.scrollOffset / maxOff);
         g.blit(DispatchScreen.SPRITES, sbX - 1, hY, 170, 18, 9, 17, 512, 512);
+    }
+
+    void drawTrashCursor(GuiGraphics g, int mx, int my) {
+        if (screen.trashMode)
+            g.blit(DispatchScreen.SPRITES, mx + 4, my + 4, 360, 78, 10, 11, 512, 512);
     }
 
     boolean mouseScrolled(double mx, double my, double sy) {
@@ -207,13 +225,13 @@ class MainPanel extends SlotPanel {
             int dbx = x + 18, dby = sy + 3;
             if (DispatchUtil.hit(mx, my, dbx, dby, 13, 14)) {
                 screen.displayMode = btn == 0 ? (screen.displayMode + 1) % 3 : (screen.displayMode + 2) % 3;
-                screen.onSearch(screen.searchComp.getValue()); return true;
+                screen.onSearch(screen.searchComp.getValue()); screen.sendPref(); return true;
             }
             if (DispatchUtil.hit(mx, my, x + 33, sy + 3, 13, 14)) {
-                screen.sortMode = (screen.sortMode + 1) % 3; screen.onSearch(screen.searchComp.getValue()); return true;
+                screen.sortMode = (screen.sortMode + 1) % 3; screen.onSearch(screen.searchComp.getValue()); screen.sendPref(); return true;
             }
             if (DispatchUtil.hit(mx, my, x + 48, sy + 3, 13, 14)) {
-                screen.sortAsc = !screen.sortAsc; screen.onSearch(screen.searchComp.getValue()); return true;
+                screen.sortAsc = !screen.sortAsc; screen.onSearch(screen.searchComp.getValue()); screen.sendPref(); return true;
             }
             if (DispatchUtil.hit(mx, my, x + 63, sy + 3, 13, 14)) {
                 densityIdx = (densityIdx + 1) % 4; return true;
@@ -222,8 +240,14 @@ class MainPanel extends SlotPanel {
                 return true;
             }
             if (DispatchUtil.hit(mx, my, x + 93, sy + 3, 13, 14)) {
+                screen.trashMode = !screen.trashMode;
+                if (!screen.trashMode) screen.trashPendingKey = null;
                 return true;
             }
+            int gridRows = DN_ROWS[densityIdx];
+            if (DispatchUtil.hit(mx, my, x + GX, y + 19, COLS * CELL, gridRows * CELL)
+                    && GridActions.click(screen, mx, my, x + GX, y + 19, COLS, gridRows, CELL, btn))
+                return true;
         }
         if (!collapsed && search != null) {
             boolean hit = search.isMouseOver(mx, my);

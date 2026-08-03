@@ -1,7 +1,11 @@
 package com.endlessepoch.core.screen;
 
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEFluidKey;
 import com.endlessepoch.core.menu.DispatchMenu;
+import com.endlessepoch.core.network.GridIncrementalUpdatePacket;
 import com.endlessepoch.core.nova.client.PinyinUtil;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -38,6 +42,7 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
     static final int C_T = 0xFF_CCCCCC, C_TD = 0xFF_888888, C_BTN = 0xFF_3A5A8A;
     static final int C_G = 0xFF_55CC55, C_R = 0xFF_CC5555;
     static final int C_HL = 0xFF_FFCC00;
+    static final int C_TL = 0xFF_B0B0B0;
 
     private static final ResourceLocation BG_TEX = ResourceLocation.parse("eecore:textures/gui/dispatch/dispatch_ui.png");
     private static final ResourceLocation PANEL_LEFT = ResourceLocation.parse("eecore:textures/gui/dispatch/panel_left.png");
@@ -46,11 +51,16 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
     static final ResourceLocation SPRITES = ResourceLocation.parse("eecore:textures/gui/dispatch/dispatch_sprites.png");
     static final ResourceLocation INV_BG = ResourceLocation.parse("eecore:textures/gui/dispatch/inv_bg.png");
 
-    private List<ItemStack> items = List.of(); // network items from server, synced on change / ME 网络物品（服务端变化同步）
-    final List<ItemStack> filtered = new ArrayList<>();
+    record GridEntry(appeng.api.stacks.AEKey key, long count) {}
+    private final ClientStorageView gridView = new ClientStorageView();
+    private final List<GridEntry> allEntries = new ArrayList<>();
+    final List<GridEntry> filtered = new ArrayList<>();
+    GridEntry hoveredEntry;
+    boolean trashMode;
+    appeng.api.stacks.AEKey trashPendingKey;
     int scrollOffset, leftPanel;
     int sortMode;
-    boolean sortAsc = true;
+    boolean sortAsc = false;
     int displayMode, encodeMode, machineScroll, storageScroll, procScroll, rightMode;
     int mulPressed = -1, tbPressed = -1, encPressed = -1;
     boolean itemReplace, fluidReplace, splitMerge;
@@ -145,9 +155,9 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
         g.drawString(font, menu.getNameZh(), x + 8, y + 5, 0xFF_404040, false);
         // formed indicator light / 成形指示灯
         boolean formed = menu.isFormed();
-        int lx = x + 8 + font.width(menu.getNameZh()) + 8, ly = y + 7;
-        g.fill(lx, ly, lx + 8, ly + 8, formed ? C_G : C_R);
-        if (DispatchUtil.hit(mx, my, lx, ly, 8, 8))
+        int lx = x + 8 + font.width(menu.getNameZh()) + 8 + 290, ly = y + 3;
+        g.blit(SPRITES, lx, ly, formed ? 207 : 214, 154, 7, 12, 512, 512);
+        if (DispatchUtil.hit(mx, my, lx, ly, 7, 12))
             g.renderTooltip(font, Component.translatable(formed ? "eecore.dispatch.formed" : "eecore.dispatch.unformed"), mx, my);
         toolbar.draw(g, x, y, mx, my);
         toolbar.drawFg(g, x, y, mx, my);
@@ -157,6 +167,37 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
         rightPanelComp.drawTooltips(g, x, y, mx, my);
         rightPanelComp.drawFg(g, x, y, mx, my);
         renderGrid(g, x, y, mx, my);
+        if (trashMode) {
+            g.blit(SPRITES, (int) mx + 4, (int) my + 4, 360, 78, 10, 11, 512, 512);
+            if (trashPendingKey != null) {
+                for (int i = 0; i < filtered.size(); i++) {
+                    GridEntry e = filtered.get(i);
+                    if (e.key().equals(trashPendingKey)) {
+                        int pc = i % COLS, pr2 = i / COLS - scrollOffset;
+                        if (pr2 >= 0 && pr2 < rows) {
+                            int px2 = x + GRID_X + 1 + pc * ROW_H, py2 = y + GRID_Y + pr2 * ROW_H;
+                            DispatchUtil.slotSelect(g, px2, py2, 16, 16);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        if (DispatchUtil.hit(mx, my, x + GRID_X, y + GRID_Y, COLS * ROW_H, rows * ROW_H)) {
+            var cc = menu.getCarried();
+            if (!cc.isEmpty()) {
+                var cc2 = net.neoforged.neoforge.fluids.FluidUtil.getFluidContained(cc);
+                if (cc2.isPresent() && !cc2.get().isEmpty()) {
+                    String fn = cc2.get().getFluid().getFluidType().getDescription().getString();
+                    var tt = new java.util.ArrayList<Component>();
+                    tt.add(Component.literal("左键点击: 存入 ").withStyle(s -> s.withColor(C_TD))
+                            .append(Component.literal(fn + "桶").withStyle(s -> s.withColor(C_TL))));
+                    tt.add(Component.literal("右键点击: 存入 ").withStyle(s -> s.withColor(C_TD))
+                            .append(Component.literal(fn).withStyle(s -> s.withColor(C_TL))));
+                    g.renderTooltip(font, tt, java.util.Optional.empty(), mx, my);
+                }
+            }
+        }
         g.drawString(font, playerInventoryTitle, x + 8, y + invY() + 1, 0xFF_404040, false);
         int iy = invY();
         for (int row = 0; row < 3; row++)
@@ -188,17 +229,65 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
         for (int r = 0; r < rows; r++) for (int c = 0; c < COLS; c++) {
             int idx = scrollOffset * COLS + r * COLS + c; if (idx >= total) break;
             int sx = x + GRID_X + 1 + c * ROW_H, sy = y + GRID_Y + r * ROW_H;
-            ItemStack s = filtered.get(idx); g.renderItem(s, sx, sy);
-            DispatchUtil.slotHover(g, minecraft, sx, sy, 16, 16, mx, my);
-            g.renderItemDecorations(font, s, sx, sy);
+            GridEntry e = filtered.get(idx);
+            if (e.key() instanceof AEItemKey ik) {
+                g.renderItem(ik.toStack(1), sx, sy);
+                if (e.count() > 1) drawCount(g, font, fmt(e.count()), sx, sy);
+            } else if (e.key() instanceof AEFluidKey fk) {
+                drawFluidIcon(g, minecraft, fk, sx, sy);
+                if (e.count() > 0) drawCount(g, font, fmtFluid(e.count()), sx, sy);
+            }
+            if (trashMode) DispatchUtil.slotSelectHover(g, sx, sy, 16, 16, mx, my);
+            else DispatchUtil.slotHover(g, minecraft, sx, sy, 16, 16, mx, my);
         }
         if (DispatchUtil.hit(mx, my, x + GRID_X, y + GRID_Y, COLS * ROW_H, rows * ROW_H)) {
             int c = (mx - x - GRID_X) / ROW_H, r = (my - y - GRID_Y) / ROW_H;
             if (c >= 0 && c < COLS && r >= 0 && r < rows) {
                 int idx = scrollOffset * COLS + r * COLS + c;
-                if (idx >= 0 && idx < total) g.renderTooltip(font, filtered.get(idx), mx, my);
+                if (idx >= 0 && idx < total) hoveredEntry = filtered.get(idx);
             }
         }
+        GridActions.tooltip(g, font, this, x + GRID_X, y + GRID_Y, COLS, rows, ROW_H, mx, my);
+    }
+
+    static void drawFluidIcon(GuiGraphics g, net.minecraft.client.Minecraft mc, AEFluidKey key, int x, int y) {
+        var fs = key.toStack(1);
+        var fluid = fs.getFluid();
+        var tx = net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions.of(fluid).getStillTexture(fs);
+        if (tx == null) { g.fill(x, y, x + 16, y + 16, 0xFF_3355AA); return; }
+        var sp = mc.getTextureAtlas(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS).apply(tx);
+        int tint = net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions.of(fluid).getTintColor();
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor((tint >> 16 & 255) / 255f, (tint >> 8 & 255) / 255f, (tint & 255) / 255f, 1f);
+        g.blit(x, y, 0, 16, 16, sp);
+        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1, 1, 1, 1);
+    }
+
+    /** Compact count: 12K / 345M, right-aligned in the slot corner. / 紧凑数量：12K/345M，槽内右下角右对齐。 */
+    static String fmt(long n) {
+        if (n >= 1_000_000_000L) return (n / 1_000_000_000L) + "B";
+        if (n >= 1_000_000L) return (n / 1_000_000L) + "M";
+        if (n >= 1_000L) return (n / 1_000L) + "K";
+        return String.valueOf(n);
+    }
+
+    /** Fluid count in buckets: plain number ≥1, 0.xB below. / 流体按桶：≥1 纯数字，<1 显示 0.xB。 */
+    static String fmtFluid(long mb) {
+        if (mb < 1000) return String.format("%.1fB", mb / 1000.0);
+        double b = mb / 1000.0;
+        if (b >= 1_000_000) return String.format("%.1fM", b / 1e6);
+        if (b >= 1_000) return String.format("%.1fK", b / 1e3);
+        return b == (long) b ? String.valueOf((long) b) : String.format("%.1f", b);
+    }
+
+    static void drawCount(GuiGraphics g, Font font, String t, int sx, int sy) {
+        float sc = 0.6f;
+        int tw = (int) (font.width(t) * sc), th = (int) (8 * sc);
+        int x = sx + 16 - tw, y = sy + 16 - th;
+        g.pose().pushPose();
+        g.pose().translate(x, y, 200);
+        g.pose().scale(sc, sc, 1);
+        g.drawString(font, t, 0, 0, 0xFFFFFF, true);
+        g.pose().popPose();
     }
 
     @Override public boolean mouseScrolled(double mx, double my, double sx, double sy) {
@@ -218,6 +307,25 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
 
     @Override public boolean mouseClicked(double mx, double my, int btn) {
         int x = leftPos, y = topPos;
+        if (!splitMerge && btn == 0 && hasShiftDown()) {
+            // Shift+click an inventory slot — deposit every matching stack into the network
+            // Shift+点击背包物品——该物品全部存入网络（Shift 状态判定，非双击计时）
+            int iy = invY();
+            int hitSlot = -1;
+            for (int row = 0; row < 3 && hitSlot < 0; row++)
+                for (int col = 0; col < 9; col++)
+                    if (DispatchUtil.hit(mx, my, x + 8 + col * 18, y + iy + 14 + row * 18, 16, 16)) { hitSlot = row * 9 + col; break; }
+            for (int col = 0; col < 9 && hitSlot < 0; col++)
+                if (DispatchUtil.hit(mx, my, x + 8 + col * 18, y + iy + 14 + 58, 16, 16)) { hitSlot = 27 + col; break; }
+            if (hitSlot >= 0) {
+                var st = menu.getSlot(hitSlot).getItem();
+                if (!st.isEmpty()) {
+                    net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                            new com.endlessepoch.core.network.GridClickPacket(appeng.api.stacks.AEItemKey.of(st), 0, 6));
+                    return true;
+                }
+            }
+        }
         if (splitMerge && barA != null) {
             // topmost panel + sidebar only — occluded panels stay dead / 顶层扩展区域(含侧边栏)优先，被盖面板不响应
             DraggablePanel[] all = {barA, barB, barC, barD};
@@ -230,6 +338,9 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
             for (int i = fi - 1; i >= 0; i--) if (folded[i].mouseClicked(mx, my)) return true;
         }
         if (toolbar.mouseClicked(mx, my, x, y, btn)) return true;
+        if (!splitMerge && DispatchUtil.hit(mx, my, x + GRID_X, y + GRID_Y, COLS * ROW_H, rows * ROW_H)
+                && GridActions.click(this, mx, my, x + GRID_X, y + GRID_Y, COLS, rows, ROW_H, btn))
+            return true;
         if (DispatchUtil.hit(mx, my, x + W - 16, y + GRID_Y, 10, rows * ROW_H)) { dragging = true; return true; }
         if (leftPanelComp.mouseClicked(mx, my, x, y, btn)) return true;
         if (rightPanelComp.mouseClicked(mx, my, x, y)) return true;
@@ -258,6 +369,12 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
         return super.charTyped(cp, mod);
     }
     @Override public boolean keyPressed(int key, int scan, int mod) {
+        if (trashMode && key == 256) {
+            // ESC closes trash mode instead of the GUI / ESC 关闭垃圾桶模式而非关闭界面
+            trashMode = false;
+            trashPendingKey = null;
+            return true;
+        }
         if (splitMerge) {
             if (barC != null && barC.keyPressed(key, scan, mod)) return true;
             if (barD != null && barD.keyPressed(key, scan, mod)) return true;
@@ -268,27 +385,88 @@ public class DispatchScreen extends AbstractContainerScreen<DispatchMenu> {
         return super.keyPressed(key, scan, mod);
     }
 
-    /** Server grid storage update / 服务端网格存储更新 */
-    public void onGridUpdate(List<ItemStack> list) {
-        items = list;
+    /** Apply incremental grid update from server / 应用服务端网格增量更新 */
+    public void onGridUpdate(GridIncrementalUpdatePacket pkt) {
+        gridView.apply(pkt);
+        allEntries.clear();
+        for (var e : gridView.snapshot().entrySet()) allEntries.add(new GridEntry(e.getKey(), e.getValue()));
         onSearch(searchComp.getValue());
     }
 
+    /** Restore per-player prefs when the menu opens / 菜单打开时恢复玩家偏好 */
+    public void onPref(com.endlessepoch.core.network.PrefPacket pkt) {
+        sortMode = pkt.sortMode();
+        sortAsc = pkt.sortAsc() != 0;
+        displayMode = pkt.displayMode();
+        onSearch(searchComp.getValue());
+    }
+
+    void sendPref() {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                new com.endlessepoch.core.network.SetPrefPacket(sortMode, sortAsc ? 1 : 0, displayMode));
+    }
+
     void onSearch(String q) {
-        filtered.clear(); String lq = q.trim(); if (lq.isEmpty()) { filtered.addAll(items); scrollOffset = 0; storageScroll = 0; return; }
+        filtered.clear();
+        String lq = q.trim();
         boolean modF = lq.startsWith("@"), tagF = lq.startsWith("#"), tooltipF = lq.startsWith("$"), starF = lq.startsWith("*"), patF = lq.startsWith("!");
         String term = (modF || tagF || tooltipF || starF || patF) ? lq.substring(1).toLowerCase(Locale.ROOT) : lq.toLowerCase(Locale.ROOT);
-        for (ItemStack s : items) {
-            String name = s.getDisplayName().getString().toLowerCase(Locale.ROOT); boolean match;
+        for (GridEntry e : allEntries) {
+            if (!modeOk(e)) continue;
+            if (lq.isEmpty()) { filtered.add(e); continue; }
+            String name = nameOf(e).getString().toLowerCase(Locale.ROOT);
+            boolean match;
             if (patF) match = false;
-            else if (modF) match = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).getNamespace().toLowerCase(Locale.ROOT).contains(term);
-            else if (tagF) match = s.getItem().builtInRegistryHolder().tags().anyMatch(t -> t.location().toString().toLowerCase(Locale.ROOT).contains(term));
-            else if (tooltipF) match = s.getDescriptionId().toLowerCase(Locale.ROOT).contains(term);
-            else match = name.contains(term) || s.getDescriptionId().toLowerCase(Locale.ROOT).contains(term) || PinyinUtil.matches(term, name);
-            if (match) filtered.add(s);
+            else if (modF) match = modOf(e).toLowerCase(Locale.ROOT).contains(term);
+            else if (tagF) match = e.key() instanceof AEItemKey ik && ik.getItem().builtInRegistryHolder().tags()
+                    .anyMatch(t -> t.location().toString().toLowerCase(Locale.ROOT).contains(term));
+            else if (tooltipF) match = descOf(e).toLowerCase(Locale.ROOT).contains(term);
+            else match = name.contains(term) || descOf(e).toLowerCase(Locale.ROOT).contains(term) || PinyinUtil.matches(term, name);
+            if (match) filtered.add(e);
         }
-        filtered.sort(sortMode == 1 ? (a, b) -> Integer.compare(b.getCount(), a.getCount()) : (a, b) -> a.getDisplayName().getString().compareToIgnoreCase(b.getDisplayName().getString()));
+        int dir = sortAsc ? 1 : -1;
+        filtered.sort((a, b) -> {
+            // Fluid counts compare in buckets (1000 mB = 1) — same unit as item stacks
+            // 流体数量按桶比较（1000 mB = 1）——与物品堆叠同单位
+            long ac = a.key() instanceof AEFluidKey ? a.count() / 1000 : a.count();
+            long bc = b.key() instanceof AEFluidKey ? b.count() / 1000 : b.count();
+            int c = sortMode == 1 ? Long.compare(ac, bc)
+                    : sortMode == 2 ? modOf(a).compareToIgnoreCase(modOf(b))
+                    : nameOf(a).getString().compareToIgnoreCase(nameOf(b).getString());
+            if (c == 0) c = nameOf(a).getString().compareToIgnoreCase(nameOf(b).getString());
+            return dir * c;
+        });
         scrollOffset = 0; if (patF) storageScroll = 0;
+    }
+
+    private boolean modeOk(GridEntry e) {
+        if (displayMode == 1) return e.key() instanceof AEItemKey;
+        if (displayMode == 2) return e.key() instanceof AEFluidKey;
+        return true;
+    }
+
+    static net.minecraft.world.item.ItemStack iconOf(GridEntry e) {
+        return e.key() instanceof AEItemKey ik ? ik.toStack(1) : net.minecraft.world.item.ItemStack.EMPTY;
+    }
+
+    static Component nameOf(GridEntry e) {
+        if (e.key() instanceof AEItemKey ik) return ik.toStack(1).getHoverName();
+        if (e.key() instanceof AEFluidKey fk) return fk.toStack(1).getFluid().getFluidType().getDescription();
+        return Component.literal("?");
+    }
+
+    private static String descOf(GridEntry e) {
+        if (e.key() instanceof AEItemKey ik) return ik.toStack(1).getDescriptionId();
+        if (e.key() instanceof AEFluidKey fk) return fk.toStack(1).getFluid().getFluidType().getDescription().getString();
+        return "";
+    }
+
+    private static String modOf(GridEntry e) {
+        if (e.key() instanceof AEItemKey ik)
+            return net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(ik.getItem()).getNamespace();
+        if (e.key() instanceof AEFluidKey fk)
+            return net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fk.getFluid()).getNamespace();
+        return "";
     }
 
     record MachineEntry(String name, int status) {}

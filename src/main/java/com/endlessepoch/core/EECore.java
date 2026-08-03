@@ -223,6 +223,31 @@ public class EECore {
     }
 
     /**
+     * Place as much of the stack as fits into inventory slots (merge + empty slots),
+     * returning the remainder. Manual placement — addItem swallows overflow in NeoForge.
+     * 手动放置物品到背包（合并已有堆+空槽），返回剩余——NeoForge 的 addItem 会吞掉放不下的部分。
+     */
+    private static net.minecraft.world.item.ItemStack placeInInventory(net.minecraft.world.entity.player.Player player,
+                                                                       net.minecraft.world.item.ItemStack stack) {
+        var inv = player.getInventory();
+        for (int i = 0; i < inv.items.size() && !stack.isEmpty(); i++) {
+            var ex = inv.items.get(i);
+            if (!ex.isEmpty() && net.minecraft.world.item.ItemStack.isSameItemSameComponents(stack, ex)) {
+                int space = Math.min(stack.getCount(), ex.getMaxStackSize() - ex.getCount());
+                if (space > 0) { ex.grow(space); stack.shrink(space); }
+            }
+        }
+        for (int i = 0; i < inv.items.size() && !stack.isEmpty(); i++) {
+            if (inv.items.get(i).isEmpty()) {
+                int max = stack.getMaxStackSize();
+                if (stack.getCount() <= max) { inv.items.set(i, stack.copy()); stack.setCount(0); }
+                else { inv.items.set(i, stack.split(max)); }
+            }
+        }
+        return stack;
+    }
+
+    /**
      * Populate the MACHINES_TAB with dynamically registered machine items.
      * <p>
      * 将动态注册的机器物品添加到机器创造标签页。
@@ -335,6 +360,15 @@ public class EECore {
                 EECoreCapabilities.OMEGA_ENERGY,
                 BlockEntities.TEST_TRANSMITTER.get(),
                 (be, side) -> be
+        );
+
+        // AE2 grid node host — cables discover devices via this capability, not instanceof
+        // ME 端口网格节点宿主——AE2 线缆通过此 Capability 发现设备（非 instanceof）
+        event.registerBlockEntity(
+                appeng.api.AECapabilities.IN_WORLD_GRID_NODE_HOST,
+                BlockEntities.PART.get(),
+                (be, side) -> be instanceof com.endlessepoch.core.nova.block.part.DispatchMePortBlockEntity
+                        ? (appeng.api.networking.IInWorldGridNodeHost) be : null
         );
 
         // Item handler for every bus-type part (creative & addon variants included) —
@@ -535,9 +569,169 @@ public class EECore {
                         () -> com.endlessepoch.core.network.SetGridDensityPacket.handle(payload, context))
         );
         registrar.playToClient(
-                com.endlessepoch.core.network.GridStorageUpdatePacket.TYPE,
-                com.endlessepoch.core.network.GridStorageUpdatePacket.STREAM_CODEC,
-                (payload, context) -> com.endlessepoch.core.network.GridStorageUpdatePacket.handle(payload, context)
+                com.endlessepoch.core.network.GridIncrementalUpdatePacket.TYPE,
+                com.endlessepoch.core.network.GridIncrementalUpdatePacket.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    var mc = net.minecraft.client.Minecraft.getInstance();
+                    if (mc.screen instanceof com.endlessepoch.core.screen.DispatchScreen ds)
+                        ds.onGridUpdate(payload);
+                })
+        );
+
+        registrar.playToClient(
+                com.endlessepoch.core.network.PrefPacket.TYPE,
+                com.endlessepoch.core.network.PrefPacket.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    var mc = net.minecraft.client.Minecraft.getInstance();
+                    if (mc.screen instanceof com.endlessepoch.core.screen.DispatchScreen ds)
+                        ds.onPref(payload);
+                })
+        );
+        registrar.playToServer(
+                com.endlessepoch.core.network.SetPrefPacket.TYPE,
+                com.endlessepoch.core.network.SetPrefPacket.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    var player = context.player();
+                    if (player == null || !(player.containerMenu instanceof com.endlessepoch.core.menu.DispatchMenu dm)) return;
+                    var be = dm.getBE();
+                    if (be != null)
+                        be.setPlayerPref(player.getUUID(), new int[]{payload.sortMode(), payload.sortAsc(), payload.displayMode()});
+                })
+        );
+
+        // C2S: grid click — cursor extract (0 stack / 1 one), trash delete (2), all to inventory (3), insert carried (4)
+        // 网格点击：提取到鼠标(0/1)、垃圾桶删除(2)、全部到背包(3)、携带放入网络(4)
+        registrar.playToServer(
+                com.endlessepoch.core.network.GridClickPacket.TYPE,
+                com.endlessepoch.core.network.GridClickPacket.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    var player = context.player();
+                    if (player == null || !(player.containerMenu instanceof com.endlessepoch.core.menu.DispatchMenu dm)) return;
+                    var be = dm.getBE();
+                    if (!(be instanceof com.endlessepoch.core.nova.block.DispatchCenterBlockEntity dc) || !dc.isFormed()) return;
+                    if (player.distanceToSqr(be.getBlockPos().getCenter()) > 64) return;
+                    var grid = dc.getGrid();
+                    if (grid == null) return;
+                    var storage = grid.getStorageService().getInventory();
+                    var src = appeng.api.networking.security.IActionSource.ofPlayer(player);
+                    if (payload.mode() == 6) {
+                        // Shift+double-click on an inventory slot: deposit every matching stack
+                        // 背包 Shift+双击：背包里所有同物品一起存入网络
+                        com.endlessepoch.core.EECore.LOGGER.info("[Dispatch] mode6 deposit: {}", payload.key());
+                        var target = payload.key();
+                        var inv = player.getInventory();
+                        for (int i = 0; i < inv.items.size(); i++) {
+                            var st = inv.items.get(i);
+                            if (st.isEmpty()) continue;
+                            if (appeng.api.stacks.AEItemKey.of(st).equals(target)) {
+                                long inserted = storage.insert(target, st.getCount(),
+                                        appeng.api.config.Actionable.MODULATE, src);
+                                if (inserted > 0) st.shrink((int) inserted);
+                                if (st.isEmpty()) inv.items.set(i, net.minecraft.world.item.ItemStack.EMPTY);
+                            }
+                        }
+                        return;
+                    }
+                    if (payload.mode() == 5) {
+                        // RMB on a fluid bucket: pour fluid into the network, keep the empty bucket
+                        // 右键流体桶：倒入网络，空桶留在手上
+                        var carried = dm.getCarried();
+                        if (carried.isEmpty()) return;
+                        var contained = net.neoforged.neoforge.fluids.FluidUtil.getFluidContained(carried);
+                        if (!contained.isPresent() || contained.get().isEmpty()) return;
+                        var fs = contained.get();
+                        var fk = appeng.api.stacks.AEFluidKey.of(fs);
+                        long inserted = storage.insert(fk, fs.getAmount(),
+                                appeng.api.config.Actionable.MODULATE, src);
+                        if (inserted >= fs.getAmount())
+                            dm.setCarried(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BUCKET));
+                        else if (inserted > 0)
+                            player.displayClientMessage(net.minecraft.network.chat.Component.literal("网络空间不足，只存入了 " + inserted + " mB"), true);
+                        return;
+                    }
+                    if (payload.mode() == 4) {
+                        // Insert carried into the network — amount: all (LMB) or one (RMB)
+                        // 携带物品放入网络——数量：全存（左键）或存一个（右键）
+                        var carried = dm.getCarried();
+                        if (carried.isEmpty()) return;
+                        var key = appeng.api.stacks.AEItemKey.of(carried);
+                        long inserted = storage.insert(key, payload.amount(),
+                                appeng.api.config.Actionable.MODULATE, src);
+                        if (inserted > 0) carried.shrink((int) inserted);
+                        return;
+                    }
+                    if (payload.key() instanceof appeng.api.stacks.AEFluidKey fk) {
+                        // Fluid extraction needs an empty bucket: hand → inventory → network. Silent block.
+                        // 取流体需要空桶：手持 → 背包 → 网络。无桶静默阻止。
+                        var bucketItem = fk.getFluid().getBucket();
+                        if (bucketItem == null || bucketItem == net.minecraft.world.item.Items.AIR) return;
+                        net.minecraft.world.item.ItemStack bucket = null;
+                        var carriedB = dm.getCarried();
+                        if (carriedB.is(net.minecraft.world.item.Items.BUCKET)) bucket = carriedB;
+                        else {
+                            var hand = player.getMainHandItem();
+                            if (hand.is(net.minecraft.world.item.Items.BUCKET)) bucket = hand;
+                            else {
+                                for (var st : player.getInventory().items)
+                                    if (st.is(net.minecraft.world.item.Items.BUCKET)) { bucket = st; break; }
+                            }
+                        }
+                        if (bucket == null) {
+                            var counter = new appeng.api.stacks.KeyCounter();
+                            storage.getAvailableStacks(counter);
+                            for (var e : counter) {
+                                if (e.getKey() instanceof appeng.api.stacks.AEItemKey ik
+                                        && ik.getItem() == net.minecraft.world.item.Items.BUCKET
+                                        && storage.extract(ik, 1, appeng.api.config.Actionable.MODULATE, src) == 1) {
+                                    bucket = ik.toStack(1);
+                                    break;
+                                }
+                            }
+                        }
+                        if (bucket == null) return;
+                        // Take the fluid first. Single bucket → filled bucket to the cursor;
+                        // multiple buckets → filled bucket into the inventory, the stack shrinks in place.
+                        // 先提取流体。单桶 → 流体桶到鼠标；多桶 → 流体桶进背包，原桶堆原地扣 1。
+                        if (storage.extract(fk, 1000, appeng.api.config.Actionable.MODULATE, src) < 1000) return;
+                        var fb = new net.minecraft.world.item.ItemStack(bucketItem);
+                        if (bucket.getCount() <= 1) {
+                            bucket.shrink(1);
+                            dm.setCarried(fb);
+                        } else {
+                            if (!player.addItem(fb)) {
+                                storage.insert(fk, 1000, appeng.api.config.Actionable.MODULATE, src);
+                                return;
+                            }
+                            bucket.shrink(1);
+                        }
+                        return;
+                    }
+                    if (payload.mode() == 2) {
+                        // Trash: extract and void — never into the inventory / 垃圾桶：提取后虚空，绝不进背包
+                        long got = storage.extract(payload.key(), Long.MAX_VALUE,
+                                appeng.api.config.Actionable.MODULATE, src);
+                        com.endlessepoch.core.EECore.LOGGER.info("[Dispatch] trash delete: {} removed={}", payload.key(), got);
+                        return;
+                    }
+                    long amount = payload.amount();
+                    long got = storage.extract(payload.key(), amount,
+                            appeng.api.config.Actionable.MODULATE, src);
+                    if (got <= 0) return;
+                    if (payload.key() instanceof appeng.api.stacks.AEItemKey ik) {
+                        if (payload.mode() == 0 || payload.mode() == 1) {
+                            dm.setCarried(ik.toStack((int) got));
+                        } else {
+                            // Shift+click: extract all — place manually into inventory slots
+                            // (addItem swallows overflow in NeoForge), return the rest to the network.
+                            // Shift 全取：手动放置到背包槽（NeoForge addItem 会吞掉放不下的部分），剩余插回网络。
+                            var stack = ik.toStack((int) Math.min(got, Integer.MAX_VALUE));
+                            var left = placeInInventory(player, stack);
+                            if (!left.isEmpty())
+                                storage.insert(ik, left.getCount(), appeng.api.config.Actionable.MODULATE, src);
+                            com.endlessepoch.core.EECore.LOGGER.info("[Dispatch] shift extract: got={} leftInInv={}", got, got - left.getCount());
+                        }
+                    }
+                })
         );
     }
 }

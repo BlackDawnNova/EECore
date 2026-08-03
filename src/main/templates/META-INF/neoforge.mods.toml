@@ -72,6 +72,15 @@ versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "BOTH"
 
+# Fusion — optional client-side rendering (texture emissive / connecting textures).
+# Fusion 可选客户端渲染（纹理满亮 / 连接纹理）——声明后 Fusion 处理本 mod 的 mcmeta。
+[[dependencies."${mod_id}"]]
+modId = "fusion"
+type = "optional"
+versionRange = "[1.0.0,)"
+ordering = "NONE"
+side = "CLIENT"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.

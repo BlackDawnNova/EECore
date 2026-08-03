@@ -340,6 +340,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         formed = true; wasEverFormed = true; partsScanned = false;
         setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        syncFormedState(true);
         // Event-driven kick-off / 事件驱动启动：对时 + 扫描部件 + 检测物品
         if (level != null && !level.isClientSide()) {
             scanParts();
@@ -351,6 +352,7 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
     @Override
     public void onMultiblockBroken() {
         formed = false;
+        syncFormedState(false);
         autoFormCheckTick = 0;
         state = State.IDLE; processingInput = net.minecraft.world.item.ItemStack.EMPTY; progress = 0; maxProgress = 0;
         cachedResults = java.util.List.of();
@@ -367,6 +369,19 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         heatComponent.reset();
         setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+    }
+
+    /**
+     * Sync FORMED blockstate for dispatch controller (screen model variant).
+     * Only blocks with the property are touched — other machines unaffected.
+     * 调度中心同步 FORMED 方块状态（屏幕模型变体），仅含该属性的方块生效。
+     */
+    private void syncFormedState(boolean formedFlag) {
+        if (level == null || level.isClientSide()) return;
+        BlockState st = getBlockState();
+        if (!st.hasProperty(DispatchControllerBlock.FORMED)) return;
+        if (st.getValue(DispatchControllerBlock.FORMED) == formedFlag) return;
+        level.setBlock(worldPosition, st.setValue(DispatchControllerBlock.FORMED, formedFlag), 3);
     }
 
     @Override
@@ -527,6 +542,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     public void serverTick() {
         if (level == null || level.isClientSide()) return;
+        // Sync FORMED blockstate from be.isFormed() — same authoritative source as the UI formed light.
+        // 以 be.isFormed() 为准每 tick 同步 FORMED 方块状态（与 UI 呼吸灯同源，判等无开销）。
+        syncFormedState(formed);
         tryFormIfScheduled();
         if (!formed || machineId == null) { tryAutoForm(); return; }
 
@@ -1389,6 +1407,11 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
 
     @Nullable
     public final java.util.Map<java.util.UUID, Integer> playerDensities = new java.util.HashMap<>();
+    private final java.util.Map<java.util.UUID, int[]> playerPrefs = new java.util.HashMap<>();
+
+    /** Per-player UI prefs [sortMode, sortAsc, displayMode] / 玩家 UI 偏好 [排序模式, 升降序, 显示类型] */
+    public int[] getPlayerPref(java.util.UUID id) { return playerPrefs.get(id); }
+    public void setPlayerPref(java.util.UUID id, int[] v) { playerPrefs.put(id, v); setChanged(); }
 
     @Override
     public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
@@ -1415,6 +1438,9 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
         var densTag = new net.minecraft.nbt.CompoundTag();
         playerDensities.forEach((uuid, d) -> densTag.putInt(uuid.toString(), d));
         tag.put("playerDensities", densTag);
+        var prefsTag = new net.minecraft.nbt.CompoundTag();
+        playerPrefs.forEach((uuid, v) -> prefsTag.putIntArray(uuid.toString(), v));
+        tag.put("playerPrefs", prefsTag);
         net.minecraft.nbt.ListTag st = new net.minecraft.nbt.ListTag();
         for (var t : supportedTypes) st.add(net.minecraft.nbt.StringTag.valueOf(t.toString()));
         tag.put("supportedTypes", st);
@@ -1486,6 +1512,14 @@ public class MachineControllerBlockEntity extends BlockEntity implements IMultiB
             completionTick = tag.getLong("completionTick");
             recipeStartedTick = tag.getLong("recipeStartedTick");
             pendingMaxHeat = tag.getDouble("pendingMaxHeat");
+        }
+        playerPrefs.clear();
+        var prefsTag = tag.getCompound("playerPrefs");
+        for (var key : prefsTag.getAllKeys()) {
+            try {
+                var arr = prefsTag.getIntArray(key);
+                if (arr.length == 3) playerPrefs.put(java.util.UUID.fromString(key), arr);
+            } catch (Exception ignored) {}
         }
     }
 

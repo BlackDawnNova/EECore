@@ -28,11 +28,14 @@ public class DispatchToolbar {
             boolean h = DispatchUtil.hit(mx, my, bx, by, TB_W0, TB_H);
             boolean down = h && leftDown;
             int s = down ? 353 : (h ? 335 : 317), pr = down ? 1 : 0;
-            g.blit(DispatchScreen.SPRITES, bx, by + pr, s, 55, TB_W0, TB_H, 512, 512);
+            g.blit(DispatchScreen.SPRITES, bx, by, s, 55, TB_W0, TB_H, 512, 512);
             if (i == 0) g.blit(DispatchScreen.SPRITES, bx + 4, by + 5 + pr, 145, 56, 10, 10, 512, 512);
             if (i == 1) g.blit(DispatchScreen.SPRITES, bx + 4, by + 3 + pr, dmIcons[screen.displayMode], 71, 10, 12, 512, 512);
             if (i == 4) g.blit(DispatchScreen.SPRITES, bx + 5, by + 3 + pr, 294 + screen.densityIdx * 9, 77, 9, 13, 512, 512);
-            if (i == TB_CNT - 1) g.blit(DispatchScreen.SPRITES, bx + 4, by + 4 + pr, 360, 78, 10, 11, 512, 512);
+            if (i == TB_CNT - 1) {
+                if (screen.trashMode) g.blit(DispatchScreen.SPRITES, bx, by, 353, 55, TB_W0, TB_H, 512, 512);
+                g.blit(DispatchScreen.SPRITES, bx + 4, by + 4 + (screen.trashMode ? 1 : pr), 360, 78, 10, 11, 512, 512);
+            }
         }
     }
 
@@ -82,6 +85,11 @@ public class DispatchToolbar {
                 int di = screen.densityIdx;
                 for (int j = 0; j < 4; j++) { boolean sel = j == di; dn.add(Component.translatable(denSub[j]).withStyle(s -> s.withColor(sel ? DispatchScreen.C_HL : DispatchScreen.C_TD))); }
                 g.renderTooltip(screen.font(), dn, java.util.Optional.empty(), mx, my);
+            } else if (i == 6) {
+                List<Component> tt = new ArrayList<>();
+                tt.add(Component.translatable("eecore.dispatch.tooltip.trash"));
+                tt.add(Component.translatable("eecore.dispatch.tooltip.trash.desc").withStyle(s -> s.withColor(DispatchScreen.C_TD)));
+                g.renderTooltip(screen.font(), tt, java.util.Optional.empty(), mx, my);
             } else {
                 g.renderTooltip(screen.font(), Component.translatable(tips[i]), mx, my);
             }
@@ -97,15 +105,19 @@ public class DispatchToolbar {
                 screen.tbPressed = i;
                 switch (i) {
                     case 0: screen.splitMerge = true; break;
-                    case 1: screen.displayMode = btn == 0 ? (screen.displayMode + 1) % 3 : (screen.displayMode + 2) % 3; screen.onSearch(screen.searchComp.getValue()); break;
-                    case 2: screen.sortMode = (screen.sortMode + 1) % 3; screen.onSearch(screen.searchComp.getValue()); break;
-                    case 3: screen.sortAsc = !screen.sortAsc; screen.onSearch(screen.searchComp.getValue()); break;
+                    case 1: screen.displayMode = btn == 0 ? (screen.displayMode + 1) % 3 : (screen.displayMode + 2) % 3; screen.onSearch(screen.searchComp.getValue()); screen.sendPref(); break;
+                    case 2: screen.sortMode = (screen.sortMode + 1) % 3; screen.onSearch(screen.searchComp.getValue()); screen.sendPref(); break;
+                    case 3: screen.sortAsc = !screen.sortAsc; screen.onSearch(screen.searchComp.getValue()); screen.sendPref(); break;
                     case 4: screen.densityIdx = (screen.densityIdx + 1) % 4; screen.rows = DispatchScreen.DENSITIES[screen.densityIdx];
                         double[] cx = new double[1], cy = new double[1];
                         org.lwjgl.glfw.GLFW.glfwGetCursorPos(screen.mc().getWindow().getWindow(), cx, cy);
                         DispatchScreen.savedMouseX = cx[0]; DispatchScreen.savedMouseY = cy[0];
                         net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.endlessepoch.core.network.SetGridDensityPacket(screen.menu().getPos(), screen.rows));
                         return true;
+                    case 6:
+                        screen.trashMode = !screen.trashMode;
+                        if (!screen.trashMode) screen.trashPendingKey = null;
+                        break;
                 }
                 return true;
             }

@@ -34,12 +34,19 @@ class InventoryPanel extends SlotPanel {
         if (!collapsed) {
             int bgX = x + 4, bgY = y - 10 + 14, sx = bgX + 1, sy = bgY + 1;
             boolean shift = net.minecraft.client.gui.screens.Screen.hasShiftDown();
-            var ct = shift ? net.minecraft.world.inventory.ClickType.QUICK_MOVE : net.minecraft.world.inventory.ClickType.PICKUP;
+            var ct = net.minecraft.world.inventory.ClickType.PICKUP;
             for (int row = 0; row < 3; row++)
                 for (int col = 0; col < 9; col++)
                     if (DispatchUtil.hit(mx, my, sx + col * 18, sy + row * 18, 16, 16)) {
                         int si = row * 9 + col;
-                        if (btn == 0 && !shift && si == lastClickSlot && isDoubleClick() && !screen.mc().player.containerMenu.getCarried().isEmpty()) {
+                        if (btn == 0 && shift) {
+                            var st = screen.mc().player.getInventory().getItem(9 + si);
+                            if (!st.isEmpty())
+                                net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                                        new com.endlessepoch.core.network.GridClickPacket(appeng.api.stacks.AEItemKey.of(st), 0, 6));
+                            return true;
+                        }
+                        if (btn == 0 && si == lastClickSlot && isDoubleClick() && !screen.mc().player.containerMenu.getCarried().isEmpty()) {
                             clickSlot(screen.mc().player, si, 0, net.minecraft.world.inventory.ClickType.PICKUP_ALL);
                             lastClickSlot = -1;
                         } else { clickSlot(screen.mc().player, si, btn, ct); lastClickSlot = si; }
@@ -48,7 +55,14 @@ class InventoryPanel extends SlotPanel {
             for (int col = 0; col < 9; col++)
                 if (DispatchUtil.hit(mx, my, sx + col * 18, sy + 58, 16, 16)) {
                     int si = 27 + col;
-                    if (btn == 0 && !shift && si == lastClickSlot && isDoubleClick() && !screen.mc().player.containerMenu.getCarried().isEmpty()) {
+                    if (btn == 0 && shift) {
+                        var st = screen.mc().player.getInventory().getItem(si - 27);
+                        if (!st.isEmpty())
+                            net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                                    new com.endlessepoch.core.network.GridClickPacket(appeng.api.stacks.AEItemKey.of(st), 0, 6));
+                        return true;
+                    }
+                    if (btn == 0 && si == lastClickSlot && isDoubleClick() && !screen.mc().player.containerMenu.getCarried().isEmpty()) {
                         clickSlot(screen.mc().player, si, 0, net.minecraft.world.inventory.ClickType.PICKUP_ALL);
                         lastClickSlot = -1;
                     } else { clickSlot(screen.mc().player, si, btn, ct); lastClickSlot = si; }

@@ -134,7 +134,7 @@ class WarehousePanel extends SlotPanel {
         boolean mh = hit(mx, my, mbx, mby, 13, 14);
         boolean mdown = mh && btnDown();
         int mu = mdown ? 198 : (mh ? 185 : 172);
-        g.blit(DispatchScreen.SPRITES, mbx, mby + (mdown ? 1 : 0), mu, 138, 13, 14, 512, 512);
+        g.blit(DispatchScreen.SPRITES, mbx, mby, mu, 138, 13, 14, 512, 512);
         g.blit(DispatchScreen.SPRITES, mbx + 3, mby + 2 + (mdown ? 1 : 0), 198, 175, 7, 8, 512, 512);
         if (mh) g.renderTooltip(font, Component.translatable("eecore.dispatch.panel.machines"), mx, my);
     }

@@ -75,9 +75,12 @@ public class DispatchMenu extends AbstractContainerMenu {
         addPlayerSlots(inv, h);
     }
 
-    private long lastGridHash = -1;
+    private final java.util.Map<appeng.api.stacks.AEKey, Long> clientView = new java.util.LinkedHashMap<>();
+    private final java.util.Set<appeng.api.stacks.AEKey> dirty = new java.util.LinkedHashSet<>();
+    private boolean firstSync = true;
+    private boolean prefSent;
 
-    /** Detect grid storage change via hash — snapshot sent only on change / 网格存储变化检测：对比缓存 hash，变化才发快照 */
+    /** Event-driven delta sync: full snapshot once, then only changed keys. / 事件驱动增量同步：首包全量，之后只发变化。 */
     @Override public void broadcastChanges() {
         super.broadcastChanges();
         if (be != null) {
@@ -87,28 +90,64 @@ public class DispatchMenu extends AbstractContainerMenu {
         }
         if (!(be instanceof com.endlessepoch.core.nova.block.DispatchCenterBlockEntity dc)) return;
         if (!(inv.player instanceof net.minecraft.server.level.ServerPlayer sp)) return;
-        var node = dc.getActionableNode();
-        if (node == null || !node.isActive() || node.getGrid() == null) return;
-        var counter = node.getGrid().getStorageService().getCachedInventory();
-        long h = 0;
-        for (var e : counter) h = h * 31 + (e.getKey().hashCode() ^ Long.hashCode(e.getLongValue()));
-        if (h == lastGridHash) return;
-        lastGridHash = h;
-        var items = new java.util.ArrayList<net.minecraft.world.item.ItemStack>();
-        for (var e : counter) {
-            if (e.getKey() instanceof appeng.api.stacks.AEItemKey itemKey) {
-                var stack = itemKey.wrapForDisplayOrFilter();
-                stack.setCount((int) Math.min(e.getLongValue(), 64));
-                items.add(stack);
+        if (!prefSent) {
+            prefSent = true;
+            var p = be.getPlayerPref(inv.player.getUUID());
+            if (p != null)
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp,
+                        new com.endlessepoch.core.network.PrefPacket(p[0], p[1], p[2]));
+        }
+        var grid = dc.getGrid();
+        // getAvailableStacks is a free read — no channels/energy required, so only
+        // the grid link matters; inactive (unpowered) networks still display fine.
+        // getAvailableStacks 是免费读取，不依赖通道/能量——只要求网格连通即可，
+        // 无电（未激活）网络同样可以显示列表，交互扣能留到 Stage 2.5。
+        if (grid == null) return;
+        var storage = grid.getStorageService().getInventory();
+        var cur = new appeng.api.stacks.KeyCounter();
+        storage.getAvailableStacks(cur);
+        if (firstSync) {
+            var all = new java.util.ArrayList<com.endlessepoch.core.network.GridIncrementalUpdatePacket.Entry>();
+            for (var e : cur) all.add(new com.endlessepoch.core.network.GridIncrementalUpdatePacket.Entry(e.getKey(), e.getLongValue()));
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp,
+                    new com.endlessepoch.core.network.GridIncrementalUpdatePacket(all, true));
+            firstSync = false;
+        } else {
+            dirty.clear();
+            for (var e : cur)
+                if (e.getLongValue() != clientView.getOrDefault(e.getKey(), -1L)) dirty.add(e.getKey());
+            for (var k : clientView.keySet())
+                if (cur.get(k) == 0) dirty.add(k);
+            if (!dirty.isEmpty()) {
+                var delta = new java.util.ArrayList<com.endlessepoch.core.network.GridIncrementalUpdatePacket.Entry>();
+                for (var k : dirty) delta.add(new com.endlessepoch.core.network.GridIncrementalUpdatePacket.Entry(k, cur.get(k)));
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp,
+                        new com.endlessepoch.core.network.GridIncrementalUpdatePacket(delta, false));
             }
         }
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp,
-                new com.endlessepoch.core.network.GridStorageUpdatePacket(items));
+        clientView.clear();
+        for (var e : cur) clientView.put(e.getKey(), e.getLongValue());
     }
 
     @Override public ItemStack quickMoveStack(Player p, int idx) {
         Slot slot = slots.get(idx);
         if (!slot.hasItem()) return ItemStack.EMPTY;
+        // Shift+click inventory slot → deposit into the ME network / Shift+点击背包物品 → 存入 ME 网络
+        if (be instanceof com.endlessepoch.core.nova.block.DispatchCenterBlockEntity dc && dc.isFormed()) {
+            var grid = dc.getGrid();
+            if (grid != null) {
+                var storage = grid.getStorageService().getInventory();
+                var stack = slot.getItem();
+                long inserted = storage.insert(appeng.api.stacks.AEItemKey.of(stack), stack.getCount(),
+                        appeng.api.config.Actionable.MODULATE, appeng.api.networking.security.IActionSource.ofPlayer(p));
+                if (inserted > 0) {
+                    stack.shrink((int) inserted);
+                    if (stack.isEmpty()) slot.set(ItemStack.EMPTY);
+                    slot.setChanged();
+                    return ItemStack.EMPTY;
+                }
+            }
+        }
         ItemStack src = slot.getItem(), s = src.copy();
         if (idx < 27) {
             if (!moveItemStackTo(src, 27, 36, false)) return ItemStack.EMPTY;

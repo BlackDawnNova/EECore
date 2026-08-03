@@ -21,6 +21,7 @@ import appeng.menu.MenuOpener;
 import appeng.menu.locator.MenuLocators;
 import com.endlessepoch.core.registry.BlockEntities;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -52,12 +53,67 @@ public class DispatchCenterBlockEntity extends MachineControllerBlockEntity
 
     @Override public BlockEntityType<?> getType() { return BlockEntities.DISPATCH_CONTROLLER.get(); }
 
+    /**
+     * Grid via the ME port inside the structure — the port is the cable access
+     * point; the controller's own node may sit on an isolated grid. No isActive
+     * gate: storage viewing needs no channels, only a grid link.
+     * 优先取结构内 ME 端口的网格——端口才是线缆接入点，控制器自身节点可能挂在孤岛网格。
+     * 不做 isActive 拦截：查看存储不需要通道，只要求网格连通。
+     */
+    public appeng.api.networking.IGrid getGrid() {
+        var p = findPort();
+        if (p != null && level.getBlockEntity(p) instanceof com.endlessepoch.core.nova.block.part.DispatchMePortBlockEntity port) {
+            var pn = port.getMainNode().getNode();
+            if (pn != null && pn.getGrid() != null) return pn.getGrid();
+        }
+        var own = getActionableNode();
+        return own != null ? own.getGrid() : null;
+    }
+
+    private net.minecraft.core.BlockPos portPos;
+
+    /** Cached ME port position — full scan only when invalidated. / 缓存端口位置——失效时才全扫。 */
+    private net.minecraft.core.BlockPos findPort() {
+        if (portPos != null) {
+            if (level.getBlockEntity(portPos) instanceof com.endlessepoch.core.nova.block.part.DispatchMePortBlockEntity) return portPos;
+            portPos = null;
+        }
+        if (level == null || getMachineId() == null) return null;
+        var pattern = com.endlessepoch.core.api.multiblock.MultiBlockRegistry.get(getMachineId());
+        if (pattern.isEmpty()) return null;
+        var pat = pattern.get();
+        // Frame-based patterns have no voxel grid — scan the shell bounding box.
+        // 框架式无体素栅格——扫外壳包围盒找端口。
+        if (pat.isFrameBased()) {
+            int r = Math.max(pat.getInnerW(), Math.max(pat.getInnerH(), pat.getInnerD())) / 2 + 2;
+            for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++) {
+                BlockPos wp = worldPosition.offset(dx, dy, dz);
+                if (level.getBlockEntity(wp) instanceof com.endlessepoch.core.nova.block.part.DispatchMePortBlockEntity) {
+                    portPos = wp;
+                    return wp;
+                }
+            }
+            return null;
+        }
+        Direction facing = getFacing();
+        for (BlockPos localPos : pat.getNonAirPositions()) {
+            BlockPos wp = com.endlessepoch.core.api.multiblock.MultiBlockValidator.fromLocal(
+                    worldPosition, localPos.getX(), localPos.getY(), localPos.getZ(), facing,
+                    pat.controllerX, pat.controllerY, pat.controllerZ);
+            if (level.getBlockEntity(wp) instanceof com.endlessepoch.core.nova.block.part.DispatchMePortBlockEntity) {
+                portPos = wp;
+                return wp;
+            }
+        }
+        return null;
+    }
+
     // ITerminalHost / 终端宿主接口
     @Override public MEStorage getInventory() {
         return new SupplierStorage(() -> {
-            IGridNode node = getActionableNode();
-            return node != null && node.getGrid() != null
-                    ? node.getGrid().getStorageService().getInventory()
+            var grid = getGrid();
+            return grid != null
+                    ? grid.getStorageService().getInventory()
                     : new MEStorage() {
                           @Override public net.minecraft.network.chat.Component getDescription() {
                               return net.minecraft.network.chat.Component.empty();

@@ -1,5 +1,4 @@
 {
-   "animation":{
-      "frametime":8
-   }
+  "animation": { "frametime": 8 },
+  "texture": { "emissive": true }
 }
