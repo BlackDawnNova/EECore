@@ -8,7 +8,8 @@
 	],
 	"textures": {
 		"0": "eecore:block/dispatch/back",
-		"1": "eecore:block/dispatch/screen_on",
+		"dim": "eecore:block/dispatch/screen_dim",
+		"sym": "eecore:block/dispatch/screen_sym",
 		"particle": "eecore:block/dispatch/back"
 	},
 	"elements": [
@@ -697,7 +698,7 @@
 			}
 		},
 		{
-			"name": "\u4e3b\u5c4f\u5e5512*12",
+			"name": "主屏幕12*12",
 			"from": [
 				2,
 				2,
@@ -725,7 +726,7 @@
 						6,
 						6
 					],
-					"texture": "#1"
+					"texture": "#dim"
 				},
 				"east": {
 					"uv": [
@@ -734,7 +735,7 @@
 						6.5,
 						6
 					],
-					"texture": "#1"
+					"texture": "#dim"
 				},
 				"south": {
 					"uv": [
@@ -743,7 +744,7 @@
 						6,
 						12
 					],
-					"texture": "#1"
+					"texture": "#dim"
 				},
 				"west": {
 					"uv": [
@@ -752,7 +753,7 @@
 						6.5,
 						12
 					],
-					"texture": "#1"
+					"texture": "#dim"
 				},
 				"up": {
 					"uv": [
@@ -761,7 +762,7 @@
 						6.5,
 						0
 					],
-					"texture": "#1"
+					"texture": "#dim"
 				},
 				"down": {
 					"uv": [
@@ -770,12 +771,40 @@
 						6.5,
 						1
 					],
-					"texture": "#1"
+					"texture": "#dim"
 				}
 			},
 			"neoforge_data": {
+				"block_light": 13,
+				"sky_light": 13
+			}
+		},
+		{
+			"from": [
+				2,
+				2,
+				-0.06
+			],
+			"to": [
+				14,
+				14,
+				-0.05
+			],
+			"shade": false,
+			"neoforge_data": {
 				"block_light": 15,
 				"sky_light": 15
+			},
+			"faces": {
+				"north": {
+					"uv": [
+						0,
+						0,
+						6,
+						6
+					],
+					"texture": "#sym"
+				}
 			}
 		}
 	],
@@ -814,5 +843,6 @@
 				9
 			]
 		}
-	]
+	],
+	"render_type": "cutout"
 }

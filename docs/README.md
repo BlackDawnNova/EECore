@@ -90,6 +90,7 @@ NeoForge: `21.1.234+`
 | 依赖 | 许可 | 说明 |
 |------|------|------|
 | [PinIn](https://github.com/Towdium/PinIn) | MIT | 拼音搜索，已内嵌（jar-in-jar），与 JECh 自动去重不冲突 |
+| [Fusion](https://modrinth.com/mod/fusion-connected-textures) *(optional / 可选)* | All rights reserved | 纹理级发光增强（_e 贴图满亮）。不能内嵌，玩家自装；没装则回退内置 GlowBakedModel 发光 / Texture-level emissive enhancement. Not bundleable — install separately; falls back to built-in glow without it |
 
 ## Credit / 鸣谢
 

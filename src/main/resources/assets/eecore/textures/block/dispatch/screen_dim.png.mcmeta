@@ -1,0 +1,10 @@
+{
+  "animation": {
+    "frametime": 3,
+    "interpolate": true
+  },
+  "fusion": {
+    "type": "base",
+    "emissive": true
+  }
+}

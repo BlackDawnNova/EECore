@@ -73,3 +73,40 @@ assets/<modid>/textures/block/machines/<machine_id>/
   overlay_front.png       ← front panel design / 面板图案
   overlay_front_e.png     ← emissive version (optional) / 发光版（可选）
 ```
+
+## Optional Fusion Enhancement / 可选 Fusion 增强
+
+[Fusion](https://modrinth.com/mod/fusion-connected-textures) (optional mod) provides **texture-level emissive** — the texture itself renders at full brightness, independent of the model format. When Fusion is loaded, EECore automatically skips its `GlowBakedModel` wrapper (they conflict) and relies on Fusion's fullbright instead; without Fusion the classic `EmissiveHelper` mechanism above is the fallback.
+[Fusion](https://modrinth.com/mod/fusion-connected-textures)（可选 mod）提供**纹理级发光**——贴图本身按满亮度渲染，与模型格式无关。装了 Fusion 时 EECore 自动跳过 `GlowBakedModel` 包裹（两者冲突）改用 Fusion 满亮；没装则回退上面的 `EmissiveHelper` 经典机制。
+
+### Setup / 配置
+
+1. Add `.mcmeta` next to the `_e` texture (or any texture you want fullbright) / 在要发光的贴图旁加 `.mcmeta`:
+```json
+{
+  "fusion": { "type": "base", "emissive": true }
+}
+```
+2. Declare `fusion` in your mod's `pack.mcmeta` (required for mod resources — without it Fusion ignores your mcmeta) / 在 mod 的 `pack.mcmeta` 声明 fusion（mod 资源必需，否则 Fusion 忽略你的 mcmeta）:
+```json
+{
+  "pack": { "pack_format": 34, "supported_formats": [0, 1000] },
+  "fusion": { "min_version": "1.3.0" }
+}
+```
+3. Declare the optional dependency in `neoforge.mods.toml` / 在 `neoforge.mods.toml` 声明可选依赖:
+```toml
+[[dependencies.your_mod_id]]
+modId = "fusion"
+type = "optional"
+versionRange = "[1.0.0,)"
+ordering = "NONE"
+side = "CLIENT"
+```
+4. Add `"render_type": "cutout"` to your block model JSON — transparent overlays render correctly when the `GlowBakedModel` wrapper is absent / 方块模型 JSON 加 `"render_type": "cutout"`——无包裹时透明覆面正确渲染（参考 `ee_base_12_front_emissive`）。
+
+### Notes / 注意
+
+- Fusion is **All rights reserved** — it cannot be bundled (jarJar); players/launchers install it themselves. EECore declares it optional only / Fusion 是 All rights reserved——不能内嵌打包，玩家/整合包自装，EECore 只声明可选。
+- Runtime check single point: `FusionSupport.active()` / 运行期判断单点：`FusionSupport.active()`。
+- The `ctm` mcmeta block (`"layer": "BLOOM"`, used by CTM/GTCEu ecosystems) is inert without the CTM mod — Fusion does not provide bloom / `ctm` mcmeta 块（BLOOM 层，CTM/GTCEu 生态用）在无 CTM mod 时无效——Fusion 不提供泛光。
