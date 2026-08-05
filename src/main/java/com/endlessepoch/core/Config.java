@@ -57,6 +57,7 @@ public class Config {
     public static volatile int p4FlowWindow = 5;
     public static volatile boolean p4SpeculationEnabled = true;
     public static volatile boolean p4DisableEffects;
+    public static volatile String collapseVoidMode = "ORIGIN";
 
     // General / 通用 
     public static final ModConfigSpec.DoubleValue STEP_LOSS_FACTOR;
@@ -103,6 +104,7 @@ public class Config {
     public static final ModConfigSpec.IntValue P4_FLOW_WINDOW;
     public static final ModConfigSpec.BooleanValue P4_SPECULATION_ENABLED;
     public static final ModConfigSpec.BooleanValue P4_DISABLE_EFFECTS;
+    public static final ModConfigSpec.ConfigValue<String> COLLAPSE_VOID_MODE;
 
     // Debug / 调试 
     public static final ModConfigSpec.BooleanValue EB_DEBUG_LOG;
@@ -279,7 +281,16 @@ public class Config {
                 .define("p4DisableEffects", false);
         b.pop();
 
-        // Debug / 调试 
+        // Collapse core void protection / 坍缩核虚空防护
+        b.comment("Collapse core void protection / 坍缩核虚空防护").push("collapse");
+        COLLAPSE_VOID_MODE = b
+                .comment("Where a dropped core hovers in the void: ORIGIN = at the recorded break position (machines), DROP = where it fell (void floor +5).",
+                        "坍缩核虚空悬浮位置：ORIGIN=悬浮在记录的破坏位置（机器原地）；DROP=掉落处虚空底部+5。")
+                .define("voidMode", "ORIGIN",
+                        v -> v instanceof String s && (s.equals("ORIGIN") || s.equals("DROP")));
+        b.pop();
+
+        // Debug / 调试
         b.comment("Debug and logging / 调试与日志").push("debug");
         EB_DEBUG_LOG = b
                 .comment("Enable EB framework debug logging. Verbose — disable in production.",
@@ -336,6 +347,7 @@ public class Config {
         p4FlowWindow = P4_FLOW_WINDOW.get();
         p4SpeculationEnabled = P4_SPECULATION_ENABLED.get();
         p4DisableEffects = P4_DISABLE_EFFECTS.get();
+        collapseVoidMode = COLLAPSE_VOID_MODE.get();
 
         if (ebDebugLog) {
             EECore.LOGGER.info("[EB-Config] Debug logging enabled (interval: {} ticks)", ebDebugInterval);

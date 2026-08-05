@@ -355,5 +355,9 @@
   "eecore.dispatch.pending": "待合成:",
   "eecore.dispatch.sidebar.title": "面板操作",
   "eecore.dispatch.sidebar.collapse": "左键折叠",
-  "eecore.dispatch.sidebar.merge": "右键合并回大UI"
+  "eecore.dispatch.sidebar.merge": "右键合并回大UI",
+  "item.eecore.collapse_core": "坍缩核",
+  "item.eecore.ae_pattern_core": "AE样板坍缩核",
+  "eecore.collapse.entry": "%1$s × %2$s",
+  "eecore.ae_core.restored": "样板已放回供应器"
 }

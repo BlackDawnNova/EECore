@@ -281,13 +281,37 @@ public class PartBlock extends Block implements EntityBlock {
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock()) && !level.isClientSide()) {
             BlockEntity be = level.getBlockEntity(pos);
-            if (be instanceof InputBusBlockEntity bus && !bus.isCreative()) {
-                for (int i = 0; i < bus.getSlotCount(); i++) {
-                    var stack = bus.getInventory().getStackInSlot(i);
-                    if (!stack.isEmpty())
-                        net.minecraft.world.Containers.dropItemStack(level,
-                                pos.getX(), pos.getY(), pos.getZ(), stack.copy());
+            // Creative parts stay drop-free (test infrastructure, no loss semantics).
+            // 创造件一律不掉（测试基建，无损失语义）。
+            boolean creative = be instanceof InputBusBlockEntity ib ? ib.isCreative()
+                    : be != null && be.getBlockState().getBlock() instanceof PartBlock pb
+                      && pb.getPartType().getId().getPath().startsWith("creative_");
+            if (be instanceof PartBlockEntity pe && !creative) {
+                // Standard drop: items + fluids pack into ONE core — contents return only
+                // via a dispatch center. Per-stack drops would lose oversized storedAmount
+                // counts and spawn huge entity counts.
+                // 标准掉落：物品+流体统一打包进 1 个坍缩核——内容只能经调度中心取回；
+                // 逐槽掉落会丢失巨量真实数量并生成海量实体。
+                var entries = new java.util.ArrayList<com.endlessepoch.core.nova.item.CollapseCoreItem.Entry>();
+                if (pe instanceof InputBusBlockEntity bus) {
+                    for (int i = 0; i < bus.getSlotCount(); i++) {
+                        var stack = bus.getInventory().getStackInSlot(i);
+                        long amt = bus.getStoredAmount(i);
+                        if (!stack.isEmpty() && amt > 0)
+                            entries.add(com.endlessepoch.core.nova.item.CollapseCoreItem.Entry.ofItem(stack.copyWithCount(1), amt));
+                    }
                 }
+                for (var tank : pe.getFluidTanks()) {
+                    var fluid = tank.getFluid();
+                    if (!fluid.isEmpty()) {
+                        entries.add(com.endlessepoch.core.nova.item.CollapseCoreItem.Entry.ofFluid(fluid.copy(), fluid.getAmount()));
+                        tank.drain(fluid.getAmount(), net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
+                    }
+                }
+                if (!entries.isEmpty())
+                    net.minecraft.world.Containers.dropItemStack(level,
+                            pos.getX(), pos.getY(), pos.getZ(),
+                            com.endlessepoch.core.nova.item.CollapseCoreItem.create(level.registryAccess(), entries, pos));
             }
         }
         super.onRemove(state, level, pos, newState, moved);

@@ -2,6 +2,8 @@ package com.endlessepoch.core.registry;
 
 import com.endlessepoch.core.EECore;
 import com.endlessepoch.core.nova.block.part.PartBlock;
+import com.endlessepoch.core.nova.item.AePatternCoreItem;
+import com.endlessepoch.core.nova.item.CollapseCoreItem;
 import com.endlessepoch.core.nova.item.LaserLinkCardItem;
 import com.endlessepoch.core.nova.block.ScannerBoundaryBlock;
 import com.endlessepoch.core.nova.block.MachineControllerItem;
@@ -71,6 +73,20 @@ public class Items {
     public static final Supplier<LaserLinkCardItem> LASER_LINK_CARD =
             ITEMS.register("laser_link_card",
                     () -> new LaserLinkCardItem(new Item.Properties().stacksTo(1))
+            );
+
+    /** Standard drop for broken inventories — fire-immune + epic glow, one core per break. / 库存破坏的标准掉落物——火焰免疫+史诗光泽，一次破坏一个坍缩核 */
+    public static final Supplier<CollapseCoreItem> COLLAPSE_CORE =
+            ITEMS.register("collapse_core",
+                    () -> new CollapseCoreItem(new Item.Properties().stacksTo(1)
+                            .fireResistant().rarity(net.minecraft.world.item.Rarity.EPIC))
+            );
+
+    /** AE pattern core — packed AE pattern-provider contents, restorable by right-clicking a provider. / AE 样板坍缩核——AE 样板供应器内容专用，可右键供应器放回 */
+    public static final Supplier<AePatternCoreItem> AE_PATTERN_CORE =
+            ITEMS.register("ae_pattern_core",
+                    () -> new AePatternCoreItem(new Item.Properties().stacksTo(1)
+                            .fireResistant().rarity(net.minecraft.world.item.Rarity.EPIC))
             );
 
     public static final Supplier<BlockItem> SCANNER_CONTROLLER_ITEM =

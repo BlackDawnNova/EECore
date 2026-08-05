@@ -138,6 +138,14 @@ public class DispatchMenu extends AbstractContainerMenu {
             if (grid != null) {
                 var storage = grid.getStorageService().getInventory();
                 var stack = slot.getItem();
+                if (com.endlessepoch.core.nova.item.CollapseCoreItem.isCore(stack)) {
+                    var rem = com.endlessepoch.core.nova.item.CollapseCoreItem.unpack(storage, stack,
+                            appeng.api.networking.security.IActionSource.ofPlayer(p), p.level().registryAccess());
+                    if (rem.isEmpty()) slot.set(ItemStack.EMPTY);
+                    else slot.set(rem);
+                    slot.setChanged();
+                    return ItemStack.EMPTY;
+                }
                 long inserted = storage.insert(appeng.api.stacks.AEItemKey.of(stack), stack.getCount(),
                         appeng.api.config.Actionable.MODULATE, appeng.api.networking.security.IActionSource.ofPlayer(p));
                 if (inserted > 0) {

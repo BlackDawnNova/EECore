@@ -6,7 +6,12 @@
   "mixins": [
     "OreConfigurationMixin",
     "OreVeinifierMixin",
-    "ClientboundLevelChunkPacketDataMixin"
+    "ClientboundLevelChunkPacketDataMixin",
+    "BlockOnRemoveMixin",
+    "ItemEntityGlowMixin",
+    "PatternProviderDropsMixin",
+    "PatternProviderPartDropsMixin",
+    "AeBaseEntityBlockUseMixin"
   ],
   "client": [],
   "server": []

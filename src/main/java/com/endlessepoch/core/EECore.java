@@ -117,6 +117,8 @@ public class EECore {
                     .withTabsBefore(CreativeModeTabs.SPAWN_EGGS)
                     .displayItems((params, output) -> {
                         output.accept(Items.MULTIBLOCK_SCANNER.get());
+                        output.accept(Items.COLLAPSE_CORE.get());
+                        output.accept(Items.AE_PATTERN_CORE.get());
                         output.accept(Items.LASER_LINK_CARD.get());
                         output.accept(Items.WRENCH.get());
                         output.accept(Items.HAMMER.get());
@@ -195,6 +197,7 @@ public class EECore {
         EECoreMachines.init(modEventBus);
         NeoForge.EVENT_BUS.register(com.endlessepoch.core.api.multiblock.MultiBlockBreakDetector.class);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.event.BlockPlaceHandler::onBlockPlace);
+        NeoForge.EVENT_BUS.register(com.endlessepoch.core.event.AePatternRestoreHandler.class);
         NeoForge.EVENT_BUS.addListener(EECoreCommands::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(com.endlessepoch.core.api.multiblock.PatternStorage::onServerStarting);
         // Anti-xray proximity reveal & cleanup / 反矿透靠近揭示+离开清理
@@ -623,6 +626,11 @@ public class EECore {
                         for (int i = 0; i < inv.items.size(); i++) {
                             var st = inv.items.get(i);
                             if (st.isEmpty()) continue;
+                            if (com.endlessepoch.core.nova.item.CollapseCoreItem.isCore(st)) {
+                                var rem = com.endlessepoch.core.nova.item.CollapseCoreItem.unpack(storage, st, src, player.level().registryAccess());
+                                inv.items.set(i, rem.isEmpty() ? net.minecraft.world.item.ItemStack.EMPTY : rem);
+                                continue;
+                            }
                             if (appeng.api.stacks.AEItemKey.of(st).equals(target)) {
                                 long inserted = storage.insert(target, st.getCount(),
                                         appeng.api.config.Actionable.MODULATE, src);
@@ -654,6 +662,10 @@ public class EECore {
                         // 携带物品放入网络——数量：全存（左键）或存一个（右键）
                         var carried = dm.getCarried();
                         if (carried.isEmpty()) return;
+                        if (com.endlessepoch.core.nova.item.CollapseCoreItem.isCore(carried)) {
+                            dm.setCarried(com.endlessepoch.core.nova.item.CollapseCoreItem.unpack(storage, carried, src, player.level().registryAccess()));
+                            return;
+                        }
                         var key = appeng.api.stacks.AEItemKey.of(carried);
                         long inserted = storage.insert(key, payload.amount(),
                                 appeng.api.config.Actionable.MODULATE, src);

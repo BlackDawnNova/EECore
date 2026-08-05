@@ -356,5 +356,9 @@
   "eecore.dispatch.pending": "Pending:",
   "eecore.dispatch.sidebar.title": "Panel Options",
   "eecore.dispatch.sidebar.collapse": "L-click: Collapse",
-  "eecore.dispatch.sidebar.merge": "R-click: Merge to UI"
+  "eecore.dispatch.sidebar.merge": "R-click: Merge to UI",
+  "item.eecore.collapse_core": "Collapse Core",
+  "item.eecore.ae_pattern_core": "AE Pattern Core",
+  "eecore.collapse.entry": "%1$s × %2$s",
+  "eecore.ae_core.restored": "Patterns restored to the provider"
 }

@@ -81,6 +81,14 @@ versionRange = "[1.0.0,)"
 ordering = "NONE"
 side = "CLIENT"
 
+# AE2 — optional: pattern provider drops collapse into cores. / AE2 可选：样板供应器掉落坍缩入核。
+[[dependencies."${mod_id}"]]
+modId = "ae2"
+type = "optional"
+versionRange = "[19.2.0,20)"
+ordering = "NONE"
+side = "BOTH"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.
